@@ -130,7 +130,7 @@ if phase == 'train':
         
         model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir, nept_run)
         
-        Test_Network(ann_classes, model_dir, dataset_valid, output_dir)
+        Test_Network(ann_classes, model_dir, dataset_valid, output_dir, nept_run)
     
     else:
         

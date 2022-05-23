@@ -95,6 +95,9 @@ def Test_Network(classes, model_dir, dataset_valid, output_dir, nept_run):
     
     best_model = torch.load(models[best_ep])
     
+    device = 'cuda:1'
+    best_model.to(device)
+
     # Evaluating model on test set
     test_dataloader = DataLoader(dataset_valid)
     """
@@ -125,9 +128,9 @@ def Test_Network(classes, model_dir, dataset_valid, output_dir, nept_run):
         # Add something here so that it calculates perforance metrics and outputs
         # raw values for 2-class segmentation(not binarized output masks)        
         target_img = target.cpu().numpy().round()
-        pred_mask = best_model.predict(image.to('cuda'))
+        pred_mask = best_model.predict(image.to(device))
 
-        testing_metrics_df.append(get_metrics(pred_mask,target,classes))
+        testing_metrics_df.append(get_metrics(pred_mask,target,len(classes)))
         pred_mask_img = pred_mask.detach().cpu().numpy().round()
         
         img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}

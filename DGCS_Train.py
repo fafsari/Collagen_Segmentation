@@ -66,7 +66,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     encoder_weights = 'imagenet'
     
     active = 'softmax2d'
-    device = 'cuda'
+    device = 'cuda:1'
     
     nept_run['encoder'] = encoder
     nept_run['encoder_pre_train'] = encoder_weights
@@ -113,7 +113,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     max_score = 0
     
     # Max # of epochs = 40
-    epoch_num = 75
+    epoch_num = 10
     save_step = 5
     
     for i in range(0,epoch_num):
@@ -140,7 +140,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         # Saving model if the loss went down
         if max_score< valid_logs['iou_score']:
             max_score = valid_logs['iou_score']
-            torch.save(model,model_dir+'DGCS_Seg_Model_'+str(i)+'.pth')
+            torch.save(model,model_dir+'Collagen_Seg_Model_'+str(i)+'.pth')
             
         if i%save_step == 0:
             
@@ -157,7 +157,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                 dummy[mask] = idx
             """
             
-            pred_mask = model(image.to('cuda'))
+            pred_mask = model(image.to(device))
             pred_mask = pred_mask.detach().cpu().numpy().round()
             img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask,'Ground_Truth':target}
             
@@ -188,7 +188,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
             nept_run['Loss_Plot'].upload(output_dir+'Training_Loss_Metrics_Plot.png')
 
-        
+
 
 
 

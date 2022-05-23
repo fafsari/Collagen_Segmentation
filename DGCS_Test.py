@@ -22,6 +22,10 @@ import numpy as np
 from glob import glob
 
 import matplotlib.pyplot as plt
+import pandas as pd
+
+import neptune.new as neptune
+
 
 def back_to_reality(tar):
     
@@ -59,19 +63,28 @@ def visualize(images):
 
     return plt.gcf()
 
-def get_metrics(pred_mask,ground_truth,metrics):
+def get_metrics(pred_mask,ground_truth,n_labels):
+
+    metrics_names = ['IoU','F1 Score','Accuracy','Precision','Recall']
+    metrics_row = {}
+
+    if n_labels>2: 
+        tp,fp,fn,tn = smp.metrics.get_stats(pred_mask,ground_truth, mode = 'multilabel',threshold = 1/n_labels)
+    else:
+        tp,fp,fn,tn = smp.metrics.get_stats(pred_mask,ground_truth,mode = 'binary')
+
+    metrics_row['IoU'] = smp.metrics.iou_score(tp,fp,fn,tn)
+    metrics_row['F1 Score'] = smp.metrics.f1_score(tp,fp,fn,tn)
+    metrics_row['Accuracy'] = smp.metrics.accuracy(tp,fp,fn,tn)
+    metrics_row['Precision'] = smp.metrics.precision(tp,fp,fn,tn)
+    metrics_row['Recall'] = smp.metrics.recall(tp,fp,fn,tn)
     
+
+    return metrics_row
     
         
-def Test_Network(classes, model_dir, dataset_valid, output_dir):
-    
-    metrics = [smp.utils.metrics.IoU(threshold = 1/len(classes)),
-               smp.utils.metrics.Accuracy(),
-               smp.utils.metrics.FScore(),
-               smp.utils.metrics.Recall(),
-               smp.utils.metrics.Precision()
-               ]    
-
+def Test_Network(classes, model_dir, dataset_valid, output_dir, nept_run):
+     
 
     # Finding the best performing model
     models = glob(model_dir+'*.pth')
@@ -98,6 +111,7 @@ def Test_Network(classes, model_dir, dataset_valid, output_dir):
     if not os.path.exists(test_output_dir):
         os.makedirs(test_output_dir)
         
+    testing_metrics_df = pd.DataFrame(data = {'IoU':[],'Accuracy':[],'FScore':[],'Recall':[],'Precision':[]})
     # Setting up iterator to generate images from the validation dataset
     data_iterator = iter(test_dataloader)
     for i in tqdm(range(0,len(dataset_valid)),desc = 'Testing'):
@@ -109,18 +123,23 @@ def Test_Network(classes, model_dir, dataset_valid, output_dir):
             image, target = next(data_iterator)
             
         # Add something here so that it calculates perforance metrics and outputs
-        # raw values for 2-class segmentation(not binarized output masks)
-        target = target.cpu().numpy().round()
-        
+        # raw values for 2-class segmentation(not binarized output masks)        
+        target_img = target.cpu().numpy().round()
         pred_mask = best_model.predict(image.to('cuda'))
-        pred_mask = pred_mask.detach().cpu().numpy().round()
+
+        testing_metrics_df.append(get_metrics(pred_mask,target,classes))
+        pred_mask_img = pred_mask.detach().cpu().numpy().round()
         
-        img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask,'Ground_Truth':target}
+        img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
         
         fig = visualize(img_dict)
         
         fig.savefig(test_output_dir+'Test_Example_'+str(i)+'.png')
 
+    nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))
+
+    for met in testing_metrics_df.columns.values.tolist():
+        nept_run[met] = testing_metrics_df[met].mean()
 
 
 

@@ -76,8 +76,10 @@ def get_metrics(pred_mask,ground_truth,calculator):
 
     #print(f'edited pred_mask shape: {edited_pred.shape}')
     #print(f'edited ground_truth shape: {edited_gt.shape}')
+    #print(f'Unique values prediction mask : {torch.unique(edited_pred)}')
+    #print(f'Unique values ground truth mask: {torch.unique(edited_gt)}')
 
-    acc, dice, precision, recall,specificity = calculator(edited_gt.round(),edited_pred.round())
+    acc, dice, precision, recall,specificity = calculator(edited_gt,torch.round(edited_pred))
     metrics_row['Accuracy'] = [acc.numpy().tolist()]
     metrics_row['Dice'] = [dice.numpy().tolist()]
     metrics_row['Precision'] = [precision.numpy().tolist()]
@@ -103,58 +105,63 @@ def Test_Network(classes, model_dir, dataset_valid, output_dir, nept_run):
     
     device = 'cuda:1'
     best_model.to(device)
+    best_model.eval()
 
-    # Evaluating model on test set
-    test_dataloader = DataLoader(dataset_valid)
-    """
-    test_epoch = smp.utils.train.ValidEpoch(
-            model = best_model,
-            loss = smp.utils.losses.DiceLoss(),
-            metrics = [smp.utils.metrics.IoU(threshold = 1/len(classes))],
-            device = 'cuda')
-    
-    
-    test_logs = test_epoch.run(test_dataloader)
-    """
-    test_output_dir = output_dir+'Testing_Output/'
-    if not os.path.exists(test_output_dir):
-        os.makedirs(test_output_dir)
+    with torch.no_grad():
+
+        # Evaluating model on test set
+        test_dataloader = DataLoader(dataset_valid)
+        """
+        test_epoch = smp.utils.train.ValidEpoch(
+                model = best_model,
+                loss = smp.utils.losses.DiceLoss(),
+                metrics = [smp.utils.metrics.IoU(threshold = 1/len(classes))],
+                device = 'cuda')
         
-    metrics_calculator = BinaryMetrics()
-    testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[],'Specificity':[]})
-    # Setting up iterator to generate images from the validation dataset
-    data_iterator = iter(test_dataloader)
-    for i in tqdm(range(0,len(dataset_valid)),desc = 'Testing'):
         
-        try:
-            image, target = next(data_iterator)
-        except StopIteration:
-            data_iterator = iter(test_dataloader)
-            image, target = next(data_iterator)
+        test_logs = test_epoch.run(test_dataloader)
+        """
+        test_output_dir = output_dir+'Testing_Output/'
+        if not os.path.exists(test_output_dir):
+            os.makedirs(test_output_dir)
             
-        # Add something here so that it calculates perforance metrics and outputs
-        # raw values for 2-class segmentation(not binarized output masks)        
-        target_img = target.cpu().numpy().round()
-        pred_mask = best_model.predict(image.to(device))
+        metrics_calculator = BinaryMetrics()
+        testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[],'Specificity':[]})
+        # Setting up iterator to generate images from the validation dataset
+        data_iterator = iter(test_dataloader)
+        for i in tqdm(range(0,len(dataset_valid)),desc = 'Testing'):
+            
+            try:
+                image, target = next(data_iterator)
+            except StopIteration:
+                data_iterator = iter(test_dataloader)
+                image, target = next(data_iterator)
+                
+            # Add something here so that it calculates perforance metrics and outputs
+            # raw values for 2-class segmentation(not binarized output masks)        
+            target_img = target.cpu().numpy().round()
+            pred_mask = best_model.predict(image.to(device))
 
-        #print(f'pred_mask size: {np.shape(pred_mask.detach().cpu().numpy())}')
-        #print(f'target size: {np.shape(target.cpu().numpy())}')
+            #print(f'pred_mask size: {np.shape(pred_mask.detach().cpu().numpy())}')
+            #print(f'target size: {np.shape(target.cpu().numpy())}')
 
-        testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), metrics_calculator)),ignore_index=True)
-        
-        pred_mask_img = pred_mask.detach().cpu().numpy().round()
-        
-        img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
-        
-        fig = visualize(img_dict)
-        
-        fig.savefig(test_output_dir+'Test_Example_'+str(i)+'.png')
+            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), metrics_calculator)),ignore_index=True)
+            
+            pred_mask_img = pred_mask.detach().cpu().numpy().round()
+            
+            img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
+            
+            fig = visualize(img_dict)
+            
+            fig.savefig(test_output_dir+'Test_Example_'+str(i)+'.png')
+            nept_run['testing/Testing_Output_'+str(i)].upload(test_output_dir+'Test_Example_'+str(i)+'.png')
 
-    nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))
 
-    for met in testing_metrics_df.columns.values.tolist():
-        print(f'{met} value: {testing_metrics_df[met].mean()}')
-        nept_run[met] = testing_metrics_df[met].mean()
+        nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))
+
+        for met in testing_metrics_df.columns.values.tolist():
+            print(f'{met} value: {testing_metrics_df[met].mean()}')
+            nept_run[met] = testing_metrics_df[met].mean()
 
 
 

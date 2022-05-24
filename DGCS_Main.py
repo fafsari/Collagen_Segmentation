@@ -159,7 +159,7 @@ elif phase == 'test':
     
     image_paths = glob(data_dir+image_dir+'*')
     label_paths = glob(data_dir+label_dir+'*')
-    
+    """
     # Optional replacement for labeled images that don't have the same name as the corresponding images
     label_to_img_paths = [i.replace('_ann','') for i in label_paths]
     # Making sure the same files are in each list
@@ -168,11 +168,11 @@ elif phase == 'test':
     
     image_paths = [image_paths[image_filenames.index(i)] for i in label_filenames]
     
-    
+    """
     valid_img_paths = image_paths
     valid_tar = label_paths
     
-    nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar)
+    nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar, ann_classes)
     
     Test_Network(ann_classes, model_dir, dataset_test, output_dir,nept_run)
     

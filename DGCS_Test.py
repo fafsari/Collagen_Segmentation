@@ -26,6 +26,8 @@ import pandas as pd
 
 import neptune.new as neptune
 
+from Segmentation_Metrics_Pytorch.metric import SegmentationMetrics
+
 
 def back_to_reality(tar):
     
@@ -63,21 +65,14 @@ def visualize(images):
 
     return plt.gcf()
 
-def get_metrics(pred_mask,ground_truth,n_labels):
+def get_metrics(pred_mask,ground_truth,calculator):
 
-    metrics_names = ['IoU','F1 Score','Accuracy','Precision','Recall']
     metrics_row = {}
-
-    if n_labels>2: 
-        tp,fp,fn,tn = smp.metrics.get_stats(pred_mask,ground_truth, mode = 'multilabel',threshold = 1/n_labels)
-    else:
-        tp,fp,fn,tn = smp.metrics.get_stats(pred_mask,ground_truth,mode = 'binary')
-
-    metrics_row['IoU'] = smp.metrics.iou_score(tp,fp,fn,tn)
-    metrics_row['F1 Score'] = smp.metrics.f1_score(tp,fp,fn,tn)
-    metrics_row['Accuracy'] = smp.metrics.accuracy(tp,fp,fn,tn)
-    metrics_row['Precision'] = smp.metrics.precision(tp,fp,fn,tn)
-    metrics_row['Recall'] = smp.metrics.recall(tp,fp,fn,tn)
+    acc, dice, precision, recall = calculator(ground_truth,pred_mask)
+    metrics_row['Accuracy'] = acc
+    metrics_row['Dice'] = dice
+    metrics_row['Precision'] = precision
+    metrics_row['Recall'] = recall
     
 
     return metrics_row
@@ -114,7 +109,8 @@ def Test_Network(classes, model_dir, dataset_valid, output_dir, nept_run):
     if not os.path.exists(test_output_dir):
         os.makedirs(test_output_dir)
         
-    testing_metrics_df = pd.DataFrame(data = {'IoU':[],'Accuracy':[],'FScore':[],'Recall':[],'Precision':[]})
+    metrics_calculator = SegmentationMetrics(average = True, ignore_background = False)
+    testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[]})
     # Setting up iterator to generate images from the validation dataset
     data_iterator = iter(test_dataloader)
     for i in tqdm(range(0,len(dataset_valid)),desc = 'Testing'):
@@ -130,7 +126,9 @@ def Test_Network(classes, model_dir, dataset_valid, output_dir, nept_run):
         target_img = target.cpu().numpy().round()
         pred_mask = best_model.predict(image.to(device))
 
-        testing_metrics_df.append(get_metrics(pred_mask,target,len(classes)))
+        print(f'pred_mask size: {np.shape(pred_mask.detach().cpu().numpy())}')
+        print(f'target size: {np.shape(target.cpu().numpy())}')
+        testing_metrics_df.append(get_metrics(pred_mask.detach().cpu(),target.cpu(), metrics_calculator))
         pred_mask_img = pred_mask.detach().cpu().numpy().round()
         
         img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}

@@ -77,7 +77,7 @@ def get_metrics(pred_mask,ground_truth,calculator):
     #print(f'edited pred_mask shape: {edited_pred.shape}')
     #print(f'edited ground_truth shape: {edited_gt.shape}')
 
-    acc, dice, precision, recall,specificity = calculator(edited_gt,edited_pred)
+    acc, dice, precision, recall,specificity = calculator(edited_gt.round(),edited_pred.round())
     metrics_row['Accuracy'] = [acc.numpy().tolist()]
     metrics_row['Dice'] = [dice.numpy().tolist()]
     metrics_row['Precision'] = [precision.numpy().tolist()]

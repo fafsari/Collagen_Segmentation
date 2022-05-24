@@ -26,7 +26,7 @@ import pandas as pd
 
 import neptune.new as neptune
 
-from Segmentation_Metrics_Pytorch.metric import SegmentationMetrics
+from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 
 
 def back_to_reality(tar):
@@ -68,12 +68,23 @@ def visualize(images):
 def get_metrics(pred_mask,ground_truth,calculator):
 
     metrics_row = {}
-    acc, dice, precision, recall = calculator(ground_truth,pred_mask)
-    metrics_row['Accuracy'] = acc
-    metrics_row['Dice'] = dice
-    metrics_row['Precision'] = precision
-    metrics_row['Recall'] = recall
+
+    edited_gt = ground_truth[:,1,:,:]
+    edited_gt = torch.unsqueeze(edited_gt,dim = 1)
+    edited_pred = pred_mask[:,1,:,:]
+    edited_pred = torch.unsqueeze(edited_pred,dim = 1)
+
+    #print(f'edited pred_mask shape: {edited_pred.shape}')
+    #print(f'edited ground_truth shape: {edited_gt.shape}')
+
+    acc, dice, precision, recall,specificity = calculator(edited_gt,edited_pred)
+    metrics_row['Accuracy'] = [acc.numpy().tolist()]
+    metrics_row['Dice'] = [dice.numpy().tolist()]
+    metrics_row['Precision'] = [precision.numpy().tolist()]
+    metrics_row['Recall'] = [recall.numpy().tolist()]
+    metrics_row['Specificity'] = [specificity.numpy().tolist()]
     
+    #print(metrics_row)
 
     return metrics_row
     
@@ -109,8 +120,8 @@ def Test_Network(classes, model_dir, dataset_valid, output_dir, nept_run):
     if not os.path.exists(test_output_dir):
         os.makedirs(test_output_dir)
         
-    metrics_calculator = SegmentationMetrics(average = True, ignore_background = False)
-    testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[]})
+    metrics_calculator = BinaryMetrics()
+    testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[],'Specificity':[]})
     # Setting up iterator to generate images from the validation dataset
     data_iterator = iter(test_dataloader)
     for i in tqdm(range(0,len(dataset_valid)),desc = 'Testing'):
@@ -126,9 +137,11 @@ def Test_Network(classes, model_dir, dataset_valid, output_dir, nept_run):
         target_img = target.cpu().numpy().round()
         pred_mask = best_model.predict(image.to(device))
 
-        print(f'pred_mask size: {np.shape(pred_mask.detach().cpu().numpy())}')
-        print(f'target size: {np.shape(target.cpu().numpy())}')
-        testing_metrics_df.append(get_metrics(pred_mask.detach().cpu(),target.cpu(), metrics_calculator))
+        #print(f'pred_mask size: {np.shape(pred_mask.detach().cpu().numpy())}')
+        #print(f'target size: {np.shape(target.cpu().numpy())}')
+
+        testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), metrics_calculator)),ignore_index=True)
+        
         pred_mask_img = pred_mask.detach().cpu().numpy().round()
         
         img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
@@ -140,6 +153,7 @@ def Test_Network(classes, model_dir, dataset_valid, output_dir, nept_run):
     nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))
 
     for met in testing_metrics_df.columns.values.tolist():
+        print(f'{met} value: {testing_metrics_df[met].mean()}')
         nept_run[met] = testing_metrics_df[met].mean()
 
 

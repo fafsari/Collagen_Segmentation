@@ -113,8 +113,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     max_score = 0
     
     # Max # of epochs = 40
-    epoch_num = 10
-    save_step = 5
+    epoch_num = 80
+    save_step = 20
     
     for i in range(0,epoch_num):
         

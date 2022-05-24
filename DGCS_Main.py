@@ -81,8 +81,8 @@ nept_run = neptune.init(
     project = 'spborder/AssortedSegmentations',
     api_token = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjE3MzBiOS1lOGMwLTRmZjAtOGUyYS0yMGFlMmM4ZTRkMzMifQ==')
 
-nept_run['image_dir'] = image_dir
-nept_run['label_dir'] = label_dir
+nept_run['image_dir'] = data_dir+image_dir
+nept_run['label_dir'] = data_dir+label_dir
 nept_run['output_dir'] = output_dir
 nept_run['Classes'] = ann_classes
 
@@ -97,6 +97,7 @@ if phase == 'train':
         image_paths = glob(data_dir+image_dir+'*')
         label_paths = glob(data_dir+label_dir+'*')
         
+        """
         if image_paths != label_paths:
             # Optional replacement for labeled images that don't have the same name as the corresponding images
             label_to_img_paths = [i.replace('_ann','') for i in label_paths]
@@ -106,7 +107,7 @@ if phase == 'train':
         
         
             image_paths = [image_paths[image_filenames.index(i)] for i in label_filenames]
-
+        """
         
     # Determining whether or not doing k-fold CV and proceeding to training loop
     if int(k_folds)==1:

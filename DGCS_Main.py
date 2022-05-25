@@ -58,6 +58,12 @@ else:
     image_dir = sys.argv[2]+'/'
     label_dir = sys.argv[3]+'/'
     
+# Adding this option here for if using binary input masks or probabilistic (grayscale)
+if len(sys.argv)==4:
+    target_type = sys.argv[4]
+else:
+    target_type = 'binary'
+
 
 # Modify classes according to annotations
 #ann_classes = ['background','u_space','tuft']
@@ -85,6 +91,7 @@ nept_run['image_dir'] = data_dir+image_dir
 nept_run['label_dir'] = data_dir+label_dir
 nept_run['output_dir'] = output_dir
 nept_run['Classes'] = ann_classes
+nept_run['Target_Type'] = target_type
 
 
 if phase == 'train':
@@ -97,6 +104,7 @@ if phase == 'train':
         image_paths = glob(data_dir+image_dir+'*')
         label_paths = glob(data_dir+label_dir+'*')
         
+
         """
         if image_paths != label_paths:
             # Optional replacement for labeled images that don't have the same name as the corresponding images
@@ -127,7 +135,7 @@ if phase == 'train':
         nept_run['N_Training'] = len(train_img_paths)
         nept_run['N_Valid'] = len(valid_img_paths)
         
-        dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,ann_classes)
+        dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,ann_classes,target_type)
         
         model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir, nept_run)
         
@@ -149,11 +157,11 @@ if phase == 'train':
             X_train, X_test = image_paths[train_idx], image_paths[test_idx]
             y_train, y_test = label_paths[train_idx], label_paths[test_idx]
     
-            dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,ann_classes)
+            dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,ann_classes,target_type)
             
-            model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir,nept_run)
+            model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir,target_type,nept_run)
             
-            Test_Network(ann_classes, model_dir, dataset_valid, output_dir,nept_run)
+            Test_Network(ann_classes, model_dir, dataset_valid, output_dir,target_type,nept_run)
     
 elif phase == 'test':
     
@@ -172,7 +180,7 @@ elif phase == 'test':
     valid_img_paths = image_paths
     valid_tar = label_paths
     
-    nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar, ann_classes)
+    nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar, ann_classes, target_type)
     
     Test_Network(ann_classes, model_dir, dataset_test, output_dir,nept_run)
     

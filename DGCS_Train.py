@@ -60,12 +60,21 @@ def visualize(images):
     
         
         
-def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_dir,nept_run):
+def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_dir,target_type,nept_run):
     
     encoder = 'resnet34'
     encoder_weights = 'imagenet'
     
-    active = 'softmax2d'
+
+    if target_type=='binary':
+        active = 'softmax2d'
+        loss = smp.utils.losses.DiceLoss()
+
+        metrics = [smp.utils.metrics.IoU(threshold = 1/len(ann_classes))]
+    else:
+        active = 'relu2d'
+        loss = 
+
     device = 'cuda:1'
     
     nept_run['encoder'] = encoder
@@ -83,7 +92,6 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             )
     
 
-    loss = smp.utils.losses.DiceLoss()
     
     metrics = [smp.utils.metrics.IoU(threshold = 1/len(ann_classes))]
     

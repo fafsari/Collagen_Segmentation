@@ -137,7 +137,7 @@ if phase == 'train':
         
         dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,ann_classes,target_type)
         
-        model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir, nept_run)
+        model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir, target_type, nept_run)
         
         Test_Network(ann_classes, model_dir, dataset_valid, output_dir, nept_run)
     

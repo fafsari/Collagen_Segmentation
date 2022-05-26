@@ -14,7 +14,7 @@ from typing import List, Callable, Tuple
 
 import numpy as np
 import albumentations as A
-from sklearn.externals._pilutil import bytescale
+#from sklearn.externals._pilutil import bytescale
 from skimage.util import crop
 from sklearn.model_selection import train_test_split
 

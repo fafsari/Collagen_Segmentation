@@ -56,8 +56,8 @@ if phase == 'train':
 
 else:
     image_dir = sys.argv[2]+'/'
-    label_dir = sys.argv[3]+'/'
-    
+    model_file = sys.argv[3]
+
 # Adding this option here for if using binary input masks or probabilistic (grayscale)
 if len(sys.argv)==4:
     target_type = sys.argv[4]
@@ -139,7 +139,7 @@ if phase == 'train':
         
         model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir, target_type, nept_run)
         
-        Test_Network(ann_classes, model_dir, dataset_valid, output_dir, nept_run)
+        Test_Network(ann_classes, model, dataset_valid, output_dir, nept_run)
     
     else:
         
@@ -161,7 +161,7 @@ if phase == 'train':
             
             model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir,target_type,nept_run)
             
-            Test_Network(ann_classes, model_dir, dataset_valid, output_dir,target_type,nept_run)
+            Test_Network(ann_classes, model, dataset_valid, output_dir,target_type,nept_run)
     
 elif phase == 'test':
     
@@ -177,12 +177,16 @@ elif phase == 'test':
     image_paths = [image_paths[image_filenames.index(i)] for i in label_filenames]
     
     """
+
+    model = torch.load(model_file)
+    model.to(torch.device('cuda:1') if torch.cuda.is_available() else 'cpu')
+
     valid_img_paths = image_paths
-    valid_tar = label_paths
+    valid_tar = image_paths
     
     nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar, ann_classes, target_type)
     
-    Test_Network(ann_classes, model_dir, dataset_test, output_dir,nept_run)
+    Test_Network(ann_classes, model, dataset_test, output_dir,nept_run)
     
     
 

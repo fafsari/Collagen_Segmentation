@@ -60,13 +60,10 @@ def visualize(images):
     return plt.gcf()
     
     
-        
-        
 def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_dir,target_type, nept_run):
     
     encoder = 'resnet34'
     encoder_weights = 'imagenet'
-    
 
     if target_type=='binary':
         active = 'softmax2d'
@@ -77,15 +74,17 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         active = 'relu2d'
         loss = torch.nn.KLDivLoss()
 
-    device = 'cuda:1'
+    device = torch.device('cuda:1')
+    #print(f'Is training on GPU available? : {torch.cuda.is_available()}')
+    #print(f'Device is : {device}')
     
     nept_run['encoder'] = encoder
     nept_run['encoder_pre_train'] = encoder_weights
-    nept_run['Architecture'] = 'UNet'
+    nept_run['Architecture'] = 'Unet++'
     nept_run['Loss'] = 'Dice'
     #nept_run['Metrics'] = 'IoU'
     
-    model = smp.Unet(
+    model = smp.UnetPlusPlus(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
             in_channels = 3,
@@ -94,7 +93,9 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             )
     
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
-    model.to(device)
+    model = model.to(device)
+    loss = loss.to(device)
+    #print(f'Model: {model}')
 
     # Again only valid for smp version 0.1.0 or 0.2.0
     #metrics = [smp.metrics.IoU(threshold = 1/len(ann_classes))]
@@ -102,24 +103,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     optimizer = torch.optim.Adam([
             dict(params = model.parameters(), lr = 0.0001)
             ])
-    
-    """
-    # Only valid for smp version 0.1.0 or 0.2.0 
-    train_epoch = smp.utils.train.TrainEpoch(
-            model,
-            loss=loss,
-            #metrics=metrics,
-            optimizer=optimizer,
-            device=device,
-            verbose=True)
-    
-    valid_epoch = smp.utils.train.ValidEpoch(
-            model,
-            loss=loss,
-            #metrics=metrics,
-            device=device,
-            verbose=True)
-    """
+
+    #optimizer = optimizer.to(device)
 
     batch_size = 1
     train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 12)
@@ -130,20 +115,23 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     val_loss = 0
     
     # Maximum number of epochs defined here as well as how many steps between model saves and example outputs
-    epoch_num = 80
+    epoch_num = 120
     save_step = 10
     
     with tqdm(total = epoch_num, position = 0, leave = True, file = sys.stdout) as pbar:
 
         for i in range(0,epoch_num):
         
+            # Turning on dropout
+            model.train()
+
             # Controlling the progress bar, printing training and validation losses
             if i==1: 
                 pbar.set_description(f'Epoch: {i}/{epoch_num}')
                 pbar.update(i)
             elif i%5==0:
-                pbar.set_description(f'Epoch: {i}/{epoch_num}, Train/Val Loss: {train_loss},{val_loss}')
-                pbar.update(i)
+                pbar.set_description(f'Epoch: {i}/{epoch_num}, Train/Val Loss: {round(train_loss,4)},{round(val_loss,4)}')
+                pbar.update(5)
         
             # Clear existing gradients in optimizer
             optimizer.zero_grad()
@@ -151,8 +139,12 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             # Loading training and validation samples from dataloaders
             train_imgs, train_masks = next(iter(train_loader))
             # Sending to device
-            train_imgs.to(device)
-            train_masks.to(device)
+            train_imgs = train_imgs.to(device)
+            train_masks = train_masks.to(device)
+
+            # Testing whether the images were actually sent to cuda
+            #print(f'Images: {train_imgs}')
+            #print(f'Images are on device: {train_imgs.get_device()}')
 
             # Running predictions on training batch
             train_preds = model(train_imgs)
@@ -167,12 +159,16 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
             # Updating optimizer
             optimizer.step()
+            #print(f'Model device: {next(model.parameters()).device}')
 
             # Validation (don't want it to influence gradients in network)
             with torch.no_grad():
+                # This turns off any dropout in the network 
+                model.eval()
+
                 val_imgs, val_masks = next(iter(valid_loader))
-                val_imgs.to(device)
-                val_masks.to(device)
+                val_imgs = val_imgs.to(device)
+                val_masks = val_masks.to(device)
 
                 val_preds = model(val_imgs)
                 val_loss = loss(val_preds,val_masks)
@@ -182,7 +178,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             # Saving model if current i is a multiple of "save_step"
             # Also generating example output segmentation and uploading that to Neptune
             if i%save_step == 0:
-                torch.save(model,model_dir+f'Collagen_Seg_Model_{i}.pth')
+                torch.save(model.state_dict(),model_dir+f'Collagen_Seg_Model_{i}.pth')
 
                 if batch_size==1:
                     current_img = val_imgs.cpu().numpy()
@@ -190,17 +186,22 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                     current_pred = val_preds.cpu().numpy()
                 else:
                     current_img = val_imgs[0].cpu().numpy()
-                    current_mask = val_masks[0].cpu().numpy()
+                    current_gt = val_masks[0].cpu().numpy()
                     current_pred = val_preds[0].cpu().numpy()
 
                 if target_type=='binary':
                     current_pred = current_pred.round()
 
-                img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_mask}
+                img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 
                 fig = visualize(img_dict)
                 fig.savefig(output_dir+f'Training_Epoch_{i}_Example.png')
                 nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.png')
+
+    if not i%save_step==0:
+        torch.save(model.state_dict(),model_dir+f'Collagen_Seg_Model_{i}.pth')
+
+    return model_dir+f'Collagen_Seg_Model_{i}.pth'
 
 
 

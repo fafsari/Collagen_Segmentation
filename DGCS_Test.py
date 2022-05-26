@@ -80,47 +80,55 @@ def get_metrics(pred_mask,ground_truth,calculator):
     #print(f'Unique values ground truth mask: {torch.unique(edited_gt)}')
 
     acc, dice, precision, recall,specificity = calculator(edited_gt,torch.round(edited_pred))
-    metrics_row['Accuracy'] = [acc.numpy().tolist()]
-    metrics_row['Dice'] = [dice.numpy().tolist()]
-    metrics_row['Precision'] = [precision.numpy().tolist()]
-    metrics_row['Recall'] = [recall.numpy().tolist()]
-    metrics_row['Specificity'] = [specificity.numpy().tolist()]
+    metrics_row['Accuracy'] = [round(acc.numpy().tolist(),4)]
+    metrics_row['Dice'] = [round(dice.numpy().tolist(),4)]
+    metrics_row['Precision'] = [round(precision.numpy().tolist(),4)]
+    metrics_row['Recall'] = [round(recall.numpy().tolist(),4)]
+    metrics_row['Specificity'] = [round(specificity.numpy().tolist(),4)]
     
     #print(metrics_row)
 
     return metrics_row
     
         
-def Test_Network(classes, model_dir, dataset_valid, output_dir, nept_run):
+def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run):
      
 
     # Finding the best performing model
-    models = glob(model_dir+'*.pth')
-    model_eps = [i.split('_')[-1].replace('.pth','') for i in models]
-    model_eps = [int(i) for i in model_eps]
+    #models = glob(model_dir+'*.pth')
+    #model_eps = [i.split('_')[-1].replace('.pth','') for i in models]
+    #model_eps = [int(i) for i in model_eps]
     
-    best_ep = np.argmax(model_eps)
+    #best_ep = np.argmax(model_eps)
     
-    best_model = torch.load(models[best_ep])
+    #best_model = torch.load(models[best_ep])
     
-    device = 'cuda:1'
-    best_model.to(device)
-    best_model.eval()
+    #device = 'cuda:1'
+    #best_model.to(device)
+    encoder = 'resnet34'
+    encoder_weights = 'imagenet'
+    ann_classes = classes
+    active = 'softmax2d'
+
+    device = torch.device('cuda:1') if torch.cuda.is_available() else 'cpu'
+
+    model = smp.UnetPlusPlus(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
+            in_channels = 3,
+            classes = len(ann_classes),
+            activation = active
+            )
+
+    model.load_state_dict(torch.load(model_path))
+    model.to(device)
+    model.eval()
 
     with torch.no_grad():
 
         # Evaluating model on test set
         test_dataloader = DataLoader(dataset_valid)
-        """
-        test_epoch = smp.utils.train.ValidEpoch(
-                model = best_model,
-                loss = smp.utils.losses.DiceLoss(),
-                metrics = [smp.utils.metrics.IoU(threshold = 1/len(classes))],
-                device = 'cuda')
-        
-        
-        test_logs = test_epoch.run(test_dataloader)
-        """
+
         test_output_dir = output_dir+'Testing_Output/'
         if not os.path.exists(test_output_dir):
             os.makedirs(test_output_dir)
@@ -140,7 +148,7 @@ def Test_Network(classes, model_dir, dataset_valid, output_dir, nept_run):
             # Add something here so that it calculates perforance metrics and outputs
             # raw values for 2-class segmentation(not binarized output masks)        
             target_img = target.cpu().numpy().round()
-            pred_mask = best_model.predict(image.to(device))
+            pred_mask = model.predict(image.to(device))
 
             #print(f'pred_mask size: {np.shape(pred_mask.detach().cpu().numpy())}')
             #print(f'target size: {np.shape(target.cpu().numpy())}')

@@ -60,7 +60,7 @@ def visualize(images):
     
         
         
-def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_dir,target_type,nept_run):
+def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_dir,target_type, nept_run):
     
     encoder = 'resnet34'
     encoder_weights = 'imagenet'
@@ -68,12 +68,12 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
     if target_type=='binary':
         active = 'softmax2d'
-        loss = smp.utils.losses.DiceLoss()
+        loss = smp.losses.DiceLoss(mode='binary')
 
-        metrics = [smp.utils.metrics.IoU(threshold = 1/len(ann_classes))]
+        #metrics = [smp.metrics.IoU(threshold = 1/len(ann_classes))]
     else:
         active = 'relu2d'
-        loss = 
+        loss = torch.nn.KLDivLoss()
 
     device = 'cuda:1'
     
@@ -81,7 +81,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     nept_run['encoder_pre_train'] = encoder_weights
     nept_run['Architecture'] = 'UNet'
     nept_run['Loss'] = 'Dice'
-    nept_run['Metrics'] = 'IoU'
+    #nept_run['Metrics'] = 'IoU'
     
     model = smp.Unet(
             encoder_name = encoder,
@@ -93,7 +93,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     
 
     
-    metrics = [smp.utils.metrics.IoU(threshold = 1/len(ann_classes))]
+    #metrics = [smp.metrics.IoU(threshold = 1/len(ann_classes))]
     
     optimizer = torch.optim.Adam([
             dict(params = model.parameters(), lr = 0.0001)
@@ -102,7 +102,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     train_epoch = smp.utils.train.TrainEpoch(
             model,
             loss=loss,
-            metrics=metrics,
+            #metrics=metrics,
             optimizer=optimizer,
             device=device,
             verbose=True)
@@ -110,7 +110,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     valid_epoch = smp.utils.train.ValidEpoch(
             model,
             loss=loss,
-            metrics=metrics,
+            #metrics=metrics,
             device=device,
             verbose=True)
     

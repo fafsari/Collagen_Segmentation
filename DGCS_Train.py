@@ -19,6 +19,8 @@ from torch.utils.data import DataLoader
 
 import matplotlib.pyplot as plt
 import pandas as pd
+from tqdm import tqdm
+import sys
 
 
 def back_to_reality(tar):
@@ -91,14 +93,18 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             activation = active
             )
     
+    # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
+    model.to(device)
 
-    
+    # Again only valid for smp version 0.1.0 or 0.2.0
     #metrics = [smp.metrics.IoU(threshold = 1/len(ann_classes))]
     
     optimizer = torch.optim.Adam([
             dict(params = model.parameters(), lr = 0.0001)
             ])
     
+    """
+    # Only valid for smp version 0.1.0 or 0.2.0 
     train_epoch = smp.utils.train.TrainEpoch(
             model,
             loss=loss,
@@ -113,90 +119,88 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             #metrics=metrics,
             device=device,
             verbose=True)
-    
-    train_loader = DataLoader(dataset_train, batch_size = 1, shuffle = True, num_workers = 12)
-    valid_loader = DataLoader(dataset_valid, batch_size = 1, shuffle = True, num_workers = 4)
+    """
+
+    batch_size = 1
+    train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 12)
+    valid_loader = DataLoader(dataset_valid, batch_size = batch_size, shuffle = True, num_workers = 4)
         
-    # To minimize loss
-    max_score = 0
+    # Initializing loss score
+    train_loss = 0
+    val_loss = 0
     
-    # Max # of epochs = 40
+    # Maximum number of epochs defined here as well as how many steps between model saves and example outputs
     epoch_num = 80
-    save_step = 20
+    save_step = 10
     
-    for i in range(0,epoch_num):
-        
-        print('\nEpoch: {}'.format(i))
-        
-        train_logs = train_epoch.run(train_loader)
-        valid_logs = valid_epoch.run(valid_loader)
-        
-        # Saving loss and metrics to dataframe
-        if i==0:
-            train_df = pd.DataFrame(train_logs, index = [0])
-            valid_df = pd.DataFrame(valid_logs, index = [0])
-            
-            #valid_df.to_csv(output_dir+'Validation_Loss.csv')
-            #train_df.to_csv(output_dir+'Training_Loss.csv')
-        else:
-            train_df = train_df.append(train_logs, ignore_index = True)
-            valid_df = valid_df.append(valid_logs, ignore_index = True)
-            
-            #valid_df.to_csv(output_dir+'Validation_Loss.csv')
-            #train_df.to_csv(output_dir+'Training_Loss.csv')
-        
-        # Saving model if the loss went down
-        if max_score< valid_logs['iou_score']:
-            max_score = valid_logs['iou_score']
-            torch.save(model,model_dir+'Collagen_Seg_Model_'+str(i)+'.pth')
-            
-        if i%save_step == 0:
-            
-            image,target = next(iter(valid_loader))
-            
-            target = target.cpu().numpy().round()
-            """
-            unique_vals = np.unique(target)
-            dummy = np.zeros_like(target)
-            # For each class, replace region in target (labeled image) with a unique integer
-            # from 0 to the number of classes
-            for idx, value in enumerate(unique_vals):
-                mask = np.where(target==value)
-                dummy[mask] = idx
-            """
-            
-            pred_mask = model(image.to(device))
-            pred_mask = pred_mask.detach().cpu().numpy().round()
-            img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask,'Ground_Truth':target}
-            
-            fig = visualize(img_dict)
-            
-            fig.savefig(output_dir+'Training_Epoch_'+str(i)+'_Example.png')
-            
-            nept_run['Example_Output_'+str(i)].upload(output_dir+'Training_Epoch_'+str(i)+'_Example.png')
+    with tqdm(total = epoch_num, position = 0, leave = True, file = sys.stdout) as pbar:
 
-            # Combining training and validation dataframes
-            col_names = train_df.columns.values.tolist()
-            val_names = ['val_'+i for i in col_names]
-            
-            new_valid = valid_df.copy()
-            new_valid.columns = val_names
-            
-            combined_df = pd.concat([train_df, new_valid], axis = 1, ignore_index = True)
-            combined_df.columns = col_names+val_names
-            combined_df['Epoch_Number'] = list(range(0,combined_df.shape[0]))
-            combined_df = combined_df.set_index('Epoch_Number')
-            
-            combined_df.to_csv(output_dir+'Training_Validation_Loss.csv')
-            
-            # Saving loss figure
-            ax = combined_df.plot()
-            fig = ax.get_figure()
-            fig.savefig(output_dir+'Training_Loss_Metrics_Plot.png')
+        for i in range(0,epoch_num):
+        
+            # Controlling the progress bar, printing training and validation losses
+            if i==1: 
+                pbar.set_description(f'Epoch: {i}/{epoch_num}')
+                pbar.update(i)
+            elif i%5==0:
+                pbar.set_description(f'Epoch: {i}/{epoch_num}, Train/Val Loss: {train_loss},{val_loss}')
+                pbar.update(i)
+        
+            # Clear existing gradients in optimizer
+            optimizer.zero_grad()
 
-            nept_run['Loss_Plot'].upload(output_dir+'Training_Loss_Metrics_Plot.png')
+            # Loading training and validation samples from dataloaders
+            train_imgs, train_masks = next(iter(train_loader))
+            # Sending to device
+            train_imgs.to(device)
+            train_masks.to(device)
 
+            # Running predictions on training batch
+            train_preds = model(train_imgs)
 
+            # Calculating loss
+            train_loss = loss(train_preds,train_masks)
+
+            # Backpropagation
+            train_loss.backward()
+            train_loss = train_loss.item()
+            nept_run['training_loss'].log(train_loss)
+
+            # Updating optimizer
+            optimizer.step()
+
+            # Validation (don't want it to influence gradients in network)
+            with torch.no_grad():
+                val_imgs, val_masks = next(iter(valid_loader))
+                val_imgs.to(device)
+                val_masks.to(device)
+
+                val_preds = model(val_imgs)
+                val_loss = loss(val_preds,val_masks)
+                val_loss = val_loss.item()
+                nept_run['validation_loss'].log(val_loss)
+
+            # Saving model if current i is a multiple of "save_step"
+            # Also generating example output segmentation and uploading that to Neptune
+            if i%save_step == 0:
+                torch.save(model,model_dir+f'Collagen_Seg_Model_{i}.pth')
+
+                if batch_size==1:
+                    current_img = val_imgs.cpu().numpy()
+                    current_gt = val_masks.cpu().numpy()
+                    current_pred = val_preds.cpu().numpy()
+                else:
+                    current_img = val_imgs[0].cpu().numpy()
+                    current_mask = val_masks[0].cpu().numpy()
+                    current_pred = val_preds[0].cpu().numpy()
+
+                if target_type=='binary':
+                    current_pred = current_pred.round()
+
+                img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_mask}
+
+                fig = visualize(img_dict)
+                fig.savefig(output_dir+f'Training_Epoch_{i}_Example.png')
+                nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.png')
 
 
 

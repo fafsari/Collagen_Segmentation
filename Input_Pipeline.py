@@ -157,6 +157,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             transforms_training = ComposeDouble([
                     AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
                     AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
+                    AlbuSeg2d(albumentations.RandomCrop(width=256,height=256)),
                     FunctionWrapperDouble(create_dense_target, input = False, target = True),
                     FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
                     FunctionWrapperDouble(normalize_01)
@@ -165,6 +166,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             # Validation transformations 
             transforms_validation = ComposeDouble([
                     AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
+                    AlbuSeg2d(albumentations.RandomCrop(width=256,height=256)),
                     FunctionWrapperDouble(create_dense_target, input = False, target = True),
                     FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
                     FunctionWrapperDouble(normalize_01)
@@ -174,12 +176,14 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             transforms_training = ComposeDouble([
                 AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
                 AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
+                AlbuSeg2d(albumentations.RandomCrop(width=256,height=256)),
                 FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
                 FunctionWrapperDouble(normalize_01)
             ])
 
             transforms_validation = ComposeDouble([
                 AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
+                AlbuSeg2d(albumentations.RandomCrop(width=256,height=256)),
                 FunctionWrapperDouble(np.moveaxis,input=True,target=True,source=-1,destination=0),
                 FunctionWrapperDouble(normalize_01)
             ])

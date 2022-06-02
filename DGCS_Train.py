@@ -18,6 +18,9 @@ import segmentation_models_pytorch as smp
 from torch.utils.data import DataLoader
 
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
+
 import pandas as pd
 from tqdm import tqdm
 import sys
@@ -34,8 +37,25 @@ def back_to_reality(tar):
         dummy[mask] = value
 
     return dummy
+
+def apply_colormap(img):
+    cm = plt.get_cmap('jet')
+
+    fig = Figure()
+    canvas = FigureCanvas()
+    _, ax = plt.subplots(1,np.shape(img)[-1])
+    ax = ax.flatten()
+
+    # For multi-class show the probabilistic maps for each class
+    for cl,axis in enumerate(ax):
+        axis.imshow(cm(img[:,:,cl]))
+
+    canvas.draw()
+    image = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
+
+    return image
     
-def visualize(images):
+def visualize(images,output_type):
     
     n = len(images)
     
@@ -53,8 +73,11 @@ def visualize(images):
             
         img = np.float32(np.moveaxis(img, source = 0, destination = -1))
         
-        if np.shape(img)[-1]!=3:
+        if np.shape(img)[-1]!=3 and output_type=='binary':
             img = back_to_reality(img)
+        
+        if output_type=='continuous':
+            img = apply_colormap(img)
             
         plt.imshow(img)
 
@@ -66,11 +89,13 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     encoder = 'resnet34'
     encoder_weights = 'imagenet'
 
+
+    output_type = 'continuous'
+
     if target_type=='binary':
         active = 'softmax2d'
         loss = smp.losses.DiceLoss(mode='binary')
 
-        #metrics = [smp.metrics.IoU(threshold = 1/len(ann_classes))]
     else:
         active = 'relu2d'
         loss = torch.nn.KLDivLoss()
@@ -85,6 +110,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     nept_run['Architecture'] = 'Unet++'
     nept_run['Loss'] = 'Dice'
     #nept_run['Metrics'] = 'IoU'
+    nept_run['output_type'] = output_type
     
     model = smp.UnetPlusPlus(
             encoder_name = encoder,
@@ -196,7 +222,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 
-                fig = visualize(img_dict)
+                fig = visualize(img_dict,output_type)
                 fig.savefig(output_dir+f'Training_Epoch_{i}_Example.png')
                 nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.png')
 

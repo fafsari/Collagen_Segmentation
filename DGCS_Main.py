@@ -34,6 +34,8 @@ from DGCS_Train import Training_Loop
 from DGCS_Test import Test_Network
 
 
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
 # Order of inputs = 
 # Train ('train') or Test ('test') 
 # Full image directory (relative to where this script is located or change base_dir variable)
@@ -64,58 +66,39 @@ if len(sys.argv)==4:
 else:
     target_type = 'binary'
 
+output_dir = sys.argv[5]
+
+if not os.path.isdir(output_dir):
+    os.mkdir(output_dir)
+
+model_dir = output_dir+'/models/'
+if not os.path.isdir(model_dir):
+    os.mkdir(model_dir)
 
 # Modify classes according to annotations
-#ann_classes = ['background','u_space','tuft']
-#ann_classes = ['background','mesangium','luminal_space','nuclei']
 ann_classes = ['background','collagen']
-
-
-# Comment out to use main project directory as base
-#base_dir = ''
-
-# Defining input directories
-if 'base_dir' not in locals():
-    base_dir = os.getcwd()
-    
-model_dir = '/'.join(base_dir.split('/')[0:-1])+'/models/'
-data_dir = '/'.join(base_dir.split('/')[0:-1])+'/data/'
-output_dir = '/'.join(base_dir.split('/')[0:-1])+'/reports/'
-
 
 nept_run = neptune.init(
     project = 'spborder/AssortedSegmentations',
     api_token = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjE3MzBiOS1lOGMwLTRmZjAtOGUyYS0yMGFlMmM4ZTRkMzMifQ==')
 
-nept_run['image_dir'] = data_dir+image_dir
-nept_run['label_dir'] = data_dir+label_dir
+nept_run['image_dir'] = image_dir
+nept_run['label_dir'] = label_dir
 nept_run['output_dir'] = output_dir
 nept_run['Classes'] = ann_classes
 nept_run['Target_Type'] = target_type
 
 
 if phase == 'train':
-    if not os.path.isdir(data_dir+image_dir):
+    if not os.path.isdir(image_dir):
         
-        all_paths = pd.read_csv(data_dir+image_dir)
+        all_paths = pd.read_csv(image_dir)
         image_paths = all_paths[0].tolist()
         label_paths = all_paths[1].tolist()
     else:
-        image_paths = glob(data_dir+image_dir+'*')
-        label_paths = glob(data_dir+label_dir+'*')
-        
+        image_paths = glob(image_dir+'*')
+        label_paths = glob(label_dir+'*')
 
-        """
-        if image_paths != label_paths:
-            # Optional replacement for labeled images that don't have the same name as the corresponding images
-            label_to_img_paths = [i.replace('_ann','') for i in label_paths]
-            # Making sure the same files are in each list
-            label_filenames = [i.split('/')[-1] for i in label_to_img_paths]
-            image_filenames = [i.split('/')[-1] for i in image_paths]
-        
-        
-            image_paths = [image_paths[image_filenames.index(i)] for i in label_filenames]
-        """
         
     # Determining whether or not doing k-fold CV and proceeding to training loop
     if int(k_folds)==1:
@@ -165,21 +148,11 @@ if phase == 'train':
     
 elif phase == 'test':
     
-    image_paths = glob(data_dir+image_dir+'*')
-    label_paths = glob(data_dir+label_dir+'*')
-    """
-    # Optional replacement for labeled images that don't have the same name as the corresponding images
-    label_to_img_paths = [i.replace('_ann','') for i in label_paths]
-    # Making sure the same files are in each list
-    label_filenames = [i.split('/')[-1] for i in label_to_img_paths]
-    image_filenames = [i.split('/')[-1] for i in image_paths]
-    
-    image_paths = [image_paths[image_filenames.index(i)] for i in label_filenames]
-    
-    """
+    image_paths = glob(image_dir+'*')
+    label_paths = glob(label_dir+'*')
 
     model = torch.load(model_file)
-    model.to(torch.device('cuda:1') if torch.cuda.is_available() else 'cpu')
+    model = model.to(torch.device('cuda') if torch.cuda.is_available() else 'cpu')
 
     valid_img_paths = image_paths
     valid_tar = image_paths

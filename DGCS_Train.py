@@ -23,6 +23,7 @@ from tqdm import tqdm
 import sys
 
 
+
 def back_to_reality(tar):
     
     # Getting target array into right format
@@ -74,10 +75,11 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         active = 'relu2d'
         loss = torch.nn.KLDivLoss()
 
-    device = torch.device('cuda:1')
-    #print(f'Is training on GPU available? : {torch.cuda.is_available()}')
-    #print(f'Device is : {device}')
-    
+    device = torch.device('cuda')
+    print(f'Is training on GPU available? : {torch.cuda.is_available()}')
+    print(f'Device is : {device}')
+    print(f'Torch Cuda version is : {torch.version.cuda}')    
+
     nept_run['encoder'] = encoder
     nept_run['encoder_pre_train'] = encoder_weights
     nept_run['Architecture'] = 'Unet++'

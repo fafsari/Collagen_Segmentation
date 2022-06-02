@@ -75,7 +75,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         active = 'relu2d'
         loss = torch.nn.KLDivLoss()
 
-    device = torch.device('cuda')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Is training on GPU available? : {torch.cuda.is_available()}')
     print(f'Device is : {device}')
     print(f'Torch Cuda version is : {torch.version.cuda}')    

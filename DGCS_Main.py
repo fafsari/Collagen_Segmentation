@@ -34,7 +34,7 @@ from DGCS_Train import Training_Loop
 from DGCS_Test import Test_Network
 
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+#os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 # Order of inputs = 
 # Train ('train') or Test ('test') 
@@ -61,12 +61,9 @@ else:
     model_file = sys.argv[3]
 
 # Adding this option here for if using binary input masks or probabilistic (grayscale)
-if len(sys.argv)==4:
-    target_type = sys.argv[4]
-else:
-    target_type = 'binary'
+target_type = sys.argv[5]
 
-output_dir = sys.argv[5]
+output_dir = sys.argv[6]
 
 if not os.path.isdir(output_dir):
     os.mkdir(output_dir)
@@ -80,11 +77,13 @@ ann_classes = ['background','collagen']
 
 nept_run = neptune.init(
     project = 'spborder/AssortedSegmentations',
+    source_files = ['Collagen_Segmentation/*.py','*.sh','*.out'],
     api_token = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjE3MzBiOS1lOGMwLTRmZjAtOGUyYS0yMGFlMmM4ZTRkMzMifQ==')
 
 nept_run['image_dir'] = image_dir
 nept_run['label_dir'] = label_dir
 nept_run['output_dir'] = output_dir
+nept_run['model_dir'] = model_dir
 nept_run['Classes'] = ann_classes
 nept_run['Target_Type'] = target_type
 

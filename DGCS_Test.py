@@ -22,7 +22,8 @@ import numpy as np
 from glob import glob
 
 import matplotlib.pyplot as plt
-import pandas as pd
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figureimport pandas as pd
 
 import neptune.new as neptune
 
@@ -40,11 +41,29 @@ def back_to_reality(tar):
 
     return dummy
 
-def visualize(images):
+def apply_colormap(img):
+    cm = plt.get_cmap('jet')
+
+    fig = Figure()
+    canvas = FigureCanvas()
+    _, ax = plt.subplots(1,np.shape(img)[-1])
+    ax = ax.flatten()
+
+    # For multi-class show the probabilistic maps for each class
+    for cl,axis in enumerate(ax):
+        axis.imshow(cm(img[:,:,cl]))
+
+    canvas.draw()
+    image = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
+
+    return image
     
-    n = len(images)    
+def visualize(images,output_type):
+    
+    n = len(images)
+    
     for i,key in enumerate(images):
-        
+
         plt.subplot(1,n,i+1)
         plt.xticks([])
         plt.yticks([])
@@ -54,14 +73,16 @@ def visualize(images):
             img = images[key][0,:,:,:]
         else:
             img = images[key]
-    
+            
         img = np.float32(np.moveaxis(img, source = 0, destination = -1))
         
-        if np.shape(img)[-1]!=3:
+        if np.shape(img)[-1]!=3 and output_type=='binary':
             img = back_to_reality(img)
+        
+        if output_type=='continuous':
+            img = apply_colormap(img)
             
         plt.imshow(img)
-    #plt.show()
 
     return plt.gcf()
 

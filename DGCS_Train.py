@@ -18,13 +18,10 @@ import segmentation_models_pytorch as smp
 from torch.utils.data import DataLoader
 
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from matplotlib.figure import Figure
 
 import pandas as pd
 from tqdm import tqdm
 import sys
-
 
 
 def back_to_reality(tar):
@@ -39,19 +36,12 @@ def back_to_reality(tar):
     return dummy
 
 def apply_colormap(img):
-    cm = plt.get_cmap('jet')
 
-    fig = Figure()
-    canvas = FigureCanvas()
-    _, ax = plt.subplots(1,np.shape(img)[-1])
-    ax = ax.flatten()
+    n_classes = np.shape(img)[-1]
 
-    # For multi-class show the probabilistic maps for each class
-    for cl,axis in enumerate(ax):
-        axis.imshow(cm(img[:,:,cl]))
-
-    canvas.draw()
-    image = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
+    image = img[:,:,0]
+    for cl in range(1,n_classes):
+        image = np.concatenate((image, img[:,:,cl]),axis = 1)
 
     return image
     
@@ -72,23 +62,56 @@ def visualize(images,output_type):
             img = images[key]
             
         img = np.float32(np.moveaxis(img, source = 0, destination = -1))
-        
-        if np.shape(img)[-1]!=3 and output_type=='binary':
-            img = back_to_reality(img)
-        
-        if output_type=='continuous':
-            img = apply_colormap(img)
-            
-        plt.imshow(img)
+        if key == 'Pred_Mask' or key == 'Ground_Truth':
+            if output_type=='binary' or key == 'Ground_Truth':
+                #print('using back_to_reality')
+                img = back_to_reality(img)
+
+                plt.imshow(img)
+            if output_type == 'continuous' and not key == 'Ground_Truth':
+                #print('applying colormap')
+                img = apply_colormap(img)
+
+                plt.imshow(img,cmap='jet')
+        else:
+            plt.imshow(img)
 
     return plt.gcf()
-    
+
+def visualize_continuous(images):
+
+    n = len(images)
+    for i,key in enumerate(images):
+
+        plt.subplot(1,n,i+1)
+        plt.xticks([])
+        plt.yticks([])
+        plt.title(key)
+
+        if len(np.shape(images[key])) == 4:
+            img = images[key][0,:,:,:]
+        else:
+            img = images[key]
+
+        img = np.float32(np.moveaxis(img,source=0,destination=-1))
+        if key == 'Pred_Mask' or key == 'Ground_Truth':
+            img = apply_colormap(img)
+
+            plt.imshow(img,cmap='jet')
+        else:
+            plt.imshow(img)
+
+    return plt.gcf()
     
 def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_dir,target_type, nept_run):
     
     encoder = 'resnet34'
     encoder_weights = 'imagenet'
 
+    if target_type=='binary':
+        n_classes = len(ann_classes)
+    elif target_type == 'nonbinary':
+        n_classes = 1
 
     output_type = 'continuous'
 
@@ -96,9 +119,9 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         active = 'softmax2d'
         loss = smp.losses.DiceLoss(mode='binary')
 
-    else:
-        active = 'relu2d'
-        loss = torch.nn.KLDivLoss()
+    elif target_type=='nonbinary':
+        active = None
+        loss = torch.nn.L1Loss()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Is training on GPU available? : {torch.cuda.is_available()}')
@@ -116,7 +139,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             encoder_name = encoder,
             encoder_weights = encoder_weights,
             in_channels = 3,
-            classes = len(ann_classes),
+            classes = n_classes,
             activation = active
             )
     
@@ -176,7 +199,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
             # Running predictions on training batch
             train_preds = model(train_imgs)
-
+            print(f'Prediction shape: {train_preds.shape}')
+            print(f'GT mask shape: {train_masks.shape}')
             # Calculating loss
             train_loss = loss(train_preds,train_masks)
 
@@ -222,7 +246,12 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 
-                fig = visualize(img_dict,output_type)
+                if target_type=='binary':
+                    fig = visualize(img_dict,output_type)
+                elif target_type=='nonbinary':
+                    fig = visualize_continuous(img_dict)
+
+
                 fig.savefig(output_dir+f'Training_Epoch_{i}_Example.png')
                 nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.png')
 

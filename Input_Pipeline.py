@@ -130,28 +130,45 @@ def stupid_mask_thing(target):
         
         
     return final
+
     
 
 def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar, ann_classes,target_type):
  
     if phase == 'train':
-        pre_transforms = ComposeDouble([
-                FunctionWrapperDouble(resize,
-                                      input = True,
-                                      target = False,
-                                      output_shape = (256,256,3)),
-                FunctionWrapperDouble(resize,
-                                      input = False,
-                                      target = True,
-                                      output_shape = (256,256,3),
-                                      order = 0,
-                                      anti_aliasing = False,
-                                      preserve_range = True),
-                FunctionWrapperDouble(stupid_mask_thing,
-                                      input = False,
-                                      target = True)
-        ])
-        
+
+        if target_type=='binary':
+            pre_transforms = ComposeDouble([
+                    FunctionWrapperDouble(resize,
+                                        input = True,
+                                        target = False,
+                                        output_shape = (256,256,3)),
+                    FunctionWrapperDouble(resize,
+                                        input = False,
+                                        target = True,
+                                        output_shape = (256,256,3),
+                                        order = 0,
+                                        anti_aliasing = False,
+                                        preserve_range = True),
+                    FunctionWrapperDouble(stupid_mask_thing,
+                                        input = False,
+                                        target = True)
+            ])
+        elif target_type=='nonbinary':
+            pre_transforms = ComposeDouble([
+                    FunctionWrapperDouble(resize,
+                                        input = True,
+                                        target = False,
+                                        output_shape=(256,256,3)),
+                    FunctionWrapperDouble(resize,
+                                        input = False,
+                                        target = True,
+                                        output_shape = (256,256),
+                                        order = 0,
+                                        anti_aliasing = False,
+                                        preserve_range = True)
+            ])        
+
         if target_type=='binary':
             # Training transformations + augmentations
             transforms_training = ComposeDouble([
@@ -171,7 +188,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                     FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
                     FunctionWrapperDouble(normalize_01)
                     ])
-        else:
+        elif target_type=='nonbinary':
             # Continuous target type augmentations
             transforms_training = ComposeDouble([
                 AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
@@ -227,7 +244,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                     FunctionWrapperDouble(normalize_01)
                     ])
         
-        else:
+        elif target_type=='nonbinary':
 
             pre_transforms = ComposeDouble([
             FunctionWrapperDouble(resize,
@@ -237,7 +254,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             FunctionWrapperDouble(resize,
                                 input = False,
                                 target = True,
-                                output_shape = (256,256,3),
+                                output_shape = (256,256),
                                 order = 0,
                                 anti_aliasing = False,
                                 preserve_range = True)

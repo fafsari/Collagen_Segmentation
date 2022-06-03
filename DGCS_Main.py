@@ -77,7 +77,7 @@ ann_classes = ['background','collagen']
 
 nept_run = neptune.init(
     project = 'spborder/AssortedSegmentations',
-    source_files = ['Collagen_Segmentation/*.py','*.sh','*.out'],
+    source_files = ['**/*'],
     api_token = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjE3MzBiOS1lOGMwLTRmZjAtOGUyYS0yMGFlMmM4ZTRkMzMifQ==')
 
 nept_run['image_dir'] = image_dir
@@ -121,7 +121,7 @@ if phase == 'train':
         
         model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir, target_type, nept_run)
         
-        Test_Network(ann_classes, model, dataset_valid, output_dir, nept_run)
+        Test_Network(ann_classes, model, dataset_valid, output_dir, nept_run,target_type)
     
     else:
         
@@ -143,7 +143,7 @@ if phase == 'train':
             
             model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir,target_type,nept_run)
             
-            Test_Network(ann_classes, model, dataset_valid, output_dir,target_type,nept_run)
+            Test_Network(ann_classes, model, dataset_valid, output_dir,target_type,nept_run, target_type)
     
 elif phase == 'test':
     
@@ -158,7 +158,7 @@ elif phase == 'test':
     
     nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar, ann_classes, target_type)
     
-    Test_Network(ann_classes, model, dataset_test, output_dir,nept_run)
+    Test_Network(ann_classes, model, dataset_test, output_dir,nept_run, target_type)
     
     
 

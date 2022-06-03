@@ -22,12 +22,12 @@ import numpy as np
 from glob import glob
 
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-from matplotlib.figure import Figureimport pandas as pd
+import pandas as pd
 
 import neptune.new as neptune
 
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
+
 
 
 def back_to_reality(tar):
@@ -42,19 +42,12 @@ def back_to_reality(tar):
     return dummy
 
 def apply_colormap(img):
-    cm = plt.get_cmap('jet')
 
-    fig = Figure()
-    canvas = FigureCanvas()
-    _, ax = plt.subplots(1,np.shape(img)[-1])
-    ax = ax.flatten()
+    n_classes = np.shape(img)[-1]
 
-    # For multi-class show the probabilistic maps for each class
-    for cl,axis in enumerate(ax):
-        axis.imshow(cm(img[:,:,cl]))
-
-    canvas.draw()
-    image = np.frombuffer(canvas.tostring_rgb(), dtype='uint8')
+    image = img[:,:,0]
+    for cl in range(1,n_classes):
+        image = np.concatenate((image, img[:,:,cl]),axis = 1)
 
     return image
     
@@ -75,14 +68,44 @@ def visualize(images,output_type):
             img = images[key]
             
         img = np.float32(np.moveaxis(img, source = 0, destination = -1))
-        
-        if np.shape(img)[-1]!=3 and output_type=='binary':
-            img = back_to_reality(img)
-        
-        if output_type=='continuous':
+        if key == 'Pred_Mask' or key == 'Ground_Truth':
+            if output_type=='binary' or key == 'Ground_Truth':
+                #print('using back_to_reality')
+                img = back_to_reality(img)
+
+                plt.imshow(img)
+            if output_type == 'continuous' and not key == 'Ground_Truth':
+                #print('applying colormap')
+                img = apply_colormap(img)
+
+                plt.imshow(img,cmap='jet')
+        else:
+            plt.imshow(img)
+
+    return plt.gcf()
+
+def visualize_continuous(images):
+
+    n = len(images)
+    for i,key in enumerate(images):
+
+        plt.subplot(1,n,i+1)
+        plt.xticks([])
+        plt.yticks([])
+        plt.title(key)
+
+        if len(np.shape(images[key])) == 4:
+            img = images[key][0,:,:,:]
+        else:
+            img = images[key]
+
+        img = np.float32(np.moveaxis(img,source=0,destination=-1))
+        if key == 'Pred_Mask' or key == 'Ground_Truth':
             img = apply_colormap(img)
-            
-        plt.imshow(img)
+
+            plt.imshow(img,cmap='jet')
+        else:
+            plt.imshow(img)
 
     return plt.gcf()
 
@@ -112,7 +135,7 @@ def get_metrics(pred_mask,ground_truth,calculator):
     return metrics_row
     
         
-def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run):
+def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run,target_type):
      
 
     # Finding the best performing model
@@ -129,15 +152,22 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run):
     encoder = 'resnet34'
     encoder_weights = 'imagenet'
     ann_classes = classes
-    active = 'softmax2d'
+    active = None
 
-    device = torch.device('cuda:1') if torch.cuda.is_available() else 'cpu'
+    if target_type=='binary':
+        n_classes = len(ann_classes)
+    elif target_type == 'nonbinary':
+        n_classes = 1
+
+    output_type = 'continuous'
+
+    device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
     model = smp.UnetPlusPlus(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
             in_channels = 3,
-            classes = len(ann_classes),
+            classes = n_classes,
             activation = active
             )
 
@@ -180,8 +210,11 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run):
             
             img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
             
-            fig = visualize(img_dict)
-            
+            if target_type=='binary':
+                fig = visualize(img_dict,output_type)
+            elif target_type=='nonbinary':
+                fig = visualize_continuous(img_dict)       
+
             fig.savefig(test_output_dir+'Test_Example_'+str(i)+'.png')
             nept_run['testing/Testing_Output_'+str(i)].upload(test_output_dir+'Test_Example_'+str(i)+'.png')
 

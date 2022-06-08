@@ -42,12 +42,16 @@ class SegmentationDataSet(Dataset):
                  targets: list,
                  transform = None,
                  use_cache = False,
-                 pre_transform = None):
+                 pre_transform = None,
+                 target_type = None):
         self.inputs = inputs
         self.targets = targets
         self.transform = transform
         self.inputs_dtype = torch.float32
-        self.targets_dtype = torch.long
+        if target_type == 'binary':
+            self.targets_dtype = torch.long
+        elif target_type == 'nonbinary':
+            self.targets_dtype = torch.float32
         
         # increasing dataset loading efficiency
         self.use_cache = use_cache
@@ -59,7 +63,10 @@ class SegmentationDataSet(Dataset):
             progressbar = tqdm(range(len(self.inputs)), desc = 'Caching')
             for i, img_name, tar_name in zip(progressbar, self.inputs, self.targets):
                 if 'tif' in tar_name:
+                    print(f'img_name: {str(img_name)}, tar_name:{str(tar_name)}')
                     img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')
+                    #print(f'Min:{np.min(tar)}, Max: {np.max(tar)}, Type: {tar.dtype}')
+
                 else:
                     img, tar = imread(str(img_name)), imread(str(tar_name))
                 
@@ -163,7 +170,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                     FunctionWrapperDouble(resize,
                                         input = False,
                                         target = True,
-                                        output_shape = (256,256),
+                                        output_shape = (256,256,1),
                                         order = 0,
                                         anti_aliasing = False,
                                         preserve_range = True)
@@ -174,35 +181,31 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             transforms_training = ComposeDouble([
                     AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
                     AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
-                    AlbuSeg2d(albumentations.RandomCrop(width=256,height=256)),
                     FunctionWrapperDouble(create_dense_target, input = False, target = True),
                     FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                    FunctionWrapperDouble(normalize_01)
+                    FunctionWrapperDouble(normalize_01, input = True, target = True)
                     ])
                 
             # Validation transformations 
             transforms_validation = ComposeDouble([
                     AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
-                    AlbuSeg2d(albumentations.RandomCrop(width=256,height=256)),
                     FunctionWrapperDouble(create_dense_target, input = False, target = True),
                     FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                    FunctionWrapperDouble(normalize_01)
+                    FunctionWrapperDouble(normalize_01, input = True, target = True)
                     ])
         elif target_type=='nonbinary':
             # Continuous target type augmentations
             transforms_training = ComposeDouble([
                 AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
                 AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
-                AlbuSeg2d(albumentations.RandomCrop(width=256,height=256)),
                 FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                FunctionWrapperDouble(normalize_01)
+                FunctionWrapperDouble(normalize_01, input = True, target = True)
             ])
 
             transforms_validation = ComposeDouble([
                 AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
-                AlbuSeg2d(albumentations.RandomCrop(width=256,height=256)),
                 FunctionWrapperDouble(np.moveaxis,input=True,target=True,source=-1,destination=0),
-                FunctionWrapperDouble(normalize_01)
+                FunctionWrapperDouble(normalize_01, input = True, target = True)
             ])
 
         
@@ -210,13 +213,15 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                              targets = train_tar,
                                              transform = transforms_training,
                                              use_cache = True,
-                                             pre_transform = pre_transforms)
+                                             pre_transform = pre_transforms,
+                                             target_type = target_type)
         
         dataset_valid = SegmentationDataSet(inputs = valid_img_paths,
                                              targets = valid_tar,
                                              transform = transforms_validation,
                                              use_cache = True,
-                                             pre_transform = pre_transforms)
+                                             pre_transform = pre_transforms,
+                                             target_type = target_type)
         
     elif phase == 'test':
         
@@ -241,7 +246,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             transforms_testing = ComposeDouble([
                     FunctionWrapperDouble(create_dense_target, input = False, target = True),
                     FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                    FunctionWrapperDouble(normalize_01)
+                    FunctionWrapperDouble(normalize_01, input = True, target = True)
                     ])
         
         elif target_type=='nonbinary':
@@ -254,7 +259,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             FunctionWrapperDouble(resize,
                                 input = False,
                                 target = True,
-                                output_shape = (256,256),
+                                output_shape = (256,256,1),
                                 order = 0,
                                 anti_aliasing = False,
                                 preserve_range = True)
@@ -262,7 +267,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             
             transforms_testing = ComposeDouble([
                     FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                    FunctionWrapperDouble(normalize_01)
+                    FunctionWrapperDouble(normalize_01, input = True, target = True)
                     ])
 
         # this is 'None' because we are just testing the network
@@ -272,7 +277,8 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                             targets = valid_tar,
                                             transform = transforms_testing,
                                             use_cache = True,
-                                            pre_transform = pre_transforms)
+                                            pre_transform = pre_transforms,
+                                            target_type = target_type)
         
     
     return dataset_train, dataset_valid

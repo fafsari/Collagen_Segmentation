@@ -24,6 +24,7 @@ import pandas as pd
 import numpy as np
 from glob import glob
 from math import floor
+import json
 
 from sklearn.model_selection import KFold
 
@@ -34,36 +35,25 @@ from DGCS_Train import Training_Loop
 from DGCS_Test import Test_Network
 
 
-#os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+# Changing up from sys.argv to reading a specific set of input parameters
+parameters_file = sys.argv[1]
 
-# Order of inputs = 
-# Train ('train') or Test ('test') 
-# Full image directory (relative to where this script is located or change base_dir variable)
-# Labeled images directory (all images don't have to be annotated)
+input_parameters = json.load(open(parameters_file))['input_parameters']
 
-## Either of these can also be subbed out for '.csv' files listing paths to specific images/labels
-
-# Number of CV (1 = normal train/test split (0.8,0.2 resp.), >1 = k-fold CV)
-
-# output is defaulted to /reports/
-# models saved to /models/
-
-phase = sys.argv[1]
+phase = input_parameters['phase']
+image_dir = input_parameters['image_dir']+'/'
 
 if phase == 'train':
-    
-    image_dir = sys.argv[2]+'/'
-    label_dir = sys.argv[3]+'/'
-    k_folds = sys.argv[4]
+    label_dir = input_parameters['label_dir']+'/'
+    k_folds = input_parameters['k_folds']
 
-else:
-    image_dir = sys.argv[2]+'/'
-    model_file = sys.argv[3]
+elif phase == 'test':
+    model_file = input_parameters['model_file']
 
 # Adding this option here for if using binary input masks or probabilistic (grayscale)
-target_type = sys.argv[5]
+target_type = input_parameters['target_type']
 
-output_dir = sys.argv[6]
+output_dir = input_parameters['output_dir']
 
 if not os.path.isdir(output_dir):
     os.mkdir(output_dir)
@@ -96,9 +86,17 @@ if phase == 'train':
         label_paths = all_paths[1].tolist()
     else:
         image_paths = glob(image_dir+'*')
-        label_paths = glob(label_dir+'*')
-
+        label_paths_base = glob(label_dir+'*')
         
+        # For when image and label paths don't line up
+        label_paths = []
+        label_names = [i.split('/')[-1] for i in label_paths_base]
+        for j in range(0,len(image_paths)):
+            image_name = image_paths[j].split('/')[-1]
+            label_paths.append(label_paths_base[label_names.index(image_name)])
+
+    #print(image_paths)
+    #print(label_paths)
     # Determining whether or not doing k-fold CV and proceeding to training loop
     if int(k_folds)==1:
         
@@ -114,6 +112,10 @@ if phase == 'train':
         train_tar = [label_paths[i] for i in train_idx]
         valid_tar = [label_paths[i] for i in val_idx]
         
+
+        print(f'Training image paths: {train_img_paths[0:4]}')
+        print(f'Training mask paths: {train_tar[0:4]}')
+
         nept_run['N_Training'] = len(train_img_paths)
         nept_run['N_Valid'] = len(valid_img_paths)
         
@@ -135,9 +137,14 @@ if phase == 'train':
             print('On k-fold #: {}'.format(k_count+1))
             print('-------------------------------------------------------')
             print('-------------------------------------------------------\n')
+
+            train_idx = list(train_idx.astype(int))
+            test_idx = list(test_idx.astype(int))
             
-            X_train, X_test = image_paths[train_idx], image_paths[test_idx]
-            y_train, y_test = label_paths[train_idx], label_paths[test_idx]
+            X_train = [image_paths[i] for i in train_idx]
+            X_test = [image_paths[i] for i in test_idx]
+            y_train = [label_paths[i] for i in train_idx]
+            y_test = [label_paths[i] for i in test_idx]
     
             dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,ann_classes,target_type)
             

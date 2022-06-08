@@ -84,7 +84,7 @@ def visualize(images,output_type):
 
     return plt.gcf()
 
-def visualize_continuous(images):
+def visualize_continuous(images,output_type):
 
     n = len(images)
     for i,key in enumerate(images):
@@ -99,38 +99,49 @@ def visualize_continuous(images):
         else:
             img = images[key]
 
-        img = np.float32(np.moveaxis(img,source=0,destination=-1))
+        img = np.float32(img)
+
+        if np.shape(img)[0]<np.shape(img)[-1]:
+            img = np.moveaxis(img,source=0,destination=-1)
+
         if key == 'Pred_Mask' or key == 'Ground_Truth':
             img = apply_colormap(img)
-
             plt.imshow(img,cmap='jet')
+
         else:
             plt.imshow(img)
 
     return plt.gcf()
 
-def get_metrics(pred_mask,ground_truth,calculator):
+def get_metrics(pred_mask,ground_truth,calculator,target_type):
 
     metrics_row = {}
 
-    edited_gt = ground_truth[:,1,:,:]
-    edited_gt = torch.unsqueeze(edited_gt,dim = 1)
-    edited_pred = pred_mask[:,1,:,:]
-    edited_pred = torch.unsqueeze(edited_pred,dim = 1)
+    if target_type=='binary':
+        edited_gt = ground_truth[:,1,:,:]
+        edited_gt = torch.unsqueeze(edited_gt,dim = 1)
+        edited_pred = pred_mask[:,1,:,:]
+        edited_pred = torch.unsqueeze(edited_pred,dim = 1)
 
-    #print(f'edited pred_mask shape: {edited_pred.shape}')
-    #print(f'edited ground_truth shape: {edited_gt.shape}')
-    #print(f'Unique values prediction mask : {torch.unique(edited_pred)}')
-    #print(f'Unique values ground truth mask: {torch.unique(edited_gt)}')
+            #print(f'edited pred_mask shape: {edited_pred.shape}')
+            #print(f'edited ground_truth shape: {edited_gt.shape}')
+            #print(f'Unique values prediction mask : {torch.unique(edited_pred)}')
+            #print(f'Unique values ground truth mask: {torch.unique(edited_gt)}')
 
-    acc, dice, precision, recall,specificity = calculator(edited_gt,torch.round(edited_pred))
-    metrics_row['Accuracy'] = [round(acc.numpy().tolist(),4)]
-    metrics_row['Dice'] = [round(dice.numpy().tolist(),4)]
-    metrics_row['Precision'] = [round(precision.numpy().tolist(),4)]
-    metrics_row['Recall'] = [round(recall.numpy().tolist(),4)]
-    metrics_row['Specificity'] = [round(specificity.numpy().tolist(),4)]
-    
-    #print(metrics_row)
+        acc, dice, precision, recall,specificity = calculator(edited_gt,torch.round(edited_pred))
+        metrics_row['Accuracy'] = [round(acc.numpy().tolist(),4)]
+        metrics_row['Dice'] = [round(dice.numpy().tolist(),4)]
+        metrics_row['Precision'] = [round(precision.numpy().tolist(),4)]
+        metrics_row['Recall'] = [round(recall.numpy().tolist(),4)]
+        metrics_row['Specificity'] = [round(specificity.numpy().tolist(),4)]
+        
+        #print(metrics_row)
+    elif target_type == 'nonbinary':
+        square_diff = (ground_truth.numpy()-pred_mask.numpy())**2
+        mse = np.mean(square_diff)
+
+        metrics_row['MSE'] = [round(mse,4)]
+
 
     return metrics_row
     
@@ -152,7 +163,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run,target
     encoder = 'resnet34'
     encoder_weights = 'imagenet'
     ann_classes = classes
-    active = None
+    active = 'sigmoid'
 
     if target_type=='binary':
         n_classes = len(ann_classes)
@@ -184,8 +195,13 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run,target
         if not os.path.exists(test_output_dir):
             os.makedirs(test_output_dir)
             
-        metrics_calculator = BinaryMetrics()
-        testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[],'Specificity':[]})
+        if target_type=='binary':
+            metrics_calculator = BinaryMetrics()
+            testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[],'Specificity':[]})
+        elif target_type =='nonbinary':
+            metrics_calculator = []
+            testing_metrics_df = pd.DataFrame(data = {'MSE':[]})
+        
         # Setting up iterator to generate images from the validation dataset
         data_iterator = iter(test_dataloader)
         for i in tqdm(range(0,len(dataset_valid)),desc = 'Testing'):
@@ -195,25 +211,33 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run,target
             except StopIteration:
                 data_iterator = iter(test_dataloader)
                 image, target = next(data_iterator)
-                
+
             # Add something here so that it calculates perforance metrics and outputs
-            # raw values for 2-class segmentation(not binarized output masks)        
-            target_img = target.cpu().numpy().round()
+            # raw values for 2-class segmentation(not binarized output masks)
+
+            if output_type=='binary':        
+                target_img = target.cpu().numpy().round()
+            else:
+                target_img = target.cpu().numpy()
+
             pred_mask = model.predict(image.to(device))
 
             #print(f'pred_mask size: {np.shape(pred_mask.detach().cpu().numpy())}')
             #print(f'target size: {np.shape(target.cpu().numpy())}')
 
-            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), metrics_calculator)),ignore_index=True)
+            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), metrics_calculator,target_type)),ignore_index=True)
             
-            pred_mask_img = pred_mask.detach().cpu().numpy().round()
-            
+            if output_type == 'binary':
+                pred_mask_img = pred_mask.detach().cpu().numpy().round()
+            else:
+                pred_mask_img = pred_mask.detach().cpu().numpy()
+
             img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
             
             if target_type=='binary':
                 fig = visualize(img_dict,output_type)
             elif target_type=='nonbinary':
-                fig = visualize_continuous(img_dict)       
+                fig = visualize_continuous(img_dict,output_type)       
 
             fig.savefig(test_output_dir+'Test_Example_'+str(i)+'.png')
             nept_run['testing/Testing_Output_'+str(i)].upload(test_output_dir+'Test_Example_'+str(i)+'.png')

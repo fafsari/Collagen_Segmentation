@@ -37,6 +37,8 @@ def back_to_reality(tar):
 
 def apply_colormap(img):
 
+    print(f'Size of image: {np.shape(img)}')
+    print(f'Min:{np.min(img)}, Max: {np.max(img)}, Type: {img.dtype}')
     n_classes = np.shape(img)[-1]
 
     image = img[:,:,0]
@@ -62,6 +64,7 @@ def visualize(images,output_type):
             img = images[key]
             
         img = np.float32(np.moveaxis(img, source = 0, destination = -1))
+        print(key)
         if key == 'Pred_Mask' or key == 'Ground_Truth':
             if output_type=='binary' or key == 'Ground_Truth':
                 #print('using back_to_reality')
@@ -93,7 +96,11 @@ def visualize_continuous(images):
         else:
             img = images[key]
 
-        img = np.float32(np.moveaxis(img,source=0,destination=-1))
+        img = np.float32(img)
+
+        if np.shape(img)[0]<np.shape(img)[-1]:
+            img = np.moveaxis(img,source=0,destination=-1)
+
         if key == 'Pred_Mask' or key == 'Ground_Truth':
             img = apply_colormap(img)
 
@@ -108,20 +115,17 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     encoder = 'resnet34'
     encoder_weights = 'imagenet'
 
-    if target_type=='binary':
-        n_classes = len(ann_classes)
-    elif target_type == 'nonbinary':
-        n_classes = 1
-
     output_type = 'continuous'
 
     if target_type=='binary':
         active = 'softmax2d'
         loss = smp.losses.DiceLoss(mode='binary')
+        n_classes = len(ann_classes)
 
     elif target_type=='nonbinary':
-        active = None
-        loss = torch.nn.L1Loss()
+        active = 'sigmoid'
+        loss = torch.nn.MSELoss(reduction='mean')
+        n_classes = 1
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Is training on GPU available? : {torch.cuda.is_available()}')
@@ -131,8 +135,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     nept_run['encoder'] = encoder
     nept_run['encoder_pre_train'] = encoder_weights
     nept_run['Architecture'] = 'Unet++'
-    nept_run['Loss'] = 'Dice'
-    #nept_run['Metrics'] = 'IoU'
+    nept_run['Loss'] = 'MSE'
     nept_run['output_type'] = output_type
     
     model = smp.UnetPlusPlus(
@@ -152,7 +155,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     #metrics = [smp.metrics.IoU(threshold = 1/len(ann_classes))]
     
     optimizer = torch.optim.Adam([
-            dict(params = model.parameters(), lr = 0.0001)
+            dict(params = model.parameters(), lr = 0.0005)
             ])
 
     #optimizer = optimizer.to(device)
@@ -194,16 +197,24 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             train_masks = train_masks.to(device)
 
             # Testing whether the images were actually sent to cuda
-            #print(f'Images: {train_imgs}')
             #print(f'Images are on device: {train_imgs.get_device()}')
 
             # Running predictions on training batch
             train_preds = model(train_imgs)
-            print(f'Prediction shape: {train_preds.shape}')
-            print(f'GT mask shape: {train_masks.shape}')
+
+            """
+            if target_type=='nonbinary':
+                train_preds = torch.squeeze(train_preds)
+                train_masks = torch.squeeze(train_masks)
+            """
+
             # Calculating loss
             train_loss = loss(train_preds,train_masks)
 
+            # Printing max and min for training GTs and predictions
+            #print(f'Min prediction: {np.min(train_preds.detach().cpu().numpy())}, Max prediction: {np.max(train_preds.detach().cpu().numpy())}')
+            #print(f'Min GT: {np.min(train_masks.cpu().numpy())}, Max GT: {np.max(train_masks.cpu().numpy())}')
+            
             # Backpropagation
             train_loss.backward()
             train_loss = train_loss.item()

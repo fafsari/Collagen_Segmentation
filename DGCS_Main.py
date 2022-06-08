@@ -38,7 +38,8 @@ from DGCS_Test import Test_Network
 # Changing up from sys.argv to reading a specific set of input parameters
 parameters_file = sys.argv[1]
 
-input_parameters = json.load(open(parameters_file))['input_parameters']
+parameters = json.load(open(parameters_file))
+input_parameters = parameters['input_parameters']
 
 phase = input_parameters['phase']
 image_dir = input_parameters['image_dir']+'/'
@@ -46,9 +47,16 @@ image_dir = input_parameters['image_dir']+'/'
 if phase == 'train':
     label_dir = input_parameters['label_dir']+'/'
     k_folds = input_parameters['k_folds']
+    train_parameters = parameters['training_parameters']
+    test_parameters = parameters['testing_parameters']
+
+    ann_classes = train_parameters['ann_classes']
 
 elif phase == 'test':
     model_file = input_parameters['model_file']
+    test_parameters = parameters['testing_parameters']
+    
+    ann_classes = test_parameters['ann_classes']
 
 # Adding this option here for if using binary input masks or probabilistic (grayscale)
 target_type = input_parameters['target_type']
@@ -61,9 +69,6 @@ if not os.path.isdir(output_dir):
 model_dir = output_dir+'/models/'
 if not os.path.isdir(model_dir):
     os.mkdir(model_dir)
-
-# Modify classes according to annotations
-ann_classes = ['background','collagen']
 
 nept_run = neptune.init(
     project = 'spborder/AssortedSegmentations',
@@ -95,8 +100,6 @@ if phase == 'train':
             image_name = image_paths[j].split('/')[-1]
             label_paths.append(label_paths_base[label_names.index(image_name)])
 
-    #print(image_paths)
-    #print(label_paths)
     # Determining whether or not doing k-fold CV and proceeding to training loop
     if int(k_folds)==1:
         
@@ -119,11 +122,11 @@ if phase == 'train':
         nept_run['N_Training'] = len(train_img_paths)
         nept_run['N_Valid'] = len(valid_img_paths)
         
-        dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,ann_classes,target_type)
+        dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type)
         
-        model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir, target_type, nept_run)
+        model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir, target_type, train_parameters, nept_run)
         
-        Test_Network(ann_classes, model, dataset_valid, output_dir, nept_run,target_type)
+        Test_Network(ann_classes, model, dataset_valid, output_dir, nept_run, test_parameters, target_type)
     
     else:
         
@@ -146,11 +149,11 @@ if phase == 'train':
             y_train = [label_paths[i] for i in train_idx]
             y_test = [label_paths[i] for i in test_idx]
     
-            dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,ann_classes,target_type)
+            dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,target_type)
             
-            model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir,target_type,nept_run)
+            model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir,target_type, train_parameters, nept_run)
             
-            Test_Network(ann_classes, model, dataset_valid, output_dir,target_type,nept_run, target_type)
+            Test_Network(ann_classes, model, dataset_valid, output_dir,target_type,nept_run, test_parameters, target_type)
     
 elif phase == 'test':
     
@@ -163,9 +166,9 @@ elif phase == 'test':
     valid_img_paths = image_paths
     valid_tar = image_paths
     
-    nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar, ann_classes, target_type)
+    nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar, target_type)
     
-    Test_Network(ann_classes, model, dataset_test, output_dir,nept_run, target_type)
+    Test_Network(ann_classes, model, dataset_test, output_dir,nept_run, test_parameters, target_type)
     
     
 

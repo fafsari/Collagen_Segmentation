@@ -110,20 +110,19 @@ def visualize_continuous(images):
 
     return plt.gcf()
     
-def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_dir,target_type, nept_run):
+def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_dir,target_type, train_parameters, nept_run):
     
-    encoder = 'resnet34'
-    encoder_weights = 'imagenet'
+    encoder = train_parameters['encoder']
+    encoder_weights = train_parameters['encoder_weights']
 
-    output_type = 'continuous'
+    output_type = train_parameters['output_type']
+    active = train_parameters['active']
 
     if target_type=='binary':
-        active = 'softmax2d'
         loss = smp.losses.DiceLoss(mode='binary')
         n_classes = len(ann_classes)
 
     elif target_type=='nonbinary':
-        active = 'sigmoid'
         loss = torch.nn.MSELoss(reduction='mean')
         n_classes = 1
 
@@ -138,29 +137,27 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     nept_run['Loss'] = 'MSE'
     nept_run['output_type'] = output_type
     
-    model = smp.UnetPlusPlus(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = 3,
-            classes = n_classes,
-            activation = active
-            )
+
+    if train_parameters['architecture']=='Unet++':
+        model = smp.UnetPlusPlus(
+                encoder_name = encoder,
+                encoder_weights = encoder_weights,
+                in_channels = 3,
+                classes = n_classes,
+                activation = active
+                )
     
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
     model = model.to(device)
     loss = loss.to(device)
-    #print(f'Model: {model}')
-
-    # Again only valid for smp version 0.1.0 or 0.2.0
-    #metrics = [smp.metrics.IoU(threshold = 1/len(ann_classes))]
     
     optimizer = torch.optim.Adam([
-            dict(params = model.parameters(), lr = 0.0005)
+            dict(params = model.parameters(), lr = train_parameters['lr'])
             ])
 
     #optimizer = optimizer.to(device)
 
-    batch_size = 1
+    batch_size = train_parameters['batch_size']
     train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 12)
     valid_loader = DataLoader(dataset_valid, batch_size = batch_size, shuffle = True, num_workers = 4)
         
@@ -169,8 +166,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     val_loss = 0
     
     # Maximum number of epochs defined here as well as how many steps between model saves and example outputs
-    epoch_num = 120
-    save_step = 10
+    epoch_num = train_parameters['epoch_num']
+    save_step = train_parameters['save_step']
     
     with tqdm(total = epoch_num, position = 0, leave = True, file = sys.stdout) as pbar:
 
@@ -191,7 +188,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             optimizer.zero_grad()
 
             # Loading training and validation samples from dataloaders
-            train_imgs, train_masks = next(iter(train_loader))
+            train_imgs, train_masks, _ = next(iter(train_loader))
             # Sending to device
             train_imgs = train_imgs.to(device)
             train_masks = train_masks.to(device)
@@ -229,7 +226,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                 # This turns off any dropout in the network 
                 model.eval()
 
-                val_imgs, val_masks = next(iter(valid_loader))
+                val_imgs, val_masks, _ = next(iter(valid_loader))
                 val_imgs = val_imgs.to(device)
                 val_masks = val_masks.to(device)
 

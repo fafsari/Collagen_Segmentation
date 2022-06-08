@@ -146,41 +146,30 @@ def get_metrics(pred_mask,ground_truth,calculator,target_type):
     return metrics_row
     
         
-def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run,target_type):
-     
+def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_parameters, target_type):
 
-    # Finding the best performing model
-    #models = glob(model_dir+'*.pth')
-    #model_eps = [i.split('_')[-1].replace('.pth','') for i in models]
-    #model_eps = [int(i) for i in model_eps]
-    
-    #best_ep = np.argmax(model_eps)
-    
-    #best_model = torch.load(models[best_ep])
-    
-    #device = 'cuda:1'
-    #best_model.to(device)
-    encoder = 'resnet34'
-    encoder_weights = 'imagenet'
+    encoder = test_parameters['encoder']
+    encoder_weights = test_parameters['encoder_weights']
     ann_classes = classes
-    active = 'sigmoid'
+    active = test_parameters['active']
 
     if target_type=='binary':
         n_classes = len(ann_classes)
     elif target_type == 'nonbinary':
         n_classes = 1
 
-    output_type = 'continuous'
+    output_type = test_parameters['output_type']
 
     device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
-    model = smp.UnetPlusPlus(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = 3,
-            classes = n_classes,
-            activation = active
-            )
+    if test_parameters['architecture']=='Unet++':
+        model = smp.UnetPlusPlus(
+                encoder_name = encoder,
+                encoder_weights = encoder_weights,
+                in_channels = 3,
+                classes = n_classes,
+                activation = active
+                )
 
     model.load_state_dict(torch.load(model_path))
     model.to(device)
@@ -207,10 +196,10 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run,target
         for i in tqdm(range(0,len(dataset_valid)),desc = 'Testing'):
             
             try:
-                image, target = next(data_iterator)
+                image, target, input_name = next(data_iterator)
             except StopIteration:
                 data_iterator = iter(test_dataloader)
-                image, target = next(data_iterator)
+                image, target, input_name = next(data_iterator)
 
             # Add something here so that it calculates perforance metrics and outputs
             # raw values for 2-class segmentation(not binarized output masks)
@@ -225,7 +214,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run,target
             #print(f'pred_mask size: {np.shape(pred_mask.detach().cpu().numpy())}')
             #print(f'target size: {np.shape(target.cpu().numpy())}')
 
-            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), metrics_calculator,target_type)),ignore_index=True)
+            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), metrics_calculator,target_type),index = input_name),ignore_index=True)
             
             if output_type == 'binary':
                 pred_mask_img = pred_mask.detach().cpu().numpy().round()
@@ -240,7 +229,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run,target
                 fig = visualize_continuous(img_dict,output_type)       
 
             fig.savefig(test_output_dir+'Test_Example_'+str(i)+'.png')
-            nept_run['testing/Testing_Output_'+str(i)].upload(test_output_dir+'Test_Example_'+str(i)+'.png')
+            nept_run['testing/Testing_Output_'+input_name].upload(test_output_dir+'Test_Example_'+input_name+'.png')
 
 
         nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))

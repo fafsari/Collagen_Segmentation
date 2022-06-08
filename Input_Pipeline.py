@@ -59,13 +59,12 @@ class SegmentationDataSet(Dataset):
         
         if self.use_cache:
             self.cached_data = []
+            self.cached_names = []
             
             progressbar = tqdm(range(len(self.inputs)), desc = 'Caching')
             for i, img_name, tar_name in zip(progressbar, self.inputs, self.targets):
                 if 'tif' in tar_name:
-                    print(f'img_name: {str(img_name)}, tar_name:{str(tar_name)}')
                     img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')
-                    #print(f'Min:{np.min(tar)}, Max: {np.max(tar)}, Type: {tar.dtype}')
 
                 else:
                     img, tar = imread(str(img_name)), imread(str(tar_name))
@@ -74,6 +73,7 @@ class SegmentationDataSet(Dataset):
                     img, tar = self.pre_transform(img, tar)
                     
                 self.cached_data.append((img,tar))
+                self.cached_names.append(img_name)
         
     def __len__(self):
         return len(self.inputs)
@@ -84,6 +84,7 @@ class SegmentationDataSet(Dataset):
         
         if self.use_cache:
             x, y = self.cached_data[index]
+            input_ID = self.cached_names[index]
         else:
             input_ID = self.inputs[index]
             target_ID = self.targets[index]
@@ -101,7 +102,7 @@ class SegmentationDataSet(Dataset):
         # Getting in the right input/target data types
         x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
         
-        return x, y
+        return x, y, input_ID
     
 def stupid_mask_thing(target):
     #print('Target shape{}'.format(np.shape(target)))
@@ -140,7 +141,7 @@ def stupid_mask_thing(target):
 
     
 
-def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar, ann_classes,target_type):
+def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type):
  
     if phase == 'train':
 

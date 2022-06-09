@@ -132,12 +132,12 @@ if phase == 'train':
         
         # Splitting dataset into k-folds
         kf = KFold(n_splits = int(k_folds), shuffle = True)
-        k_count = 0
+        k_count = 1
         for train_idx, test_idx in kf.split(image_paths):
             
             print('\n------------------------------------------------------')
             print('------------------------------------------------------')
-            print('On k-fold #: {}'.format(k_count+1))
+            print('On k-fold #: {}'.format(k_count))
             print('-------------------------------------------------------')
             print('-------------------------------------------------------\n')
 
@@ -148,13 +148,16 @@ if phase == 'train':
             X_test = [image_paths[i] for i in test_idx]
             y_train = [label_paths[i] for i in train_idx]
             y_test = [label_paths[i] for i in test_idx]
+
+            test_parameters['current_k_fold'] = k_count
     
             dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,target_type)
             
             model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir,target_type, train_parameters, nept_run)
             
             Test_Network(ann_classes, model, dataset_valid, output_dir,nept_run, test_parameters, target_type)
-    
+            k_count += 1
+
 elif phase == 'test':
     
     image_paths = glob(image_dir+'*')

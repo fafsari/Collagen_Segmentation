@@ -113,7 +113,7 @@ def visualize_continuous(images,output_type):
 
     return plt.gcf()
 
-def get_metrics(pred_mask,ground_truth,calculator,target_type):
+def get_metrics(pred_mask,ground_truth,img_name,calculator,target_type):
 
     metrics_row = {}
 
@@ -142,6 +142,7 @@ def get_metrics(pred_mask,ground_truth,calculator,target_type):
 
         metrics_row['MSE'] = [round(mse,4)]
 
+    metrics_row['ImgLabel'] = img_name
 
     return metrics_row
     
@@ -197,9 +198,13 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
             
             try:
                 image, target, input_name = next(data_iterator)
+                print(input_name)
+                input_name = ''.join(input_name)
             except StopIteration:
                 data_iterator = iter(test_dataloader)
                 image, target, input_name = next(data_iterator)
+                print(input_name)
+                input_name = ''.join(input_name)
 
             # Add something here so that it calculates perforance metrics and outputs
             # raw values for 2-class segmentation(not binarized output masks)
@@ -214,7 +219,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
             #print(f'pred_mask size: {np.shape(pred_mask.detach().cpu().numpy())}')
             #print(f'target size: {np.shape(target.cpu().numpy())}')
 
-            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), metrics_calculator,target_type),index = input_name),ignore_index=True)
+            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
             
             if output_type == 'binary':
                 pred_mask_img = pred_mask.detach().cpu().numpy().round()
@@ -228,15 +233,22 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
             elif target_type=='nonbinary':
                 fig = visualize_continuous(img_dict,output_type)       
 
-            fig.savefig(test_output_dir+'Test_Example_'+str(i)+'.png')
+            fig.savefig(test_output_dir+'Test_Example_'+input_name+'.png')
             nept_run['testing/Testing_Output_'+input_name].upload(test_output_dir+'Test_Example_'+input_name+'.png')
 
+        if not test_parameters.has_key('current_k_fold'):
+            nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))
 
-        nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))
+            for met in testing_metrics_df.columns.values.tolist():
+                print(f'{met} value: {testing_metrics_df[met].mean()}')
+                nept_run[met] = testing_metrics_df[met].mean()
 
-        for met in testing_metrics_df.columns.values.tolist():
-            print(f'{met} value: {testing_metrics_df[met].mean()}')
-            nept_run[met] = testing_metrics_df[met].mean()
+        else:
+            current_k_fold = test_parameters['current_k_fold']
+            nept_run[f'Test_Image_metrics_{current_k_fold}'].upload(neptune.types.File.as_html(testing_metrics_df))
 
+            for met in testing_metrics_df.columns.values.tolist():
+                print(f'{met}: value: {testing_metrics_df[met].mean()}')
+                nept_run[met+f'_{current_k_fold}'] = testing_metrics_df[met].mean()
 
 

@@ -150,6 +150,14 @@ if phase == 'train':
             y_test = [label_paths[i] for i in test_idx]
 
             test_parameters['current_k_fold'] = k_count
+            train_parameters['current_k_fold'] = k_count
+
+            # Saving k_fold training and testing set
+            k_training_set = pd.DataFrame(data = {'Training_Image_Paths':X_train})
+            k_testing_set = pd.DataFrame(data = {'Testing_Image_Paths':X_test})
+
+            nept_run[f'{k_count}_Training_Set'].upload(neptune.types.File.as_html(k_training_set))
+            nept_run[f'{k_count}_Testing_Set'].upload(neptune.types.File.as_html(k_testing_set))
     
             dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,target_type)
             

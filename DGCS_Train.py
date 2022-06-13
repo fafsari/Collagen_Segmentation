@@ -155,6 +155,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             dict(params = model.parameters(), lr = train_parameters['lr'])
             ])
 
+    # Not sure if this is necessary or if torch.optim.Adam has a .to() method
     #optimizer = optimizer.to(device)
 
     batch_size = train_parameters['batch_size']
@@ -215,7 +216,11 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             # Backpropagation
             train_loss.backward()
             train_loss = train_loss.item()
-            nept_run['training_loss'].log(train_loss)
+
+            if not 'current_k_fold' in train_parameters:
+                nept_run['training_loss'].log(train_loss)
+            else:
+                nept_run[f'training_loss_{train_parameters["current_k_fold"]}'].log(train_loss)
 
             # Updating optimizer
             optimizer.step()
@@ -233,7 +238,11 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                 val_preds = model(val_imgs)
                 val_loss = loss(val_preds,val_masks)
                 val_loss = val_loss.item()
-                nept_run['validation_loss'].log(val_loss)
+
+                if not 'current_k_fold' in train_parameters:
+                    nept_run['validation_loss'].log(val_loss)
+                else:
+                    nept_run[f'validation_loss_{train_parameters["current_k_fold"]}'].log(val_loss)
 
             # Saving model if current i is a multiple of "save_step"
             # Also generating example output segmentation and uploading that to Neptune

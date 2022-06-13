@@ -12,6 +12,7 @@ from: https://github.com/qubvel/segmentation_models.pytorch/blob/master/examples
 
 """
 
+from typing import Type
 import torch
 from torch.utils.data import DataLoader
 import segmentation_models_pytorch as smp
@@ -198,13 +199,13 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
             
             try:
                 image, target, input_name = next(data_iterator)
-                print(input_name)
                 input_name = ''.join(input_name)
             except StopIteration:
                 data_iterator = iter(test_dataloader)
                 image, target, input_name = next(data_iterator)
-                print(input_name)
                 input_name = ''.join(input_name)
+
+            input_name = input_name.split('/')[-1]
 
             # Add something here so that it calculates perforance metrics and outputs
             # raw values for 2-class segmentation(not binarized output masks)
@@ -233,22 +234,27 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
             elif target_type=='nonbinary':
                 fig = visualize_continuous(img_dict,output_type)       
 
-            fig.savefig(test_output_dir+'Test_Example_'+input_name+'.png')
-            nept_run['testing/Testing_Output_'+input_name].upload(test_output_dir+'Test_Example_'+input_name+'.png')
+            fig.savefig(test_output_dir+'Test_Example_'+input_name)
+            nept_run['testing/Testing_Output_'+input_name].upload(test_output_dir+'Test_Example_'+input_name)
 
-        if not test_parameters.has_key('current_k_fold'):
+        if not 'current_k_fold' in test_parameters:
             nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))
 
             for met in testing_metrics_df.columns.values.tolist():
-                print(f'{met} value: {testing_metrics_df[met].mean()}')
-                nept_run[met] = testing_metrics_df[met].mean()
-
+                try:
+                    print(f'{met} value: {testing_metrics_df[met].mean()}')
+                    nept_run[met] = testing_metrics_df[met].mean()
+                except TypeError:
+                    print(f'Number of samples: {testing_metrics_df.shape[0]}')
         else:
             current_k_fold = test_parameters['current_k_fold']
             nept_run[f'Test_Image_metrics_{current_k_fold}'].upload(neptune.types.File.as_html(testing_metrics_df))
 
             for met in testing_metrics_df.columns.values.tolist():
-                print(f'{met}: value: {testing_metrics_df[met].mean()}')
-                nept_run[met+f'_{current_k_fold}'] = testing_metrics_df[met].mean()
+                try:
+                    print(f'{met}: value: {testing_metrics_df[met].mean()}')
+                    nept_run[met+f'_{current_k_fold}'] = testing_metrics_df[met].mean()
+                except TypeError:
+                    print(f'Number of samples: {testing_metrics_df.shape[0]}')
 
 

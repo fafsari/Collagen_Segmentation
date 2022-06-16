@@ -213,7 +213,7 @@ elif phase == 'optimize':
         'architecture':{'type',str,['Unet++','Unet','MAnet','DeepLabV3','DeepLabV3+']},
         'lr':{'type':float,'min':0.00001,'max':0.001},
         'epoch_num':{'type':int,'min':70,'max':200},
-        'loss':{'type':str,'opts':['MSE','L1','L2']}
+        'loss':{'type':str,'opts':['MSE','L1']}
     }
 
     def objective(trial, training_parameters, model_params, model_dir):
@@ -226,6 +226,7 @@ elif phase == 'optimize':
                 training_parameters[key] = trial.suggest_float(key,val['min'],val['max'])
             elif model_params[key]['type']==str:
                 training_parameters[key] = trial.suggest_categorical(key,val['opts'])
+                testing_parameters[key] = training_parameters[key]
 
         if not os.path.exists(model_dir+'/Trial_Parameters.csv'):
             prev_trials = pd.DataFrame(training_parameters)

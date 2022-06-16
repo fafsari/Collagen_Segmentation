@@ -172,6 +172,38 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
                 classes = n_classes,
                 activation = active
                 )
+    elif test_parameters['architecture'] == 'Unet':
+        model = smp.Unet(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
+            in_channels = 3,
+            classes = n_classes,
+            activation = active
+        )
+    elif test_parameters['architecture'] == 'DeepLabV3':
+        model = smp.DeepLabV3(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
+            in_channels = 3,
+            classes = n_classes,
+            activation = active
+        )
+    elif test_parameters['architecture'] == 'DeepLabV3+':
+        model = smp.DeepLabPlus(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
+            in_channels = 3,
+            classes = n_classes,
+            activation = active
+        )
+    elif test_parameters['architecture'] == 'MANet':
+        model = smp.MANet(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
+            in_channels = 3,
+            classes = n_classes,
+            activation = active
+        )
 
     model.load_state_dict(torch.load(model_path))
     model.to(device)

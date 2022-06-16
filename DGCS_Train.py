@@ -123,7 +123,10 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         n_classes = len(ann_classes)
 
     elif target_type=='nonbinary':
-        loss = torch.nn.MSELoss(reduction='mean')
+        if train_parameters['loss']=='MSE':
+            loss = torch.nn.MSELoss(reduction='mean')
+        elif train_parameters['loss'] == 'L1':
+            loss = torch.nn.L1Loss()
         n_classes = 1
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -146,6 +149,38 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                 classes = n_classes,
                 activation = active
                 )
+    elif train_parameters['architecture'] == 'Unet':
+        model = smp.Unet(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
+            in_channels = 3,
+            classes = n_classes,
+            activation = active
+        )
+    elif train_parameters['architecture'] == 'DeepLabV3':
+        model = smp.DeepLabV3(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
+            in_channels = 3,
+            classes = n_classes,
+            activation = active
+        )
+    elif train_parameters['architecture'] == 'DeepLabV3+':
+        model = smp.DeepLabPlus(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
+            in_channels = 3,
+            classes = n_classes,
+            activation = active
+        )
+    elif train_parameters['architecture'] == 'MANet':
+        model = smp.MANet(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
+            in_channels = 3,
+            classes = n_classes,
+            activation = active
+        )
     
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
     model = model.to(device)

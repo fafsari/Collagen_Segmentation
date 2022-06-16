@@ -237,6 +237,9 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
             fig.savefig(test_output_dir+'Test_Example_'+input_name)
             nept_run['testing/Testing_Output_'+input_name].upload(test_output_dir+'Test_Example_'+input_name)
 
+        # Used during hyperparameter optimization to compute objective value
+        testing_metrics_df.to_csv(test_output_dir+'Test_Metrics.csv')
+        
         if not 'current_k_fold' in test_parameters:
             nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))
 

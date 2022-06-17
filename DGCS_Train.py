@@ -37,8 +37,8 @@ def back_to_reality(tar):
 
 def apply_colormap(img):
 
-    print(f'Size of image: {np.shape(img)}')
-    print(f'Min:{np.min(img)}, Max: {np.max(img)}, Type: {img.dtype}')
+    #print(f'Size of image: {np.shape(img)}')
+    #print(f'Min:{np.min(img)}, Max: {np.max(img)}, Type: {img.dtype}')
     n_classes = np.shape(img)[-1]
 
     image = img[:,:,0]
@@ -64,7 +64,7 @@ def visualize(images,output_type):
             img = images[key]
             
         img = np.float32(np.moveaxis(img, source = 0, destination = -1))
-        print(key)
+        #print(key)
         if key == 'Pred_Mask' or key == 'Ground_Truth':
             if output_type=='binary' or key == 'Ground_Truth':
                 #print('using back_to_reality')
@@ -173,8 +173,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             classes = n_classes,
             activation = active
         )
-    elif train_parameters['architecture'] == 'MANet':
-        model = smp.MANet(
+    elif train_parameters['architecture'] == 'MAnet':
+        model = smp.MAnet(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
             in_channels = 3,

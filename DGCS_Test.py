@@ -196,8 +196,8 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
             classes = n_classes,
             activation = active
         )
-    elif test_parameters['architecture'] == 'MANet':
-        model = smp.MANet(
+    elif test_parameters['architecture'] == 'MAnet':
+        model = smp.MAnet(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
             in_channels = 3,

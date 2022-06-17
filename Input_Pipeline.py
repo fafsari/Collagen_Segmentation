@@ -143,7 +143,7 @@ def stupid_mask_thing(target):
 
 def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type):
  
-    if phase == 'train':
+    if phase == 'train' or phase == 'optimize':
 
         if target_type=='binary':
             pre_transforms = ComposeDouble([

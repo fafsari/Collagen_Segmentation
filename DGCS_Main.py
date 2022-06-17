@@ -46,6 +46,8 @@ input_parameters = parameters['input_parameters']
 phase = input_parameters['phase']
 image_dir = input_parameters['image_dir']+'/'
 
+print(f'Phase is: {phase}')
+
 if phase == 'train':
     label_dir = input_parameters['label_dir']+'/'
     k_folds = input_parameters['k_folds']
@@ -67,7 +69,7 @@ elif phase == 'optimize':
 
     ann_classes = train_parameters['ann_classes']
 
-    hyp_opts = train_parameters['hyp_opts']
+    #hyp_opts = train_parameters['hyp_opts']
 
 # Adding this option here for if using binary input masks or probabilistic (grayscale)
 target_type = input_parameters['target_type']
@@ -92,6 +94,46 @@ nept_run['output_dir'] = output_dir
 nept_run['model_dir'] = model_dir
 nept_run['Classes'] = ann_classes
 nept_run['Target_Type'] = target_type
+
+
+
+def objective(trial, training_parameters, testing_parameters, model_params, model_dir, dataset_train, dataset_valid):
+
+    # Iterating through model_params
+    for key,val in model_params.items():
+        if val['type']==int:
+            training_parameters[key] = trial.suggest_int(key,val['min'],val['max'])
+        elif model_params[key]['type']==float:
+            training_parameters[key] = trial.suggest_float(key,val['min'],val['max'])
+        elif model_params[key]['type']==str:
+            training_parameters[key] = trial.suggest_categorical(key,val['opts'])
+            testing_parameters[key] = training_parameters[key]
+
+    if not os.path.exists(model_dir+'/Trial_Parameters.csv'):
+        prev_trials = pd.DataFrame(training_parameters)
+        prev_trials.to_csv(model_dir+'/Trial_Parameters.csv')
+    else:
+        prev_trials = pd.read_csv(model_dir+'/Trial_Parameters.csv',index_col = 0)
+        prev_trials = pd.concat([prev_trials,pd.DataFrame(training_parameters)],axis = 0)
+
+        prev_trials.to_csv(model_dir+'/Trial_Parameters.csv')
+
+    model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir, target_type, train_parameters, nept_run)
+    
+    Test_Network(ann_classes, model, dataset_valid, output_dir, nept_run, test_parameters, target_type)
+
+    # Reading the metrics
+    performance_vals = pd.read_csv(output_dir+'Testing_Output/Test_Metrics.csv')
+    performance_means = performance_vals.mean(axis = 0)
+    performance_stds = performance_vals.std(axis = 0)
+    
+    # If the target type is 'nonbinary' then there will only be one metric recorded
+    if target_type=='nonbinary':
+        performance_sum = performance_means+performance_stds
+    else:
+        performance_sum = performance_means.sum()+performance_stds.sum()
+
+    return performance_sum
 
 
 if phase == 'train':
@@ -192,7 +234,8 @@ elif phase == 'test':
     
     Test_Network(ann_classes, model, dataset_test, output_dir,nept_run, test_parameters, target_type)
     
-elif phase == 'optimize':
+#elif phase == 'optimize':
+else:
     if not os.path.isdir(image_dir):
         
         all_paths = pd.read_csv(image_dir)
@@ -210,70 +253,32 @@ elif phase == 'optimize':
             label_paths.append(label_paths_base[label_names.index(image_name)])
 
     model_params = {
-        'architecture':{'type',str,['Unet++','Unet','MAnet','DeepLabV3','DeepLabV3+']},
+        'architecture':{'type':str,'opts':['Unet++','Unet','MAnet','DeepLabV3','DeepLabV3+']},
         'lr':{'type':float,'min':0.00001,'max':0.001},
         'epoch_num':{'type':int,'min':70,'max':200},
         'loss':{'type':str,'opts':['MSE','L1']}
     }
 
-    def objective(trial, training_parameters, model_params, model_dir):
-
-        # Iterating through model_params
-        for key,val in model_params.items():
-            if val['type']==int:
-                training_parameters[key] = trial.suggest_int(key,val['min'],val['max'])
-            elif model_params[key]['type']==float:
-                training_parameters[key] = trial.suggest_float(key,val['min'],val['max'])
-            elif model_params[key]['type']==str:
-                training_parameters[key] = trial.suggest_categorical(key,val['opts'])
-                testing_parameters[key] = training_parameters[key]
-
-        if not os.path.exists(model_dir+'/Trial_Parameters.csv'):
-            prev_trials = pd.DataFrame(training_parameters)
-            prev_trials.to_csv(model_dir+'/Trial_Parameters.csv')
-        else:
-            prev_trials = pd.read_csv(model_dir+'/Trial_Parameters.csv',index_col = 0)
-            prev_trials = pd.concat([prev_trials,pd.DataFrame(training_parameters)],axis = 0)
-
-            prev_trials.to_csv(model_dir+'/Trial_Parameters.csv')
-
-        # shuffling image and target paths
-        shuffle_idx = np.random.permutation(len(image_paths))
+    # shuffling image and target paths
+    shuffle_idx = np.random.permutation(len(image_paths))
+    
+    train_idx = shuffle_idx[0:floor(0.8*len(image_paths))]    
+    val_idx = shuffle_idx[floor(0.8*len(image_paths)):len(image_paths)]
         
-        train_idx = shuffle_idx[0:floor(0.8*len(image_paths))]    
-        val_idx = shuffle_idx[floor(0.8*len(image_paths)):len(image_paths)]
-            
-        train_img_paths = [image_paths[i] for i in train_idx]
-        valid_img_paths = [image_paths[i] for i in val_idx]
-        
-        train_tar = [label_paths[i] for i in train_idx]
-        valid_tar = [label_paths[i] for i in val_idx]
+    train_img_paths = [image_paths[i] for i in train_idx]
+    valid_img_paths = [image_paths[i] for i in val_idx]
+    
+    train_tar = [label_paths[i] for i in train_idx]
+    valid_tar = [label_paths[i] for i in val_idx]
 
-        #print(f'Training image paths: {train_img_paths[0:4]}')
-        #print(f'Training mask paths: {train_tar[0:4]}')
+    #print(f'Training image paths: {train_img_paths[0:4]}')
+    #print(f'Training mask paths: {train_tar[0:4]}')
 
-        nept_run['N_Training'] = len(train_img_paths)
-        nept_run['N_Valid'] = len(valid_img_paths)
+    nept_run['N_Training'] = len(train_img_paths)
+    nept_run['N_Valid'] = len(valid_img_paths)
+                
         
-        dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type)
-        
-        model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir, target_type, train_parameters, nept_run)
-        
-        Test_Network(ann_classes, model, dataset_valid, output_dir, nept_run, test_parameters, target_type)
-
-        # Reading the metrics
-        performance_vals = pd.read_csv(output_dir+'Testing_Output/Test_Metrics.csv')
-        performance_means = performance_vals.mean(axis = 0)
-        performance_stds = performance_vals.std(axis = 0)
-        
-        # If the target type is 'nonbinary' then there will only be one metric recorded
-        if target_type=='nonbinary':
-            performance_sum = performance_means+performance_stds
-        else:
-            performance_sum = performance_means.sum()+performance_stds.sum()
-
-        return performance_sum
-
+    dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type)
 
     if target_type=='nonbinary':
         study = optuna.create_study(direction = 'minimize', study_name = 'Collagen_Segmentation')
@@ -281,7 +286,7 @@ elif phase == 'optimize':
         study = optuna.create_study(direction = 'maximize',study_name = 'Collagen_Segmentation')
     
     neptune_callback = optuna_utils.NeptuneCallback(nept_run)
-    study.optimize(lambda trial: objective(trial,train_parameters,model_params,model_dir),n_trials = 500, callbacks=[neptune_callback])
+    study.optimize(lambda trial: objective(trial,train_parameters,test_parameters, model_params,model_dir, dataset_train,dataset_valid),n_trials = 500, callbacks=[neptune_callback])
     nept_run.stop()
     
 

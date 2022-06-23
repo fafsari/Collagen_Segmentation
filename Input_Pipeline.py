@@ -183,7 +183,6 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                     AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
                     AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
                     AlbuSeg2d(albumentations.VerticalFlip(p=0.5)),
-                    AlbuSeg2d(albumentations.ShiftScaleRotate()),
                     FunctionWrapperDouble(create_dense_target, input = False, target = True),
                     FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
                     FunctionWrapperDouble(normalize_01, input = True, target = True)
@@ -201,7 +200,6 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                 AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
                 AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
                 AlbuSeg2d(albumentations.VerticalFlip(p=0.5)),
-                AlbuSeg2d(albumentations.ShiftScaleRotate()),
                 FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
                 FunctionWrapperDouble(normalize_01, input = True, target = True)
             ])

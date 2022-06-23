@@ -189,7 +189,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
             activation = active
         )
     elif test_parameters['architecture'] == 'DeepLabV3+':
-        model = smp.DeepLabPlus(
+        model = smp.DeepLabV3Plus(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
             in_channels = 3,

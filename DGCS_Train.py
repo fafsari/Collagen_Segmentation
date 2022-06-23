@@ -109,6 +109,17 @@ def visualize_continuous(images):
             plt.imshow(img)
 
     return plt.gcf()
+
+class Custom_MSE_Loss(torch.nn.Module):
+    def __init__(self):
+        super(Custom_MSE_Loss,self).__init__()
+
+
+    def forward(self,output,target):
+        diff = (output-target)**2
+        normed = (diff - torch.min(diff))/torch.max(diff)
+        meaned = torch.mean(normed)
+        return meaned
     
 def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_dir,target_type, train_parameters, nept_run):
     
@@ -127,6 +138,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             loss = torch.nn.MSELoss(reduction='mean')
         elif train_parameters['loss'] == 'L1':
             loss = torch.nn.L1Loss()
+        elif train_parameters['loss'] == 'custom':
+            loss = Custom_MSE_Loss()
         n_classes = 1
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -166,7 +179,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             activation = active
         )
     elif train_parameters['architecture'] == 'DeepLabV3+':
-        model = smp.DeepLabPlus(
+        model = smp.DeepLabV3Plus(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
             in_channels = 3,

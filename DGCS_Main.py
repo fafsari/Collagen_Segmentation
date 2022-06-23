@@ -96,9 +96,14 @@ nept_run['Classes'] = ann_classes
 nept_run['Target_Type'] = target_type
 
 
+# Something weird happening here, sometimes it will work fine but the trial will still be marked as failed and then 
+# on some trials it will pass an input of size (1,256,1,1) and fail
+def objective(trial, training_parameters, testing_parameters, model_params, model_dir, train_data, valid_data):
 
-def objective(trial, training_parameters, testing_parameters, model_params, model_dir, dataset_train, dataset_valid):
-
+    print(len(train_data))
+    print(type(train_data[0]))
+    dataset_train, dataset_valid = make_training_set('optimize',train_data[0],train_data[1],valid_data[0],valid_data[1],'nonbinary')
+    
     # Iterating through model_params
     for key,val in model_params.items():
         if val['type']==int:
@@ -113,8 +118,11 @@ def objective(trial, training_parameters, testing_parameters, model_params, mode
         prev_trials = pd.DataFrame(training_parameters)
         prev_trials.to_csv(model_dir+'/Trial_Parameters.csv')
     else:
-        prev_trials = pd.read_csv(model_dir+'/Trial_Parameters.csv',index_col = 0)
-        prev_trials = pd.concat([prev_trials,pd.DataFrame(training_parameters)],axis = 0)
+        try:
+            prev_trials = pd.read_csv(model_dir+'/Trial_Parameters.csv',index_col = 0)
+            prev_trials = pd.concat([prev_trials,pd.DataFrame(training_parameters)],axis = 0)
+        except pd.errors.EmptyDataError:
+            prev_trials = pd.DataFrame(training_parameters)
 
         prev_trials.to_csv(model_dir+'/Trial_Parameters.csv')
 
@@ -124,8 +132,8 @@ def objective(trial, training_parameters, testing_parameters, model_params, mode
 
     # Reading the metrics
     performance_vals = pd.read_csv(output_dir+'Testing_Output/Test_Metrics.csv')
-    performance_means = performance_vals.mean(axis = 0)
-    performance_stds = performance_vals.std(axis = 0)
+    performance_means = performance_vals.iloc[:,0:performance_vals.shape[1]-1].mean(axis = 0)
+    performance_stds = performance_vals.iloc[:,0:performance_vals.shape[1]-1].std(axis = 0)
     
     # If the target type is 'nonbinary' then there will only be one metric recorded
     if target_type=='nonbinary':
@@ -234,8 +242,7 @@ elif phase == 'test':
     
     Test_Network(ann_classes, model, dataset_test, output_dir,nept_run, test_parameters, target_type)
     
-#elif phase == 'optimize':
-else:
+elif phase == 'optimize':
     if not os.path.isdir(image_dir):
         
         all_paths = pd.read_csv(image_dir)
@@ -278,7 +285,9 @@ else:
     nept_run['N_Valid'] = len(valid_img_paths)
                 
         
-    dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type)
+    #dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type)
+    train_data = [train_img_paths,train_tar]
+    valid_data = [valid_img_paths,valid_tar]
 
     if target_type=='nonbinary':
         study = optuna.create_study(direction = 'minimize', study_name = 'Collagen_Segmentation')
@@ -286,7 +295,7 @@ else:
         study = optuna.create_study(direction = 'maximize',study_name = 'Collagen_Segmentation')
     
     neptune_callback = optuna_utils.NeptuneCallback(nept_run)
-    study.optimize(lambda trial: objective(trial,train_parameters,test_parameters, model_params,model_dir, dataset_train,dataset_valid),n_trials = 500, callbacks=[neptune_callback])
+    study.optimize(lambda trial: objective(trial,train_parameters,test_parameters, model_params,model_dir, train_data,valid_data),n_trials = 500, callbacks=[neptune_callback])
     nept_run.stop()
     
 

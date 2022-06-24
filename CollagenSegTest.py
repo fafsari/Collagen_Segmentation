@@ -107,7 +107,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
             testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[],'Specificity':[]})
         elif target_type =='nonbinary':
             metrics_calculator = []
-            testing_metrics_df = pd.DataFrame(data = {'MSE':[]})
+            testing_metrics_df = pd.DataFrame(data = {'MSE':[],'Norm_MSE':[]})
         
         # Setting up iterator to generate images from the validation dataset
         data_iterator = iter(test_dataloader)

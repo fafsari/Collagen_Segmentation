@@ -36,6 +36,17 @@ class Custom_MSE_Loss(torch.nn.Module):
         normed = (diff - torch.min(diff))/torch.max(diff)
         meaned = torch.mean(normed)
         return meaned
+
+class Custom_MSE_LossPlus(torch.nn.Module):
+    def __init__(self):
+        super(Custom_MSE_LossPlus,self).__init__()
+    
+    def forward(self,output,target):
+        diff = (output-target)**2
+        mean_square = torch.mean(diff)
+        normed = (diff-torch.min(diff))/torch.max(diff)
+        meaned = torch.mean(normed)
+        return mean_square+meaned
     
 
 def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_dir,target_type, train_parameters, nept_run):
@@ -66,8 +77,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
     nept_run['encoder'] = encoder
     nept_run['encoder_pre_train'] = encoder_weights
-    nept_run['Architecture'] = 'Unet++'
-    nept_run['Loss'] = 'MSE'
+    nept_run['Architecture'] = train_parameters['architecture']
+    nept_run['Loss'] = train_parameters['loss']
     nept_run['output_type'] = output_type
     
 

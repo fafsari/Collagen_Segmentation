@@ -44,7 +44,7 @@ def apply_colormap(img):
 
     return image
 
- """   
+"""   
  # This visualization function can be used for binary outputs
 def visualize(images,output_type):
     
@@ -154,8 +154,11 @@ def get_metrics(pred_mask,ground_truth,img_name,calculator,target_type):
         square_diff = (ground_truth.numpy()-pred_mask.numpy())**2
         mse = np.mean(square_diff)
 
-        metrics_row['MSE'] = [round(mse,4)]
+        norm_mse = (square_diff-np.min(square_diff))/np.max(square_diff)
+        norm_mse = np.mean(norm_mse)
 
+        metrics_row['MSE'] = [round(mse,4)]
+        metrics_row['Norm_MSE']=[round(norm_mse,4)]
     metrics_row['ImgLabel'] = img_name
 
     return metrics_row

@@ -23,129 +23,13 @@ import numpy as np
 from glob import glob
 
 import matplotlib.pyplot as plt
+from PIL import Image
 import pandas as pd
 
 import neptune.new as neptune
 
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
-
-
-
-def back_to_reality(tar):
-    
-    # Getting target array into right format
-    classes = np.shape(tar)[-1]
-    dummy = np.zeros((np.shape(tar)[0],np.shape(tar)[1]))
-    for value in range(classes):
-        mask = np.where(tar[:,:,value]!=0)
-        dummy[mask] = value
-
-    return dummy
-
-def apply_colormap(img):
-
-    n_classes = np.shape(img)[-1]
-
-    image = img[:,:,0]
-    for cl in range(1,n_classes):
-        image = np.concatenate((image, img[:,:,cl]),axis = 1)
-
-    return image
-    
-def visualize(images,output_type):
-    
-    n = len(images)
-    
-    for i,key in enumerate(images):
-
-        plt.subplot(1,n,i+1)
-        plt.xticks([])
-        plt.yticks([])
-        plt.title(key)
-        
-        if len(np.shape(images[key]))==4:
-            img = images[key][0,:,:,:]
-        else:
-            img = images[key]
-            
-        img = np.float32(np.moveaxis(img, source = 0, destination = -1))
-        if key == 'Pred_Mask' or key == 'Ground_Truth':
-            if output_type=='binary' or key == 'Ground_Truth':
-                #print('using back_to_reality')
-                img = back_to_reality(img)
-
-                plt.imshow(img)
-            if output_type == 'continuous' and not key == 'Ground_Truth':
-                #print('applying colormap')
-                img = apply_colormap(img)
-
-                plt.imshow(img,cmap='jet')
-        else:
-            plt.imshow(img)
-
-    return plt.gcf()
-
-def visualize_continuous(images,output_type):
-
-    n = len(images)
-    for i,key in enumerate(images):
-
-        plt.subplot(1,n,i+1)
-        plt.xticks([])
-        plt.yticks([])
-        plt.title(key)
-
-        if len(np.shape(images[key])) == 4:
-            img = images[key][0,:,:,:]
-        else:
-            img = images[key]
-
-        img = np.float32(img)
-
-        if np.shape(img)[0]<np.shape(img)[-1]:
-            img = np.moveaxis(img,source=0,destination=-1)
-
-        if key == 'Pred_Mask' or key == 'Ground_Truth':
-            img = apply_colormap(img)
-            plt.imshow(img,cmap='jet')
-
-        else:
-            plt.imshow(img)
-
-    return plt.gcf()
-
-def get_metrics(pred_mask,ground_truth,img_name,calculator,target_type):
-
-    metrics_row = {}
-
-    if target_type=='binary':
-        edited_gt = ground_truth[:,1,:,:]
-        edited_gt = torch.unsqueeze(edited_gt,dim = 1)
-        edited_pred = pred_mask[:,1,:,:]
-        edited_pred = torch.unsqueeze(edited_pred,dim = 1)
-
-            #print(f'edited pred_mask shape: {edited_pred.shape}')
-            #print(f'edited ground_truth shape: {edited_gt.shape}')
-            #print(f'Unique values prediction mask : {torch.unique(edited_pred)}')
-            #print(f'Unique values ground truth mask: {torch.unique(edited_gt)}')
-
-        acc, dice, precision, recall,specificity = calculator(edited_gt,torch.round(edited_pred))
-        metrics_row['Accuracy'] = [round(acc.numpy().tolist(),4)]
-        metrics_row['Dice'] = [round(dice.numpy().tolist(),4)]
-        metrics_row['Precision'] = [round(precision.numpy().tolist(),4)]
-        metrics_row['Recall'] = [round(recall.numpy().tolist(),4)]
-        metrics_row['Specificity'] = [round(specificity.numpy().tolist(),4)]
-        
-        #print(metrics_row)
-    elif target_type == 'nonbinary':
-        square_diff = (ground_truth.numpy()-pred_mask.numpy())**2
-        mse = np.mean(square_diff)
-
-        metrics_row['MSE'] = [round(mse,4)]
-
-    metrics_row['ImgLabel'] = img_name
-
-    return metrics_row
+from CollagenSegUtils import visualize_continuous, get_metrics
     
         
 def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_parameters, target_type):
@@ -261,14 +145,23 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
 
             img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
             
+            """
             if target_type=='binary':
                 fig = visualize(img_dict,output_type)
             elif target_type=='nonbinary':
-                fig = visualize_continuous(img_dict,output_type)       
+                fig = visualize_continuous(img_dict)       
+            """
+            fig = visualize_continuous(img_dict,output_type)
 
-            fig.savefig(test_output_dir+'Test_Example_'+input_name)
-            nept_run['testing/Testing_Output_'+input_name].upload(test_output_dir+'Test_Example_'+input_name)
-
+            # Different process for saving comparison figures vs. only predictions
+            if output_type=='comparison':
+                fig.savefig(test_output_dir+'Test_Example_'+input_name)
+                nept_run['testing/Testing_Output_'+input_name].upload(test_output_dir+'Test_Example_'+input_name)
+            elif output_type=='prediction':
+                im = Image.fromarray(fig.astype(np.uint8))
+                im.save(test_output_dir+'Test_Example_'+input_name.replace('.png','.tif'))
+                nept_run['testing/Testing_Output_'+input_name.replace('.png','.tif')].upload(test_output_dir+'Test_Example_'+input_name.replace('.png','.tif'))
+                
         # Used during hyperparameter optimization to compute objective value
         testing_metrics_df.to_csv(test_output_dir+'Test_Metrics.csv')
         

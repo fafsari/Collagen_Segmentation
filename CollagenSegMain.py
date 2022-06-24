@@ -33,8 +33,8 @@ import neptune.new.integrations.optuna as optuna_utils
 import optuna
 
 from Input_Pipeline import *
-from DGCS_Train import Training_Loop
-from DGCS_Test import Test_Network
+from CollagenSegTrain import Training_Loop
+from CollagenSegTest import Test_Network
 
 
 # Changing up from sys.argv to reading a specific set of input parameters

@@ -18,6 +18,7 @@ import segmentation_models_pytorch as smp
 from torch.utils.data import DataLoader
 
 import matplotlib.pyplot as plt
+from PIL import Image
 
 import pandas as pd
 from tqdm import tqdm
@@ -68,6 +69,9 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             loss = torch.nn.L1Loss()
         elif train_parameters['loss'] == 'custom':
             loss = Custom_MSE_Loss()
+        elif train_parameters['loss'] == 'custom+':
+            loss = Custom_MSE_LossPlus()
+
         n_classes = 1
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -80,6 +84,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     nept_run['Architecture'] = train_parameters['architecture']
     nept_run['Loss'] = train_parameters['loss']
     nept_run['output_type'] = output_type
+    nept_run['lr'] = train_parameters['lr']
     
 
     if train_parameters['architecture']=='Unet++':
@@ -244,17 +249,16 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 
-                """
-                if target_type=='binary':
-                    fig = visualize(img_dict,output_type)
-                elif target_type=='nonbinary':
-                    fig = visualize_continuous(img_dict)
-                """
-
                 fig = visualize_continuous(img_dict,output_type)
 
                 # Different process for saving comparison figures vs. only predictions
-                if output_type
+                if output_type == 'comparison':
+                    fig.savefig(output_dir+f'Training_Epoch_{i}_Example.png')
+                    nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.png')
+                elif output_type == 'prediction':
+                    im = Image.fromarray(fig.astype(np.uint8))
+                    im.save(output_dir+f'Training_Epoch_{i}_Example.tif')
+                    nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.tif')
 
                 fig.savefig(output_dir+f'Training_Epoch_{i}_Example.png')
                 nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.png')

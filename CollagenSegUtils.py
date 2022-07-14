@@ -20,6 +20,10 @@ import pandas as pd
 from PIL import Image
 
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
+from skimage.transform import resize
+from skimage.color import rgb2gray
+
+
 
 def back_to_reality(tar):
     
@@ -119,7 +123,7 @@ def visualize_continuous(images,output_type):
         pred_mask = np.float32(pred_mask)
 
         if np.shape(pred_mask)[0]<np.shape(pred_mask)[-1]:
-            pred_mask = np.moveaxis(img,source=0,destination = -1)
+            pred_mask = np.moveaxis(pred_mask,source=0,destination = -1)
 
         output_fig = apply_colormap(pred_mask)
 
@@ -162,6 +166,34 @@ def get_metrics(pred_mask,ground_truth,img_name,calculator,target_type):
     metrics_row['ImgLabel'] = img_name
 
     return metrics_row
+
+
+# Function to resize and apply any condensing transform like grayscale conversion
+def resize_special(img,output_size,transform):
+
+    if output_size[-1]==1:
+        img = resize(img,output_size,preserve_range=True,order=0,anti_aliasing=False)
+    else:
+        img = resize(img,output_size)
+
+        # Setting default size to 256,256,n_channels
+        if transform=='mean':
+
+            img = np.mean(img,axis = -1)
+            img = img[:,:,np.newaxis]
+
+        elif transform in ['red','green','blue']:
+            color_list = ['red','green','blue']
+            img = img[:,:,color_list.index(transform)]
+            img = img[:,:,np.newaxis]
+        elif transform == 'rgb2gray':
+
+            img = rgb2gray(img)
+            img = img[:,:,np.newaxis]
+
+
+    return img
+
 
 
 

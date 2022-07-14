@@ -58,6 +58,11 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     output_type = train_parameters['output_type']
     active = train_parameters['active']
 
+    if train_parameters['in_channels']==3:
+        in_channels = 3
+    else:
+        in_channels = 1
+
     if target_type=='binary':
         loss = smp.losses.DiceLoss(mode='binary')
         n_classes = len(ann_classes)
@@ -91,7 +96,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         model = smp.UnetPlusPlus(
                 encoder_name = encoder,
                 encoder_weights = encoder_weights,
-                in_channels = 3,
+                in_channels = in_channels,
                 classes = n_classes,
                 activation = active
                 )
@@ -99,7 +104,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         model = smp.Unet(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
-            in_channels = 3,
+            in_channels = in_channels,
             classes = n_classes,
             activation = active
         )
@@ -107,7 +112,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         model = smp.DeepLabV3(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
-            in_channels = 3,
+            in_channels = in_channels,
             classes = n_classes,
             activation = active
         )
@@ -115,7 +120,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         model = smp.DeepLabV3Plus(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
-            in_channels = 3,
+            in_channels = in_channels,
             classes = n_classes,
             activation = active
         )
@@ -123,7 +128,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         model = smp.MAnet(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
-            in_channels = 3,
+            in_channels = in_channels,
             classes = n_classes,
             activation = active
         )
@@ -133,9 +138,13 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     loss = loss.to(device)
     
     optimizer = torch.optim.Adam([
-            dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.01)
+            dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.001)
             ])
-    
+    """
+    optimizer = torch.optim.SGD([
+            dict(params = model.parameters(), lr = train_parameters['lr'])
+    ])
+    """
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience = 35)
 
     # Not sure if this is necessary or if torch.optim.Adam has a .to() method
@@ -152,6 +161,10 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     # Maximum number of epochs defined here as well as how many steps between model saves and example outputs
     epoch_num = train_parameters['epoch_num']
     save_step = train_parameters['save_step']
+
+    # Recording training and validation loss
+    train_loss_list = []
+    val_loss_list = []
     
     with tqdm(total = epoch_num, position = 0, leave = True, file = sys.stdout) as pbar:
 
@@ -200,6 +213,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             train_loss.backward()
             train_loss = train_loss.item()
 
+            train_loss_list.append(train_loss)
+
             if not 'current_k_fold' in train_parameters:
                 nept_run['training_loss'].log(train_loss)
             else:
@@ -221,6 +236,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                 val_preds = model(val_imgs)
                 val_loss = loss(val_preds,val_masks)
                 val_loss = val_loss.item()
+
+                val_loss_list.append(val_loss)
 
                 if not 'current_k_fold' in train_parameters:
                     nept_run['validation_loss'].log(val_loss)
@@ -266,6 +283,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     if not i%save_step==0:
         torch.save(model.state_dict(),model_dir+f'Collagen_Seg_Model_{i}.pth')
 
+    loss_df = pd.DataFrame(data = {'TrainingLoss':train_loss_list,'ValidationLoss':val_loss_list})
+    loss_df.to_csv(output_dir+'Training_Validation_Loss.csv')
     return model_dir+f'Collagen_Seg_Model_{i}.pth'
 
 

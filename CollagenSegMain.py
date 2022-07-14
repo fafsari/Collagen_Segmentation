@@ -59,6 +59,7 @@ if phase == 'train':
 elif phase == 'test':
     model_file = input_parameters['model_file']
     test_parameters = parameters['testing_parameters']
+    label_dir = input_parameters['label_dir']
     
     ann_classes = test_parameters['ann_classes']
 
@@ -83,10 +84,12 @@ model_dir = output_dir+'/models/'
 if not os.path.isdir(model_dir):
     os.mkdir(model_dir)
 
+
 nept_run = neptune.init(
     project = 'spborder/AssortedSegmentations',
     source_files = ['**/*'],
     api_token = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjE3MzBiOS1lOGMwLTRmZjAtOGUyYS0yMGFlMmM4ZTRkMzMifQ==')
+
 
 nept_run['image_dir'] = image_dir
 nept_run['label_dir'] = label_dir
@@ -102,7 +105,7 @@ def objective(trial, training_parameters, testing_parameters, model_params, mode
 
     print(len(train_data))
     print(type(train_data[0]))
-    dataset_train, dataset_valid = make_training_set('optimize',train_data[0],train_data[1],valid_data[0],valid_data[1],'nonbinary')
+    dataset_train, dataset_valid = make_training_set('optimize',train_data[0],train_data[1],valid_data[0],valid_data[1],'nonbinary',training_parameters)
     
     # Iterating through model_params
     for key,val in model_params.items():
@@ -183,7 +186,7 @@ if phase == 'train':
         nept_run['N_Training'] = len(train_img_paths)
         nept_run['N_Valid'] = len(valid_img_paths)
         
-        dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type)
+        dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type,train_parameters)
         
         model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir, target_type, train_parameters, nept_run)
         
@@ -220,7 +223,7 @@ if phase == 'train':
             nept_run[f'{k_count}_Training_Set'].upload(neptune.types.File.as_html(k_training_set))
             nept_run[f'{k_count}_Testing_Set'].upload(neptune.types.File.as_html(k_testing_set))
     
-            dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,target_type)
+            dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,target_type,train_parameters)
             
             model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir,target_type, train_parameters, nept_run)
             
@@ -232,15 +235,15 @@ elif phase == 'test':
     image_paths = glob(image_dir+'*')
     label_paths = glob(label_dir+'*')
 
-    model = torch.load(model_file)
-    model = model.to(torch.device('cuda') if torch.cuda.is_available() else 'cpu')
+    #model = torch.load(model_file)
+    #model = model.to(torch.device('cuda') if torch.cuda.is_available() else 'cpu')
 
     valid_img_paths = image_paths
     valid_tar = image_paths
     
-    nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar, target_type)
+    nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar, target_type,test_parameters)
     
-    Test_Network(ann_classes, model, dataset_test, output_dir,nept_run, test_parameters, target_type)
+    Test_Network(ann_classes, model_file, dataset_test, output_dir,nept_run, test_parameters, target_type)
     
 elif phase == 'optimize':
     if not os.path.isdir(image_dir):

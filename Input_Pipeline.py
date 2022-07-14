@@ -28,6 +28,7 @@ import albumentations
 from skimage.transform import resize
 
 from Augmentation_Functions import *
+from CollagenSegUtils import resize_special
 
 # Input class with required len and getitem functions
 # in this case, the inputs and targets are lists of paths matching paths for image and segmentation ground-truth
@@ -71,6 +72,8 @@ class SegmentationDataSet(Dataset):
                 
                 if self.pre_transform is not None:
                     img, tar = self.pre_transform(img, tar)
+                    #print(f'Size of input image:{np.shape(img)}')
+                    #print(f'Size of target:{np.shape(tar)}')
                     
                 self.cached_data.append((img,tar))
                 self.cached_names.append(img_name)
@@ -141,40 +144,39 @@ def stupid_mask_thing(target):
 
     
 
-def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type):
+def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type,parameters):
  
+    color_transform = parameters['in_channels']
     if phase == 'train' or phase == 'optimize':
 
         if target_type=='binary':
             pre_transforms = ComposeDouble([
-                    FunctionWrapperDouble(resize,
+                    FunctionWrapperDouble(resize_special,
                                         input = True,
                                         target = False,
-                                        output_shape = (256,256,3)),
-                    FunctionWrapperDouble(resize,
+                                        output_size = (256,256,3),
+                                        transform = color_transform),
+                    FunctionWrapperDouble(resize_special,
                                         input = False,
                                         target = True,
-                                        output_shape = (256,256,3),
-                                        order = 0,
-                                        anti_aliasing = False,
-                                        preserve_range = True),
+                                        output_size = (256,256,3),
+                                        transform = color_transform),
                     FunctionWrapperDouble(stupid_mask_thing,
                                         input = False,
                                         target = True)
             ])
         elif target_type=='nonbinary':
             pre_transforms = ComposeDouble([
-                    FunctionWrapperDouble(resize,
+                    FunctionWrapperDouble(resize_special,
                                         input = True,
                                         target = False,
-                                        output_shape=(256,256,3)),
-                    FunctionWrapperDouble(resize,
+                                        output_size = (256,256,3),
+                                        transform = color_transform),
+                    FunctionWrapperDouble(resize_special,
                                         input = False,
                                         target = True,
-                                        output_shape = (256,256,1),
-                                        order = 0,
-                                        anti_aliasing = False,
-                                        preserve_range = True)
+                                        output_size = (256,256,1),
+                                        transform = color_transform)
             ])        
 
         if target_type=='binary':
@@ -226,19 +228,19 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
         
     elif phase == 'test':
         
+        color_transform = parameters['in_channels']
         if target_type=='binary':
             pre_transforms = ComposeDouble([
-            FunctionWrapperDouble(resize,
+            FunctionWrapperDouble(resize_special,
                                 input = True,
                                 target = False,
-                                output_shape = (256,256,3)),
-            FunctionWrapperDouble(resize,
+                                output_size = (256,256,3),
+                                transform = color_transform),
+            FunctionWrapperDouble(resize_special,
                                 input = False,
                                 target = True,
-                                output_shape = (256,256,3),
-                                order = 0,
-                                anti_aliasing = False,
-                                preserve_range = True),
+                                output_size = (256,256,3),
+                                transform = color_transform),
             FunctionWrapperDouble(stupid_mask_thing,
                                 input = False,
                                 target = True)
@@ -253,17 +255,16 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
         elif target_type=='nonbinary':
 
             pre_transforms = ComposeDouble([
-            FunctionWrapperDouble(resize,
+            FunctionWrapperDouble(resize_special,
                                 input = True,
                                 target = False,
-                                output_shape = (256,256,3)),
-            FunctionWrapperDouble(resize,
+                                output_size = (256,256,3),
+                                transform = color_transform),
+            FunctionWrapperDouble(resize_special,
                                 input = False,
                                 target = True,
-                                output_shape = (256,256,1),
-                                order = 0,
-                                anti_aliasing = False,
-                                preserve_range = True)
+                                output_size = (256,256,1),
+                                transform = color_transform)
             ])
             
             transforms_testing = ComposeDouble([

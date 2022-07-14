@@ -44,6 +44,11 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
     elif target_type == 'nonbinary':
         n_classes = 1
 
+    if test_parameters['in_channels'] == 3:
+        in_channels = 3
+    else:
+        in_channels = 1
+
     output_type = test_parameters['output_type']
 
     device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
@@ -52,7 +57,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
         model = smp.UnetPlusPlus(
                 encoder_name = encoder,
                 encoder_weights = encoder_weights,
-                in_channels = 3,
+                in_channels = in_channels,
                 classes = n_classes,
                 activation = active
                 )
@@ -60,7 +65,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
         model = smp.Unet(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
-            in_channels = 3,
+            in_channels = in_channels,
             classes = n_classes,
             activation = active
         )
@@ -68,7 +73,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
         model = smp.DeepLabV3(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
-            in_channels = 3,
+            in_channels = in_channels,
             classes = n_classes,
             activation = active
         )
@@ -76,7 +81,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
         model = smp.DeepLabV3Plus(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
-            in_channels = 3,
+            in_channels = in_channels,
             classes = n_classes,
             activation = active
         )
@@ -84,7 +89,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
         model = smp.MAnet(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
-            in_channels = 3,
+            in_channels = in_channels,
             classes = n_classes,
             activation = active
         )
@@ -126,9 +131,9 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
             # Add something here so that it calculates perforance metrics and outputs
             # raw values for 2-class segmentation(not binarized output masks)
 
-            if output_type=='binary':        
+            if target_type=='binary':        
                 target_img = target.cpu().numpy().round()
-            else:
+            elif target_type=='nonbinary':
                 target_img = target.cpu().numpy()
 
             pred_mask = model.predict(image.to(device))
@@ -138,19 +143,13 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
 
             testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
             
-            if output_type == 'binary':
+            if target_type == 'binary':
                 pred_mask_img = pred_mask.detach().cpu().numpy().round()
-            else:
+            elif target_type=='nonbinary':
                 pred_mask_img = pred_mask.detach().cpu().numpy()
 
             img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
             
-            """
-            if target_type=='binary':
-                fig = visualize(img_dict,output_type)
-            elif target_type=='nonbinary':
-                fig = visualize_continuous(img_dict)       
-            """
             fig = visualize_continuous(img_dict,output_type)
 
             # Different process for saving comparison figures vs. only predictions
@@ -158,9 +157,9 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
                 fig.savefig(test_output_dir+'Test_Example_'+input_name)
                 nept_run['testing/Testing_Output_'+input_name].upload(test_output_dir+'Test_Example_'+input_name)
             elif output_type=='prediction':
-                im = Image.fromarray(fig.astype(np.uint8))
-                im.save(test_output_dir+'Test_Example_'+input_name.replace('.png','.tif'))
-                nept_run['testing/Testing_Output_'+input_name.replace('.png','.tif')].upload(test_output_dir+'Test_Example_'+input_name.replace('.png','.tif'))
+                im = Image.fromarray((fig*255).astype(np.uint8))
+                im.save(test_output_dir+'Test_Example_'+input_name.replace('.jpg','.tif'))
+                nept_run['testing/Testing_Output_'+input_name.replace('.jpg','.tif')].upload(test_output_dir+'Test_Example_'+input_name.replace('.jpg','.tif'))
                 
         # Used during hyperparameter optimization to compute objective value
         testing_metrics_df.to_csv(test_output_dir+'Test_Metrics.csv')

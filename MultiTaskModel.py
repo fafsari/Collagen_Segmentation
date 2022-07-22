@@ -28,7 +28,7 @@ class MultiTaskLoss(nn.Module):
         # Binary loss portion
         bin_out = output[:,0,:,:]
         bin_tar = target[:,0,:,:]
-        bin_loss = self.bin_loss(bin_out,bin_tar)
+        bin_loss = self.bin_loss(bin_out.type(torch.long),bin_tar)
 
         # Regression loss portion
         reg_out = output[:,1,:,:]

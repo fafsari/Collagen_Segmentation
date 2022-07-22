@@ -49,10 +49,13 @@ class SegmentationDataSet(Dataset):
         self.targets = targets
         self.transform = transform
         self.inputs_dtype = torch.float32
-        if target_type == 'binary':
-            self.targets_dtype = torch.long
-        elif target_type == 'nonbinary':
+        if type(target_type)==list:
             self.targets_dtype = torch.float32
+        else:
+            if target_type == 'binary':
+                self.targets_dtype = torch.long
+            elif target_type == 'nonbinary':
+                self.targets_dtype = torch.float32
         
         # increasing dataset loading efficiency
         self.use_cache = use_cache
@@ -64,16 +67,23 @@ class SegmentationDataSet(Dataset):
             
             progressbar = tqdm(range(len(self.inputs)), desc = 'Caching')
             for i, img_name, tar_name in zip(progressbar, self.inputs, self.targets):
-                if 'tif' in tar_name:
-                    img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')
+                if type(tar_name)==list:
+                    img, tar1, tar2 = imread(str(img_name)), imread(str(tar_name[0])), imread(str(tar_name[1]),plugin='pil')
 
-                else:
-                    img, tar = imread(str(img_name)), imread(str(tar_name))
+                    if self.pre_transform is not None:
+                        img, tar = self.pre_transform(img,tar1,tar2)
                 
-                if self.pre_transform is not None:
-                    img, tar = self.pre_transform(img, tar)
-                    #print(f'Size of input image:{np.shape(img)}')
-                    #print(f'Size of target:{np.shape(tar)}')
+                else:
+                    if 'tif' in tar_name:
+                        img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')
+
+                    else:
+                        img, tar = imread(str(img_name)), imread(str(tar_name))
+                    
+                    if self.pre_transform is not None:
+                        img, tar = self.pre_transform(img, tar)
+                        #print(f'Size of input image:{np.shape(img)}')
+                        #print(f'Size of target:{np.shape(tar)}')
                     
                 self.cached_data.append((img,tar))
                 self.cached_names.append(img_name)
@@ -103,6 +113,7 @@ class SegmentationDataSet(Dataset):
             x, y = self.transform(x, y)
             
         # Getting in the right input/target data types
+
         x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
         
         return x, y, input_ID

@@ -109,6 +109,22 @@ class FunctionWrapperDouble(Repr):
         if self.target: tar = self.function(tar)
         return inp, tar
 
+# Special case with multiple targets
+class FunctionWrapperTriple(Repr):
+
+    def __init__(self, function: Callable, input: bool = True, target1: bool = False, target2: bool = False, *args, **kwargs):
+        from functools import partial
+        self.function = partial(function,*args,**kwargs)
+        self.input = input
+        self.target1 = target1
+        self.target2 = target2
+
+    def __call__(self, inp: np.ndarray, tar1: dict, tar2: dict):
+        if self.input: inp = self.function(inp)
+        if self.target1 and self.target2: tar = self.function(tar1,tar2)
+        #if self.target2: tar2 = self.function(tar2)
+        return inp, tar
+
 # Composing multiple transforms together
 class Compose:
     

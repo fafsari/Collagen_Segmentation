@@ -35,7 +35,7 @@ class MultiTaskLoss(nn.Module):
         reg_tar = target[:,1,:,:]
         reg_loss = self.reg_loss(reg_out,reg_tar)
 
-        return bin_loss+reg_loss
+        return bin_loss, reg_loss
 
 
 class MultiTaskModel(nn.Module):
@@ -146,20 +146,3 @@ def make_multi_training_set(phase,train_img_paths,train_bin_tar,train_reg_tar,va
     return dataset_train, dataset_valid
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        

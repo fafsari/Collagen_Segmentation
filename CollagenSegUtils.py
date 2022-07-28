@@ -222,6 +222,33 @@ def get_metrics(pred_mask,ground_truth,img_name,calculator,target_type):
 
         metrics_row['MSE'] = [round(mse,4)]
         metrics_row['Norm_MSE']=[round(norm_mse,4)]
+
+    elif target_type == 'multi_task':
+        bin_gt = ground_truth[:,0,:,:]
+        bin_gt = torch.unsqueeze(bin_gt,dim=1)
+        bin_pred = pred_mask[:,0,:,:]
+        bin_pred = torch.unsqueeze(bin_pred,dim=1)
+
+        acc, dice, precision, recall, sensitivity = calculator(bin_gt,torch.round(bin_pred))
+        metrics_row['Accuracy'] = [round(acc.numpy().tolist(),4)]
+        metrics_row['Dice'] = [round(dice.numpy().tolist(),4)]
+        metrics_row['Precision'] = [round(precision.numpy().tolist(),4)]
+        metrics_row['Recall'] = [round(recall.numpy().tolist(),4)]
+        metrics_row['Specificity'] = [round(specificity.numpy().tolist(),4)]
+
+        reg_gt = ground_truth[:,1,:,:]
+        reg_pred = pred_mask[:,1,:,:]
+
+        square_diff = (reg_gt.numpy()-reg_pred.numpy())**2
+        mse = np.mean(square_diff)
+
+        norm_mse = (square_diff-np.min(square_diff))/np.max(square_diff)
+        norm_mse = np.mean(norm_mse)
+
+        metrics_row['MSE'] = [round(mse,4)]
+        metrics_row['Norm_MSE'] = [round(norm_mse,4)]
+
+
     metrics_row['ImgLabel'] = img_name
 
     return metrics_row

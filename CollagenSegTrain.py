@@ -24,7 +24,9 @@ import pandas as pd
 from tqdm import tqdm
 import sys
 
-from CollagenSegUtils import visualize_continuous
+from CollagenSegUtils import visualize_continuous, visualize_multi_task
+
+from MultiTaskModel import MultiTaskLoss, MultiTaskModel
 
 
 class Custom_MSE_Loss(torch.nn.Module):
@@ -90,6 +92,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     nept_run['Loss'] = train_parameters['loss']
     nept_run['output_type'] = output_type
     nept_run['lr'] = train_parameters['lr']
+    nept_run['multi_task'] = train_parameters['multi_task']
     
 
     if train_parameters['architecture']=='Unet++':
@@ -133,6 +136,13 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             activation = active
         )
     
+
+    if train_parameters['multi_task']:
+
+        model = MultiTaskModel({'unet_model':model})
+        loss = MultiTaskLoss()
+
+
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
     model = model.to(device)
     loss = loss.to(device)
@@ -140,15 +150,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     optimizer = torch.optim.Adam([
             dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.001)
             ])
-    """
-    optimizer = torch.optim.SGD([
-            dict(params = model.parameters(), lr = train_parameters['lr'])
-    ])
-    """
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience = 35)
 
-    # Not sure if this is necessary or if torch.optim.Adam has a .to() method
-    #optimizer = optimizer.to(device)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience = 35)
 
     batch_size = train_parameters['batch_size']
     train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 12)
@@ -196,14 +199,17 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             # Running predictions on training batch
             train_preds = model(train_imgs)
 
-            """
-            if target_type=='nonbinary':
-                train_preds = torch.squeeze(train_preds)
-                train_masks = torch.squeeze(train_masks)
-            """
-
             # Calculating loss
-            train_loss = loss(train_preds,train_masks)
+            if train_parameters['multi_task']:
+                bin_loss, reg_loss = loss(train_preds,train_masks)
+                nept_run['training_bin_loss'].log(bin_loss.item())
+                nept_run['training_reg_loss'].log(reg_loss.item())
+
+                train_loss = bin_loss+reg_loss
+
+            else:
+                train_loss = loss(train_preds,train_masks)
+
 
             # Printing max and min for training GTs and predictions
             #print(f'Min prediction: {np.min(train_preds.detach().cpu().numpy())}, Max prediction: {np.max(train_preds.detach().cpu().numpy())}')
@@ -234,7 +240,16 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                 val_masks = val_masks.to(device)
 
                 val_preds = model(val_imgs)
-                val_loss = loss(val_preds,val_masks)
+
+                if train_parameters['multi_task']:
+                    val_bin_loss, val_reg_loss = loss(val_preds,val_masks)
+                    nept_run['validation_bin_loss'].log(val_bin_loss.item())
+                    nept_run['validation_reg_loss'].log(val_reg_loss.item())
+
+                    val_loss = val_bin_loss+val_reg_loss
+                else:
+                    val_loss = loss(val_preds,val_masks)
+
                 val_loss = val_loss.item()
 
                 val_loss_list.append(val_loss)
@@ -266,19 +281,31 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 
-                fig = visualize_continuous(img_dict,output_type)
+                if train_parameters['multi_task']:
+                    fig = visualize_multi_task(img_dict,output_type)
+                else:
+                    fig = visualize_continuous(img_dict,output_type)
 
                 # Different process for saving comparison figures vs. only predictions
                 if output_type == 'comparison':
                     fig.savefig(output_dir+f'Training_Epoch_{i}_Example.png')
                     nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.png')
                 elif output_type == 'prediction':
-                    im = Image.fromarray(fig.astype(np.uint8))
-                    im.save(output_dir+f'Training_Epoch_{i}_Example.tif')
-                    nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.tif')
+                    if train_parameters['multi_task']:
+                        coll_im = Image.fromarray(fig[0].astype(np.uint8))
+                        coll_im.save(output_dir+f'Training_Epoch_{i}_collagen.tif')
+                        nept_run[f'Example_Output_{i}_collagen'].upload(output_dir+f'Training_Epoch_{i}_collagen.tif')
 
-                fig.savefig(output_dir+f'Training_Epoch_{i}_Example.png')
-                nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.png')
+                        bin_im = Image.fromarray(fig[1].astype(np.uint8))
+                        bin_im.save(output_dir+f'Training_Epoch_{i}_binary.tif')
+                        nept_run[f'Example_Output_{i}_binary'].upload(output_dir+f'Training_Epoch_{i}_binary.tif')
+                    else:
+                        im = Image.fromarray(fig.astype(np.uint8))
+                        im.save(output_dir+f'Training_Epoch_{i}_Example.tif')
+                        nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.tif')
+
+                #fig.savefig(output_dir+f'Training_Epoch_{i}_Example.png')
+                #nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.png')
 
     if not i%save_step==0:
         torch.save(model.state_dict(),model_dir+f'Collagen_Seg_Model_{i}.pth')

@@ -25,6 +25,7 @@ import numpy as np
 from glob import glob
 from math import floor
 import json
+from MultiTaskModel import make_multi_training_set
 
 from sklearn.model_selection import KFold
 
@@ -49,21 +50,35 @@ image_dir = input_parameters['image_dir']+'/'
 print(f'Phase is: {phase}')
 
 if phase == 'train':
-    label_dir = input_parameters['label_dir']+'/'
-    k_folds = input_parameters['k_folds']
     train_parameters = parameters['training_parameters']
     test_parameters = parameters['testing_parameters']
+
+    if train_parameters['multi_task']:
+        label_bin_dir = input_parameters['label_bin_dir']+'/'
+        label_reg_dir = input_parameters['label_reg_dir']+'/'
+    else:
+        label_dir = input_parameters['label_dir']+'/'
+    k_folds = input_parameters['k_folds']
+
 
     ann_classes = train_parameters['ann_classes']
 
 elif phase == 'test':
     model_file = input_parameters['model_file']
     test_parameters = parameters['testing_parameters']
-    label_dir = input_parameters['label_dir']
+
+    if test_parameters['multi_task']:
+        label_bin_dir = input_parameters['label_bin_dir']+'/'
+        label_reg_dir = input_parameters['label_reg_dir']+'/'
+    else:
+        label_dir = input_parameters['label_dir']
     
     ann_classes = test_parameters['ann_classes']
 
 elif phase == 'optimize':
+
+    #Add multi task here if you feel like it
+
     label_dir = input_parameters['label_dir']+'/'
     train_parameters = parameters['training_parameters']
     test_parameters = parameters['testing_parameters']
@@ -92,7 +107,11 @@ nept_run = neptune.init(
 
 
 nept_run['image_dir'] = image_dir
-nept_run['label_dir'] = label_dir
+try:
+    nept_run['label_dir'] = label_dir
+except:
+    nept_run['label_bin_dir'] = label_bin_dir
+    nept_run['label_reg_dir'] = label_reg_dir
 nept_run['output_dir'] = output_dir
 nept_run['model_dir'] = model_dir
 nept_run['Classes'] = ann_classes
@@ -101,6 +120,7 @@ nept_run['Target_Type'] = target_type
 
 # Something weird happening here, sometimes it will work fine but the trial will still be marked as failed and then 
 # on some trials it will pass an input of size (1,256,1,1) and fail
+"""
 def objective(trial, training_parameters, testing_parameters, model_params, model_dir, train_data, valid_data):
 
     print(len(train_data))
@@ -145,7 +165,7 @@ def objective(trial, training_parameters, testing_parameters, model_params, mode
         performance_sum = performance_means.sum()+performance_stds.sum()
 
     return performance_sum
-
+"""
 
 if phase == 'train':
     if not os.path.isdir(image_dir):
@@ -155,14 +175,29 @@ if phase == 'train':
         label_paths = all_paths[1].tolist()
     else:
         image_paths = glob(image_dir+'*')
-        label_paths_base = glob(label_dir+'*')
-        
-        # For when image and label paths don't line up
-        label_paths = []
-        label_names = [i.split('/')[-1] for i in label_paths_base]
-        for j in range(0,len(image_paths)):
-            image_name = image_paths[j].split('/')[-1]
-            label_paths.append(label_paths_base[label_names.index(image_name)])
+
+        if not train_parameters['multi_task']:
+            label_paths_base = glob(label_dir+'*')
+            
+            # For when image and label paths don't line up
+            label_paths = []
+            label_names = [i.split('/')[-1] for i in label_paths_base]
+            for j in range(0,len(image_paths)):
+                image_name = image_paths[j].split('/')[-1]
+                label_paths.append(label_paths_base[label_names.index(image_name)])
+        else:
+            label_bin_paths_base = glob(label_bin_dir+'*')
+            label_reg_paths_base = glob(label_reg_dir+'*')
+
+            label_bin_paths = []
+            label_bin_names = [i.split('/')[-1] for i in label_bin_paths_base]
+            label_reg_paths = []
+            label_reg_names = [i.split('/')[-1] for i in label_reg_paths_base]
+
+            for j in range(0,len(image_paths)):
+                image_name = image_paths[j].split('/')[-1]
+                label_bin_paths.append(label_bin_paths_base[label_bin_names.index(image_name)])
+                label_reg_paths.append(label_reg_paths_base[label_reg_names.index(image_name)])
 
     # Determining whether or not doing k-fold CV and proceeding to training loop
     if int(k_folds)==1:
@@ -176,8 +211,15 @@ if phase == 'train':
         train_img_paths = [image_paths[i] for i in train_idx]
         valid_img_paths = [image_paths[i] for i in val_idx]
         
-        train_tar = [label_paths[i] for i in train_idx]
-        valid_tar = [label_paths[i] for i in val_idx]
+        if train_parameters['multi_task']:
+            train_bin_tar = [label_bin_paths[i] for i in train_idx]
+            train_reg_tar = [label_reg_paths[i] for i in train_idx]
+            valid_bin_tar = [label_bin_paths[i] for i in val_idx]
+            valid_reg_tar = [label_reg_paths[i] for i in val_idx]
+
+        else:
+            train_tar = [label_paths[i] for i in train_idx]
+            valid_tar = [label_paths[i] for i in val_idx]
         
 
         print(f'Training image paths: {train_img_paths[0:4]}')
@@ -186,7 +228,11 @@ if phase == 'train':
         nept_run['N_Training'] = len(train_img_paths)
         nept_run['N_Valid'] = len(valid_img_paths)
         
-        dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type,train_parameters)
+        if train_parameters['multi_task']:
+            # slightly different inputs into the multi-task training set function compared to the regular
+            dataset_train, dataset_valid = make_multi_training_set(phase, train_img_paths, train_bin_tar, train_reg_tar, valid_img_paths, valid_bin_tar, valid_reg_tar)
+        else:
+            dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type,train_parameters)
         
         model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir, target_type, train_parameters, nept_run)
         
@@ -223,7 +269,10 @@ if phase == 'train':
             nept_run[f'{k_count}_Training_Set'].upload(neptune.types.File.as_html(k_training_set))
             nept_run[f'{k_count}_Testing_Set'].upload(neptune.types.File.as_html(k_testing_set))
     
-            dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,target_type,train_parameters)
+            if train_parameters['multi_task']:
+                dataset_train, dataset_valid = make_multi_training_set(phase, X_train, y_train, X_test, y_test, target_type, train_parameters)
+            else:
+                dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,target_type,train_parameters)
             
             model = Training_Loop(ann_classes, dataset_train, dataset_valid,model_dir, output_dir,target_type, train_parameters, nept_run)
             

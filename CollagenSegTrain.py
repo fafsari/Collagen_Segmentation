@@ -60,26 +60,33 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     output_type = train_parameters['output_type']
     active = train_parameters['active']
 
+    if active=='None':
+        active = None
+
     if train_parameters['in_channels']==3:
         in_channels = 3
     else:
         in_channels = 1
 
-    if target_type=='binary':
-        loss = smp.losses.DiceLoss(mode='binary')
-        n_classes = len(ann_classes)
+    if not train_parameters['multi_task']:
+        if target_type=='binary':
+            loss = smp.losses.DiceLoss(mode='binary')
+            n_classes = len(ann_classes)
 
-    elif target_type=='nonbinary':
-        if train_parameters['loss']=='MSE':
-            loss = torch.nn.MSELoss(reduction='mean')
-        elif train_parameters['loss'] == 'L1':
-            loss = torch.nn.L1Loss()
-        elif train_parameters['loss'] == 'custom':
-            loss = Custom_MSE_Loss()
-        elif train_parameters['loss'] == 'custom+':
-            loss = Custom_MSE_LossPlus()
+        elif target_type=='nonbinary':
+            if train_parameters['loss']=='MSE':
+                loss = torch.nn.MSELoss(reduction='mean')
+            elif train_parameters['loss'] == 'L1':
+                loss = torch.nn.L1Loss()
+            elif train_parameters['loss'] == 'custom':
+                loss = Custom_MSE_Loss()
+            elif train_parameters['loss'] == 'custom+':
+                loss = Custom_MSE_LossPlus()
 
-        n_classes = 1
+            n_classes = 1
+    else:
+        loss = MultiTaskLoss()
+        n_classes = 2
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Is training on GPU available? : {torch.cuda.is_available()}')

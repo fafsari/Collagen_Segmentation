@@ -65,7 +65,7 @@ class combine_targets(Compose):
 
 
 # Special make_training_set to deal with the multiple masks for each image
-def make_multi_training_set(phase,train_img_paths,train_bin_tar,train_reg_tar,valid_img_paths,valid_bin_tar,valid_reg_tar,parameters):
+def make_multi_training_set(phase,train_img_paths,train_bin_tar,train_reg_tar,valid_img_paths,valid_bin_tar,valid_reg_tar):
 
     if phase=='train':
 

@@ -105,8 +105,6 @@ def visualize_multi_task(images,output_type):
 
     return fig
 
-
-
 """   
  # This visualization function can be used for binary outputs
 def visualize(images,output_type):

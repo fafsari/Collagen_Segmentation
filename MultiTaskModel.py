@@ -58,10 +58,15 @@ class MultiTaskModel(nn.Module):
 
         return torch.cat((bin_out,reg_out),dim=1)
 
-
+"""
 class combine_targets(Compose):
     def __call__(self,bin_target,reg_target):
         return np.concatenate((bin_target,reg_target),axis=-1)
+"""
+def combine_targets(bin_target, reg_target):
+    catted = np.concatenate((np.expand_dims(bin_target,axis=2),np.expand_dims(reg_target,axis=2)),axis=-1)
+    print(catted.shape)
+    return catted
 
 
 # Special make_training_set to deal with the multiple masks for each image
@@ -69,22 +74,26 @@ def make_multi_training_set(phase,train_img_paths,train_bin_tar,train_reg_tar,va
 
     if phase=='train':
 
-        pre_transforms = ComposeDouble([
-            FunctionWrapperTriple(combine_targets,
-                                input = False,
-                                target1 = True,
-                                target2 = True),
-            FunctionWrapperDouble(resize,
-                                input = True,
-                                target = False,
-                                output_size = (512,512,3),
-                                ),
-            FunctionWrapperDouble(resize,
-                                input = False,
-                                target = True,
-                                output_size = (512,512,2)
-                                )
-        ])
+        pre_transforms = [
+            ComposeTriple([
+                FunctionWrapperTriple(combine_targets,
+                                    input = False,
+                                    target1 = True,
+                                    target2 = True)
+                    ]),
+            ComposeDouble([
+                FunctionWrapperDouble(resize,
+                                    input = True,
+                                    target = False,
+                                    output_shape = (512,512,3),
+                                    ),
+                FunctionWrapperDouble(resize,
+                                    input = False,
+                                    target = True,
+                                    output_shape = (512,512,2)
+                                    )
+                ])
+        ]
 
         transforms_training = ComposeDouble([
             AlbuSeg2d(A.HorizontalFlip(p=0.5)),
@@ -113,22 +122,26 @@ def make_multi_training_set(phase,train_img_paths,train_bin_tar,train_reg_tar,va
                                             pre_transform = pre_transforms)
 
     elif phase=='test':
-        pre_transforms = ComposeDouble([
-            FunctionWrapperTriple(combine_targets,
-                                input = False,
-                                target1 = True,
-                                target2 = True),
-            FunctionWrapperDouble(resize,
-                                input = True,
-                                target = False,
-                                output_size = (512,512,3),
-                                ),
-            FunctionWrapperDouble(resize,
-                                input = False,
-                                target = True,
-                                output_size = (512,512,2)
-                                )
-        ])
+        pre_transforms = [
+            ComposeTriple([
+                FunctionWrapperTriple(combine_targets,
+                                    input = False,
+                                    target1 = True,
+                                    target2 = True)
+                ]),
+            ComposeDouble([
+                FunctionWrapperDouble(resize,
+                                    input = True,
+                                    target = False,
+                                    output_shape = (512,512,3),
+                                    ),
+                FunctionWrapperDouble(resize,
+                                    input = False,
+                                    target = True,
+                                    output_shape = (512,512,2)
+                                    )
+                ])
+        ]
 
         transforms_testing = ComposeDouble([
             FunctionWrapperDouble(np.moveaxis, iniput = True, target = True, source = -1, destination = 0),

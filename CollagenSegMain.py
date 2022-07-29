@@ -221,9 +221,8 @@ if phase == 'train':
             train_tar = [label_paths[i] for i in train_idx]
             valid_tar = [label_paths[i] for i in val_idx]
         
-
-        print(f'Training image paths: {train_img_paths[0:4]}')
-        print(f'Training mask paths: {train_tar[0:4]}')
+        #print(f'Training image paths: {train_img_paths[0:4]}')
+        #print(f'Training mask paths: {train_tar[0:4]}')
 
         nept_run['N_Training'] = len(train_img_paths)
         nept_run['N_Valid'] = len(valid_img_paths)

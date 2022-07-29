@@ -132,6 +132,13 @@ class Compose:
         self.transforms = transforms
         
     def __repr__(self): return str([transform for transform in self.transforms])
+
+class ComposeTriple(Compose):
+
+    def __call__(self, inp: np.ndarray, target1: dict, target2: dict):
+        for t in self.transforms:
+            inp, target = t(inp, target1, target2)
+        return inp, target
     
 # When there are input-target pairs
 class ComposeDouble(Compose):

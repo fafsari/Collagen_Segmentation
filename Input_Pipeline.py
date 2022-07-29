@@ -71,8 +71,12 @@ class SegmentationDataSet(Dataset):
                     img, tar1, tar2 = imread(str(img_name)), imread(str(tar_name[0])), imread(str(tar_name[1]),plugin='pil')
 
                     if self.pre_transform is not None:
-                        img, tar = self.pre_transform(img,tar1,tar2)
-                
+                        img, tar = [],[]
+                        for p_t in self.pre_transform:
+                            try:
+                                img, tar = p_t(img,tar1,tar2)
+                            except TypeError:
+                                img, tar = p_t(img,tar)            
                 else:
                     if 'tif' in tar_name:
                         img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')

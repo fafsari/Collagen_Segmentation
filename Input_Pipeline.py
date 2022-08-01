@@ -51,7 +51,9 @@ class SegmentationDataSet(Dataset):
         self.inputs_dtype = torch.float32
         if type(target_type)==list:
             self.targets_dtype = torch.float32
+            self.multi_task = True
         else:
+            self.multi_task = False
             if target_type == 'binary':
                 self.targets_dtype = torch.long
             elif target_type == 'nonbinary':
@@ -66,18 +68,21 @@ class SegmentationDataSet(Dataset):
             self.cached_names = []
             
             progressbar = tqdm(range(len(self.inputs)), desc = 'Caching')
-            for i, img_name, tar_name in zip(progressbar, self.inputs, self.targets):
-                if type(tar_name)==list:
-                    img, tar1, tar2 = imread(str(img_name)), imread(str(tar_name[0])), imread(str(tar_name[1]),plugin='pil')
-
+            if self.multi_task:
+                for i, img_name, tar1_name, tar2_name in zip(progressbar, self.inputs, self.targets[0],self.targets[1]):
+                    img, tar1, tar2 = imread(str(img_name)), imread(str(tar1_name)), imread(str(tar2_name),plugin='pil')
+                    tar = None
                     if self.pre_transform is not None:
-                        img, tar = [],[]
                         for p_t in self.pre_transform:
                             try:
-                                img, tar = p_t(img,tar1,tar2)
+                                img, tar = p_t(img, tar1,tar2)
                             except TypeError:
-                                img, tar = p_t(img,tar)            
-                else:
+                                img, tar = p_t(img, tar)
+                    self.cached_data.append((img,tar))
+                    self.cached_names.append(img_name)
+            else:
+                for i, img_name, tar_name in zip(progressbar, self.inputs, self.targets):
+
                     if 'tif' in tar_name:
                         img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')
 
@@ -86,11 +91,12 @@ class SegmentationDataSet(Dataset):
                     
                     if self.pre_transform is not None:
                         img, tar = self.pre_transform(img, tar)
-                        #print(f'Size of input image:{np.shape(img)}')
-                        #print(f'Size of target:{np.shape(tar)}')
-                    
-                self.cached_data.append((img,tar))
-                self.cached_names.append(img_name)
+
+                        
+                    self.cached_data.append((img,tar))
+                    self.cached_names.append(img_name)
+
+                print(f'Cached Data: {len(self.cached_data)}')
         
     def __len__(self):
         return len(self.inputs)

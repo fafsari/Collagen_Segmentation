@@ -41,6 +41,9 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
     ann_classes = classes
     active = test_parameters['active']
 
+    if active == 'None':
+        active = None
+
     if target_type=='binary':
         n_classes = len(ann_classes)
     elif target_type == 'nonbinary':
@@ -139,20 +142,26 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
 
             # Add something here so that it calculates perforance metrics and outputs
             # raw values for 2-class segmentation(not binarized output masks)
+            pred_mask = model.predict(image.to(device))
 
             if target_type=='binary':        
                 target_img = target.cpu().numpy().round()
+
+                testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
+
             elif target_type=='nonbinary':
                 target_img = target.cpu().numpy()
+
+                testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
+
             elif test_parameters['multi_task']:
                 target_img = target.cpu().numpy()
+                testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,'multi_task')),ignore_index=True)
 
-            pred_mask = model.predict(image.to(device))
 
             #print(f'pred_mask size: {np.shape(pred_mask.detach().cpu().numpy())}')
             #print(f'target size: {np.shape(target.cpu().numpy())}')
 
-            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,'multi_task')),ignore_index=True)
             
             if target_type == 'binary':
                 pred_mask_img = pred_mask.detach().cpu().numpy().round()

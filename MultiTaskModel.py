@@ -20,18 +20,26 @@ class MultiTaskLoss(nn.Module):
     def __init__(self):
         super(MultiTaskLoss,self).__init__()
 
-        self.bin_loss = nn.DiceLoss(mode='binary')
         self.reg_loss = nn.MSELoss(reduction='mean')
+
+    def dice_loss(self,input, target):
+        smooth = 1
+
+        iflat = input.view(-1)
+        tflat = target.view(-1)
+        intersection = (iflat * tflat).sum()
+
+        return 1-((2. *intersection+smooth)/(iflat.sum()+tflat.sum()+smooth))
 
     def forward(self,output,target):
 
         # Binary loss portion
-        bin_out = output[:,0,:,:]
+        bin_out = output[0,:,:]
         bin_tar = target[:,0,:,:]
-        bin_loss = self.bin_loss(bin_out.type(torch.long),bin_tar)
+        bin_loss = self.dice_loss(bin_out.type(torch.long),bin_tar)
 
         # Regression loss portion
-        reg_out = output[:,1,:,:]
+        reg_out = output[1,:,:]
         reg_tar = target[:,1,:,:]
         reg_loss = self.reg_loss(reg_out,reg_tar)
 
@@ -44,19 +52,22 @@ class MultiTaskModel(nn.Module):
 
         self.unet_model = multi_params['unet_model']        
 
-        self.bin_active = nn.SoftMax()
+        self.bin_active = nn.Softmax()
         self.reg_active = nn.Sigmoid()
         
     def forward(self,x):
 
         # First pass through initial model w/ ImageNet pretraining
         x = self.unet_model(x)
+        print(f'Output shape: {x.shape}')
 
         # Two different activations for output of model
-        bin_out = self.bin_active(x)
-        reg_out = self.reg_active(x)
+        bin_out = self.bin_active(x[:,0,:,:])
+        reg_out = self.reg_active(x[:,1,:,:])
+        combined = torch.cat((bin_out,reg_out),dim=0)
+        print(f'Combined Shape: {combined.shape}')
 
-        return torch.cat((bin_out,reg_out),dim=1)
+        return combined
 
 """
 class combine_targets(Compose):
@@ -65,7 +76,6 @@ class combine_targets(Compose):
 """
 def combine_targets(bin_target, reg_target):
     catted = np.concatenate((np.expand_dims(bin_target,axis=2),np.expand_dims(reg_target,axis=2)),axis=-1)
-    print(catted.shape)
     return catted
 
 
@@ -113,13 +123,14 @@ def make_multi_training_set(phase,train_img_paths,train_bin_tar,train_reg_tar,va
                                             transform = transforms_training,
                                             use_cache = True,
                                             pre_transform = pre_transforms,
-                                            )
+                                            target_type = ['binary','nonbinary'])
         
         dataset_valid = SegmentationDataSet(inputs = valid_img_paths,
                                             targets = [valid_bin_tar,valid_reg_tar],
                                             transform = transforms_validation,
                                             use_cache = True,
-                                            pre_transform = pre_transforms)
+                                            pre_transform = pre_transforms,
+                                            target_type = ['binary','nonbinary'])
 
     elif phase=='test':
         pre_transforms = [
@@ -154,7 +165,8 @@ def make_multi_training_set(phase,train_img_paths,train_bin_tar,train_reg_tar,va
                                             targets = [valid_bin_tar,valid_reg_tar],
                                             transform = transforms_testing,
                                             use_cache = True,
-                                            pre_transform = pre_transforms)
+                                            pre_transform = pre_transforms,
+                                            target_type = ['binary','nonbinary'])
 
     return dataset_train, dataset_valid
 

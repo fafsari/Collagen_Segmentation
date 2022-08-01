@@ -67,20 +67,28 @@ def visualize_multi_task(images,output_type):
                 img = images[current_key][0,:,:,:]
             else:
                 img = images[current_key]
-
-            img = np.moveaxis(img,source=0,destination=-1)
+            
+            if np.shape(img)[0]<np.shape(img)[-1]:
+                img = np.moveaxis(img,source=0,destination=-1)
             img = np.float32(img)
 
+            print(f'Image shape: {img.shape}')
+
             if image_keys[outer_ind]=='Image':
-                plt.imshow(images['Image'])
+                img_ax = subfig.add_subplot(1,1,1)
+                img_ax.imshow(img)
             else:
-                coll_img = apply_colormap(img[:,:,0])
-                neg_img = back_to_reality(img[:,:,1])
+                #coll_img = apply_colormap(img[:,:,0])
+                coll_img = 255*img[:,:,0]
+                neg_img = 255*img[:,:,1]
+                #neg_img = back_to_reality(img[:,:,1])
+                print(f'Collagen min/max: {np.min(coll_img)},{np.max(coll_img)}')
+                print(f'Negative image min/max: {np.min(neg_img)},{np.max(neg_img)}')
 
                 axs = subfig.subplots(1,2)
                 titles = ['Continuous','Binary']
                 sub_imgs = [coll_img,neg_img]
-                cmaps = ['jet',None]
+                cmaps = ['jet','jet']
                 for innerind,ax in enumerate(axs.flat):
                     ax.set_title(current_key+'_'+titles[innerind])
                     ax.set_xticks([])
@@ -99,8 +107,12 @@ def visualize_multi_task(images,output_type):
         if np.shape(pred_mask)[0]<np.shape(pred_mask)[-1]:
             pred_mask = np.moveaxis(pred_mask,source=0,destination = -1)
 
-        coll_output = apply_colormap(pred_mask[:,:,0])
-        neg_output = back_to_reality(pred_mask[:,:,1])
+        coll_output = 255*pred_mask[:,:,0]
+        neg_output = 255*pred_mask[:,:,1]
+
+        print(f'Collagen min/max: {np.min(coll_output)},{np.max(coll_output)}')
+        print(f'Negative image min/max: {np.min(neg_output)},{np.max(neg_output)}')
+
         fig = [coll_output,neg_output]
 
     return fig

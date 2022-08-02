@@ -21,6 +21,9 @@ class MultiTaskLoss(nn.Module):
         super(MultiTaskLoss,self).__init__()
 
         self.reg_loss = nn.MSELoss(reduction='mean')
+        self.balance_term = torch.FloatTensor([0.5])
+        self.balance_term = self.balance_term.to(torch.device('cuda'))
+        self.balance_term.requires_grad=True
 
     def dice_loss(self,input, target):
         smooth = 1
@@ -36,14 +39,16 @@ class MultiTaskLoss(nn.Module):
         # Binary loss portion
         bin_out = output[0,:,:]
         bin_tar = target[:,0,:,:]
-        bin_loss = self.dice_loss(bin_out.type(torch.long),bin_tar)
+
+        bin_loss = self.dice_loss(torch.round(bin_out).type(torch.long),torch.round(bin_tar).type(torch.long))
 
         # Regression loss portion
         reg_out = output[1,:,:]
         reg_tar = target[:,1,:,:]
         reg_loss = self.reg_loss(reg_out,reg_tar)
 
-        return bin_loss, reg_loss
+        balanced_loss = ((1-self.balance_term)*bin_loss) + (self.balance_term*reg_loss)
+        return bin_loss, reg_loss, balanced_loss
 
 
 class MultiTaskModel(nn.Module):
@@ -52,22 +57,27 @@ class MultiTaskModel(nn.Module):
 
         self.unet_model = multi_params['unet_model']        
 
-        self.bin_active = nn.Softmax()
+        #self.bin_active = nn.Softmax()
+        self.bin_active = nn.Sigmoid()
         self.reg_active = nn.Sigmoid()
         
     def forward(self,x):
 
         # First pass through initial model w/ ImageNet pretraining
         x = self.unet_model(x)
-        print(f'Output shape: {x.shape}')
+        #print(f'Output shape: {x.shape}')
 
         # Two different activations for output of model
         bin_out = self.bin_active(x[:,0,:,:])
         reg_out = self.reg_active(x[:,1,:,:])
         combined = torch.cat((bin_out,reg_out),dim=0)
-        print(f'Combined Shape: {combined.shape}')
+        #print(f'Combined Shape: {combined.shape}')
 
         return combined
+    
+    def predict(self,x):
+        x = self.forward(x)
+        return x
 
 """
 class combine_targets(Compose):

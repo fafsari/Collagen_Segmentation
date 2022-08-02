@@ -144,21 +144,29 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         )
     
 
+    optimizer = torch.optim.Adam([
+            dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.001)
+            ])
+
+
     if train_parameters['multi_task']:
 
         model = MultiTaskModel({'unet_model':model})
         loss = MultiTaskLoss()
 
+        scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
+                                                    cycle_momentum = False,
+                                                    base_lr = train_parameters['lr']/5,
+                                                    max_lr = train_parameters['lr']*5,
+                                                    step_size_up = 50)
+    else:
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience = 35)
+
 
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
     model = model.to(device)
     loss = loss.to(device)
-    
-    optimizer = torch.optim.Adam([
-            dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.001)
-            ])
 
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience = 35)
 
     batch_size = train_parameters['batch_size']
     train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 12)
@@ -208,11 +216,11 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
             # Calculating loss
             if train_parameters['multi_task']:
-                bin_loss, reg_loss = loss(train_preds,train_masks)
+                bin_loss, reg_loss, balanced_loss = loss(train_preds,train_masks)
                 nept_run['training_bin_loss'].log(bin_loss.item())
                 nept_run['training_reg_loss'].log(reg_loss.item())
 
-                train_loss = bin_loss+reg_loss
+                train_loss = balanced_loss
 
             else:
                 train_loss = loss(train_preds,train_masks)
@@ -249,16 +257,15 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                 val_preds = model(val_imgs)
 
                 if train_parameters['multi_task']:
-                    val_bin_loss, val_reg_loss = loss(val_preds,val_masks)
+                    val_bin_loss, val_reg_loss, val_balanced_loss = loss(val_preds,val_masks)
                     nept_run['validation_bin_loss'].log(val_bin_loss.item())
                     nept_run['validation_reg_loss'].log(val_reg_loss.item())
 
-                    val_loss = val_bin_loss+val_reg_loss
+                    val_loss = val_balanced_loss
                 else:
                     val_loss = loss(val_preds,val_masks)
 
                 val_loss = val_loss.item()
-
                 val_loss_list.append(val_loss)
 
                 if not 'current_k_fold' in train_parameters:
@@ -267,7 +274,10 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                     nept_run[f'validation_loss_{train_parameters["current_k_fold"]}'].log(val_loss)
 
             # Updating learning rate scheduler
-            scheduler.step(val_loss)
+            if train_parameters['multi_task']:
+                scheduler.step()
+            else:
+                scheduler.step(val_loss)
 
             # Saving model if current i is a multiple of "save_step"
             # Also generating example output segmentation and uploading that to Neptune

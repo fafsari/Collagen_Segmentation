@@ -44,11 +44,14 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
     if active == 'None':
         active = None
 
-    if target_type=='binary':
-        n_classes = len(ann_classes)
-    elif target_type == 'nonbinary':
-        n_classes = 1
-
+    if not test_parameters['multi_task']:
+        if target_type=='binary':
+            n_classes = len(ann_classes)
+        elif target_type == 'nonbinary':
+            n_classes = 1
+    else:
+        n_classes = 2
+        
     if test_parameters['in_channels'] == 3:
         in_channels = 3
     else:

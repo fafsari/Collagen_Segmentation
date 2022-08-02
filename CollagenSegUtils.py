@@ -72,18 +72,21 @@ def visualize_multi_task(images,output_type):
                 img = np.moveaxis(img,source=0,destination=-1)
             img = np.float32(img)
 
-            print(f'Image shape: {img.shape}')
+            #print(f'Image shape: {img.shape}')
 
             if image_keys[outer_ind]=='Image':
                 img_ax = subfig.add_subplot(1,1,1)
                 img_ax.imshow(img)
             else:
                 #coll_img = apply_colormap(img[:,:,0])
-                coll_img = 255*img[:,:,0]
-                neg_img = 255*img[:,:,1]
+                #print(f'Pre Rounding min: {np.min(img[:,:,0])}, max: {np.max(img[:,:,0])}, mean: {np.mean(img[:,:,0])}, std: {np.std(img[:,:,0])}')
+                neg_img = np.uint8(255*np.round(img[:,:,0]))
+                coll_img = np.uint8(255*img[:,:,1])
                 #neg_img = back_to_reality(img[:,:,1])
-                print(f'Collagen min/max: {np.min(coll_img)},{np.max(coll_img)}')
-                print(f'Negative image min/max: {np.min(neg_img)},{np.max(neg_img)}')
+                #print(f'On: {current_key}')
+                #print(f'Collagen min/max: {np.min(coll_img)},{np.max(coll_img)}')
+                #print(f'Negative image min/max: {np.min(neg_img)},{np.max(neg_img)}')
+                #print(f'mean:{np.mean(neg_img)}, std:{np.std(neg_img)}')
 
                 axs = subfig.subplots(1,2)
                 titles = ['Continuous','Binary']
@@ -107,8 +110,8 @@ def visualize_multi_task(images,output_type):
         if np.shape(pred_mask)[0]<np.shape(pred_mask)[-1]:
             pred_mask = np.moveaxis(pred_mask,source=0,destination = -1)
 
-        coll_output = 255*pred_mask[:,:,0]
-        neg_output = 255*pred_mask[:,:,1]
+        neg_output = 255*np.round(pred_mask[:,:,0])
+        coll_output = 255*pred_mask[:,:,1]
 
         print(f'Collagen min/max: {np.min(coll_output)},{np.max(coll_output)}')
         print(f'Negative image min/max: {np.min(neg_output)},{np.max(neg_output)}')

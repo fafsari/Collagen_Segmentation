@@ -21,9 +21,7 @@ class MultiTaskLoss(nn.Module):
         super(MultiTaskLoss,self).__init__()
 
         self.reg_loss = nn.MSELoss(reduction='mean')
-        self.balance_term = torch.FloatTensor([0.5])
-        self.balance_term = self.balance_term.to(torch.device('cuda'))
-        self.balance_term.requires_grad=True
+        self.balance_term = nn.Parameter(0.01*torch.ones(1))
 
     def dice_loss(self,input, target):
         smooth = 1
@@ -41,13 +39,13 @@ class MultiTaskLoss(nn.Module):
         bin_tar = target[:,0,:,:]
 
         bin_loss = self.dice_loss(torch.round(bin_out).type(torch.long),torch.round(bin_tar).type(torch.long))
-
         # Regression loss portion
         reg_out = output[1,:,:]
         reg_tar = target[:,1,:,:]
         reg_loss = self.reg_loss(reg_out,reg_tar)
 
         balanced_loss = ((1-self.balance_term)*bin_loss) + (self.balance_term*reg_loss)
+        print(f'Balance Term: {self.balance_term}')
         return bin_loss, reg_loss, balanced_loss
 
 

@@ -113,8 +113,8 @@ def visualize_multi_task(images,output_type):
         neg_output = 255*np.round(pred_mask[:,:,0])
         coll_output = 255*pred_mask[:,:,1]
 
-        print(f'Collagen min/max: {np.min(coll_output)},{np.max(coll_output)}')
-        print(f'Negative image min/max: {np.min(neg_output)},{np.max(neg_output)}')
+        #print(f'Collagen min/max: {np.min(coll_output)},{np.max(coll_output)}')
+        #print(f'Negative image min/max: {np.min(neg_output)},{np.max(neg_output)}')
 
         fig = [coll_output,neg_output]
 

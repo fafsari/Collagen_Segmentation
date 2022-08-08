@@ -143,23 +143,25 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             activation = active
         )
     
-
-    optimizer = torch.optim.Adam([
-            dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.001)
-            ])
-
-
     if train_parameters['multi_task']:
 
         model = MultiTaskModel({'unet_model':model})
         loss = MultiTaskLoss()
 
+        optimizer = torch.optim.Adam([
+                dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.001)
+                ])
+
         scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
                                                     cycle_momentum = False,
-                                                    base_lr = train_parameters['lr']/5,
-                                                    max_lr = train_parameters['lr']*5,
-                                                    step_size_up = 50)
+                                                    base_lr = train_parameters['lr']/2,
+                                                    max_lr = train_parameters['lr']*2,
+                                                    step_size_up = 100)
     else:
+
+        optimizer = torch.optim.Adam([
+                dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.001)
+                ])
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience = 35)
 
 

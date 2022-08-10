@@ -51,7 +51,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
             n_classes = 1
     else:
         n_classes = 2
-        
+
     if test_parameters['in_channels'] == 3:
         in_channels = 3
     else:
@@ -149,27 +149,19 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
 
             if target_type=='binary':        
                 target_img = target.cpu().numpy().round()
-
-                testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
-
-            elif target_type=='nonbinary':
-                target_img = target.cpu().numpy()
-
+                pred_mask_img = pred_mask.detach().cpu().numpy().round()
                 testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
 
             elif test_parameters['multi_task']:
                 target_img = target.cpu().numpy()
+                pred_mask_img = pred_mask.detach().cpu().numpy()
                 testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,'multi_task')),ignore_index=True)
-
-
-            #print(f'pred_mask size: {np.shape(pred_mask.detach().cpu().numpy())}')
-            #print(f'target size: {np.shape(target.cpu().numpy())}')
-
             
-            if target_type == 'binary':
-                pred_mask_img = pred_mask.detach().cpu().numpy().round()
             elif target_type=='nonbinary':
                 pred_mask_img = pred_mask.detach().cpu().numpy()
+                target_img = target.cpu().numpy()
+
+                testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
 
             img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
             

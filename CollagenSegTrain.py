@@ -148,9 +148,15 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         model = MultiTaskModel({'unet_model':model})
         loss = MultiTaskLoss()
 
+        """
+        # For learning value of parameter in loss (this can lead to the model only optimizing one loss)
         optimizer = torch.optim.Adam([
-                dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.001)
+                dict(params = list(model.parameters())+list(loss.parameters()), lr = train_parameters['lr'],weight_decay = 0.001)
                 ])
+        """
+        optimizer = torch.optim.Adam([
+                dict(params=model.parameters(), lr = train_parameters['lr'],weight_decay=0.001)
+        ])
 
         scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
                                                     cycle_momentum = False,
@@ -222,7 +228,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                 nept_run['training_bin_loss'].log(bin_loss.item())
                 nept_run['training_reg_loss'].log(reg_loss.item())
 
-                train_loss = balanced_loss
+                train_loss = balanced_loss + bin_loss + reg_loss
 
             else:
                 train_loss = loss(train_preds,train_masks)

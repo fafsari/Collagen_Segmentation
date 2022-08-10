@@ -21,7 +21,8 @@ class MultiTaskLoss(nn.Module):
         super(MultiTaskLoss,self).__init__()
 
         self.reg_loss = nn.MSELoss(reduction='mean')
-        self.balance_term = nn.Parameter(0.01*torch.ones(1))
+        #self.balance_term = nn.Parameter(torch.ones(1,requires_grad=True))
+        self.balance_term = torch.ones(1,requires_grad=True)
 
     def dice_loss(self,input, target):
         smooth = 1
@@ -31,22 +32,33 @@ class MultiTaskLoss(nn.Module):
         intersection = (iflat * tflat).sum()
 
         return 1-((2. *intersection+smooth)/(iflat.sum()+tflat.sum()+smooth))
+    
+    def combined_loss(self,bin_input, reg_input,target):
+        combined_input = reg_input*(1-bin_input)
+
+        return self.reg_loss(combined_input, target)
+
 
     def forward(self,output,target):
 
         # Binary loss portion
         bin_out = output[0,:,:]
-        bin_tar = target[:,0,:,:]
+        bin_tar = torch.squeeze(target[:,0,:,:])
+        #print(f'Binary target size: {bin_tar.shape}')
 
         bin_loss = self.dice_loss(torch.round(bin_out).type(torch.long),torch.round(bin_tar).type(torch.long))
         # Regression loss portion
         reg_out = output[1,:,:]
-        reg_tar = target[:,1,:,:]
+        reg_tar = torch.squeeze(target[:,1,:,:])
+        #print(f'Reg target size: {reg_tar.shape}')
         reg_loss = self.reg_loss(reg_out,reg_tar)
 
-        balanced_loss = ((1-self.balance_term)*bin_loss) + (self.balance_term*reg_loss)
-        print(f'Balance Term: {self.balance_term}')
-        return bin_loss, reg_loss, balanced_loss
+        #balanced_loss = ((1-self.balance_term)*bin_loss) + (self.balance_term*reg_loss)
+        #print(f'Balance Term: {self.balance_term}')
+
+        combined_loss = self.combined_loss(torch.round(bin_out).type(torch.int64),reg_out, reg_tar)
+
+        return 2*bin_loss, reg_loss, combined_loss
 
 
 class MultiTaskModel(nn.Module):

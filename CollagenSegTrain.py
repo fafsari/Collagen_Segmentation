@@ -50,6 +50,29 @@ class Custom_MSE_LossPlus(torch.nn.Module):
         normed = (diff-torch.min(diff))/torch.max(diff)
         meaned = torch.mean(normed)
         return mean_square+meaned
+
+class Custom_Plus_Plus_Loss(torch.nn.Module):
+    def __init__(self):
+        super(Custom_Plus_Plus_Loss,self).__init__()
+
+        self.MSE_Loss = torch.nn.MSELoss(reduction='mean')
+
+    def dice_loss(self, output, target):
+        numerator = (torch.round(output)*torch.round(target)).sum()
+        denominator = torch.round(output).sum() + torch.round(target).sum()
+        final = 1-(2*numerator)/(denominator+1e-7)
+
+        return final
+
+    def forward(self,output, target):
+
+        # MSE portion
+        mse_loss = self.MSE_Loss(output,target)
+
+        # Binary portion
+        bin_loss = self.dice_loss(output,target)
+
+        return mse_loss, bin_loss
     
 
 def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_dir,target_type, train_parameters, nept_run):
@@ -65,6 +88,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
     if train_parameters['in_channels']==3:
         in_channels = 3
+    elif train_parameters['in_channels']==6:
+        in_channels = 6
     else:
         in_channels = 1
 
@@ -82,6 +107,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                 loss = Custom_MSE_Loss()
             elif train_parameters['loss'] == 'custom+':
                 loss = Custom_MSE_LossPlus()
+            elif train_parameters['loss'] == 'custom++':
+                loss = Custom_Plus_Plus_Loss()
 
             n_classes = 1
     else:
@@ -168,7 +195,12 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         optimizer = torch.optim.Adam([
                 dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.001)
                 ])
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience = 35)
+        #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience = 35)
+        scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
+                                                    cycle_momentum = False,
+                                                    base_lr = train_parameters['lr']/2,
+                                                    max_lr = train_parameters['lr']*2,
+                                                    step_size_up = 100)
 
 
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
@@ -303,6 +335,9 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
                 if target_type=='binary':
                     current_pred = current_pred.round()
+
+                if in_channels == 6:
+                    current_img = np.concatenate((current_img[0:2,:,:],current_img[2:5,:,:]),axis=1)
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 

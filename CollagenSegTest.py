@@ -54,6 +54,8 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
 
     if test_parameters['in_channels'] == 3:
         in_channels = 3
+    elif test_parameters['in_channels'] == 6:
+        in_channels = 6
     else:
         in_channels = 1
 
@@ -127,7 +129,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
 
         elif test_parameters['multi_task']:
             metrics_calculator = BinaryMetrics()
-            testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[],'Specificity':[],'MSE':[],'Norm_MSE':[]})
+            testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[],'Specificity':[],'Sensitivity':[],'MSE':[],'Norm_MSE':[]})
         
         # Setting up iterator to generate images from the validation dataset
         data_iterator = iter(test_dataloader)
@@ -163,7 +165,13 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
 
                 testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
 
-            img_dict = {'Image':image.cpu().numpy(),'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
+            if in_channels==6:
+                image = image.cpu().numpy()
+                image = np.concatenate((image[0:2,:,:],image[2:5,:,:]),axis=1)
+            else:
+                image = image.cpu().numpy()
+                
+            img_dict = {'Image':image,'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
             
             if test_parameters['multi_task']:
                 fig = visualize_multi_task(img_dict,output_type)

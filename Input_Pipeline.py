@@ -87,7 +87,11 @@ class SegmentationDataSet(Dataset):
                         img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')
 
                     else:
-                        img, tar = imread(str(img_name)), imread(str(tar_name))
+                        if type(img_name)==list:
+                            img1,img2,tar = imread(str(img_name[0])), imread(str(img_name[1])),imread(str(tar_name))
+                            img = np.concatenate((img1,img2),axis=-1)
+                        else:
+                            img, tar = imread(str(img_name)), imread(str(tar_name))
                     
                     if self.pre_transform is not None:
                         img, tar = self.pre_transform(img, tar)
@@ -168,6 +172,11 @@ def stupid_mask_thing(target):
 def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type,parameters):
  
     color_transform = parameters['in_channels']
+    if parameters['in_channels'] == 6:
+        img_size = (512,512,6)
+    else:
+        img_size = (512,512,3)
+
     if phase == 'train' or phase == 'optimize':
 
         if target_type=='binary':
@@ -175,12 +184,12 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                     FunctionWrapperDouble(resize_special,
                                         input = True,
                                         target = False,
-                                        output_size = (512,512,3),
+                                        output_size = img_size,
                                         transform = color_transform),
                     FunctionWrapperDouble(resize_special,
                                         input = False,
                                         target = True,
-                                        output_size = (512,512,3),
+                                        output_size = img_size,
                                         transform = color_transform),
                     FunctionWrapperDouble(stupid_mask_thing,
                                         input = False,
@@ -191,7 +200,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                     FunctionWrapperDouble(resize_special,
                                         input = True,
                                         target = False,
-                                        output_size = (512,512,3),
+                                        output_size = img_size,
                                         transform = color_transform),
                     FunctionWrapperDouble(resize_special,
                                         input = False,
@@ -250,17 +259,23 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
     elif phase == 'test':
         
         color_transform = parameters['in_channels']
+
+        if parameters['in_channels']==6:
+            img_size = (512,512,6)
+        else:
+            img_size = (512,512,3)
+
         if target_type=='binary':
             pre_transforms = ComposeDouble([
             FunctionWrapperDouble(resize_special,
                                 input = True,
                                 target = False,
-                                output_size = (512,512,3),
+                                output_size = img_size,
                                 transform = color_transform),
             FunctionWrapperDouble(resize_special,
                                 input = False,
                                 target = True,
-                                output_size = (512,512,3),
+                                output_size = img_size,
                                 transform = color_transform),
             FunctionWrapperDouble(stupid_mask_thing,
                                 input = False,
@@ -279,7 +294,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             FunctionWrapperDouble(resize_special,
                                 input = True,
                                 target = False,
-                                output_size = (512,512,3),
+                                output_size = img_size,
                                 transform = color_transform),
             FunctionWrapperDouble(resize_special,
                                 input = False,

@@ -38,6 +38,12 @@ from CollagenSegTrain import Training_Loop
 from CollagenSegTest import Test_Network
 
 
+nept_run = neptune.init(
+    project = 'spborder/AssortedSegmentations',
+    #source_files = ['**/*'],
+    api_token = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjE3MzBiOS1lOGMwLTRmZjAtOGUyYS0yMGFlMmM4ZTRkMzMifQ==')
+
+
 # Changing up from sys.argv to reading a specific set of input parameters
 parameters_file = sys.argv[1]
 
@@ -45,7 +51,11 @@ parameters = json.load(open(parameters_file))
 input_parameters = parameters['input_parameters']
 
 phase = input_parameters['phase']
-image_dir = input_parameters['image_dir']+'/'
+if 'image_dir' in input_parameters:
+    image_dir = input_parameters['image_dir']+'/'
+elif 'f_image_dir' in input_parameters:
+    f_image_dir = input_parameters['f_image_dir']+'/'
+    b_image_dir = input_parameters['b_image_dir']+'/'
 
 print(f'Phase is: {phase}')
 
@@ -58,8 +68,8 @@ if phase == 'train':
         label_reg_dir = input_parameters['label_reg_dir']+'/'
     else:
         label_dir = input_parameters['label_dir']+'/'
-    k_folds = input_parameters['k_folds']
 
+    k_folds = input_parameters['k_folds']
 
     ann_classes = train_parameters['ann_classes']
 
@@ -99,14 +109,11 @@ model_dir = output_dir+'/models/'
 if not os.path.isdir(model_dir):
     os.mkdir(model_dir)
 
-
-nept_run = neptune.init(
-    project = 'spborder/AssortedSegmentations',
-    #source_files = ['**/*'],
-    api_token = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjE3MzBiOS1lOGMwLTRmZjAtOGUyYS0yMGFlMmM4ZTRkMzMifQ==')
-
-
-nept_run['image_dir'] = image_dir
+try:
+    nept_run['image_dir'] = image_dir
+except:
+    nept_run['f_image_dir'] = f_image_dir
+    nept_run['b_image_dir'] = b_image_dir
 try:
     nept_run['label_dir'] = label_dir
 except:
@@ -168,11 +175,29 @@ def objective(trial, training_parameters, testing_parameters, model_params, mode
 """
 
 if phase == 'train':
-    if not os.path.isdir(image_dir):
-        
-        all_paths = pd.read_csv(image_dir)
-        image_paths = all_paths[0].tolist()
-        label_paths = all_paths[1].tolist()
+
+    if 'image_dir' not in input_parameters:
+
+        f_image_paths_base = glob(f_image_dir+'*')
+        b_image_paths_base = glob(b_image_dir+'*')
+
+        label_paths_base = glob(label_dir+'*')
+
+        f_img_names = [i.split('/')[-1] for i in f_image_paths_base]
+        b_img_names = [i.split('/')[-1] for i in b_image_paths_base]
+        label_names = [i.split('/')[-1] for i in label_paths_base]
+
+        # Sorting by f image names (arbitrarily)
+        image_paths = []
+        label_paths = []
+        for idx,f in enumerate(f_img_names):
+            b_path = b_image_paths_base[b_img_names.index(f)]
+
+            image_paths.append([f_image_paths_base[idx],b_path])
+            l_path = label_paths_base[label_names.index(f)]
+            label_paths.append(l_path)
+
+
     else:
         image_paths = glob(image_dir+'*')
 

@@ -58,7 +58,7 @@ class MultiTaskLoss(nn.Module):
 
         combined_loss = self.combined_loss(torch.round(bin_out).type(torch.int64),reg_out, reg_tar)
 
-        return 2*bin_loss, reg_loss, combined_loss
+        return bin_loss, reg_loss, combined_loss
 
 
 class MultiTaskModel(nn.Module):
@@ -67,10 +67,9 @@ class MultiTaskModel(nn.Module):
 
         self.unet_model = multi_params['unet_model']        
 
-        #self.bin_active = nn.Softmax()
         self.bin_active = nn.Sigmoid()
         self.reg_active = nn.Sigmoid()
-        
+    
     def forward(self,x):
 
         # First pass through initial model w/ ImageNet pretraining
@@ -127,7 +126,7 @@ def make_multi_training_set(phase,train_img_paths,train_bin_tar,train_reg_tar,va
 
         transforms_training = ComposeDouble([
             AlbuSeg2d(A.HorizontalFlip(p=0.5)),
-            AlbuSeg2d(A.IAAPerspective(p=0.5)),
+            #AlbuSeg2d(A.IAAPerspective(p=0.5)),
             AlbuSeg2d(A.VerticalFlip(p=0.5)),
             FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
             FunctionWrapperDouble(normalize_01,input = True, target = True)

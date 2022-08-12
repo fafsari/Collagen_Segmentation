@@ -305,8 +305,28 @@ if phase == 'train':
 
 elif phase == 'test':
     
-    image_paths = glob(image_dir+'*')
-    label_paths = glob(label_dir+'*')
+    if 'image_dir' in input_parameters:
+        image_paths = glob(image_dir+'*')
+        label_paths = glob(label_dir+'*')
+    else:
+        f_image_paths_base = glob(f_image_dir+'*')
+        b_image_paths_base = glob(b_image_dir+'*')
+
+        label_paths_base = glob(label_dir+'*')
+
+        f_img_names = [i.split('/')[-1] for i in f_image_paths_base]
+        b_img_names = [i.split('/')[-1] for i in b_image_paths_base]
+        label_names = [i.split('/')[-1] for i in label_paths_base]
+
+        # Sorting by f image names (arbitrarily)
+        image_paths = []
+        label_paths = []
+        for idx,f in enumerate(f_img_names):
+            b_path = b_image_paths_base[b_img_names.index(f)]
+
+            image_paths.append([f_image_paths_base[idx],b_path])
+            l_path = label_paths_base[label_names.index(f)]
+            label_paths.append(l_path)
 
     #model = torch.load(model_file)
     #model = model.to(torch.device('cuda') if torch.cuda.is_available() else 'cpu')

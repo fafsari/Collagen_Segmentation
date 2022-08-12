@@ -167,10 +167,10 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
 
             if in_channels==6:
                 image = image.cpu().numpy()
-                image = np.concatenate((image[0:2,:,:],image[2:5,:,:]),axis=1)
+                image = np.concatenate((image[:,0:3,:,:],image[:,2:5,:,:]),axis=2)
             else:
                 image = image.cpu().numpy()
-                
+
             img_dict = {'Image':image,'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
             
             if test_parameters['multi_task']:

@@ -200,7 +200,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                                                     cycle_momentum = False,
                                                     base_lr = train_parameters['lr']/2,
                                                     max_lr = train_parameters['lr']*2,
-                                                    step_size_up = 100)
+                                                    step_size_up = 150)
 
 
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
@@ -262,6 +262,12 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
                 train_loss = balanced_loss + bin_loss + reg_loss
 
+            elif train_parameters['loss']=='custom++':
+                mse_loss,bin_loss = loss(train_preds,train_masks)
+                nept_run['training_reg_loss'].log(mse_loss.item())
+                nept_run['training_bin_loss'].log(bin_loss.item())
+
+                train_loss = mse_loss+bin_loss
             else:
                 train_loss = loss(train_preds,train_masks)
 
@@ -302,7 +308,13 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                     nept_run['validation_reg_loss'].log(val_reg_loss.item())
 
                     val_loss = val_balanced_loss
+                elif train_parameters['loss'] == 'custom++':
+                    val_mse_loss, val_bin_loss = loss(val_preds,val_masks)
+                    nept_run['validation_bin_loss'].log(val_bin_loss.item())
+                    nept_run['validation_reg_loss'].log(val_mse_loss.item())
+                    val_loss = val_mse_loss+val_bin_loss
                 else:
+
                     val_loss = loss(val_preds,val_masks)
 
                 val_loss = val_loss.item()
@@ -314,10 +326,14 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                     nept_run[f'validation_loss_{train_parameters["current_k_fold"]}'].log(val_loss)
 
             # Updating learning rate scheduler
+            """
+            # Use if the schedulers are different
             if train_parameters['multi_task']:
                 scheduler.step()
             else:
                 scheduler.step(val_loss)
+            """
+            scheduler.step()
 
             # Saving model if current i is a multiple of "save_step"
             # Also generating example output segmentation and uploading that to Neptune
@@ -337,7 +353,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                     current_pred = current_pred.round()
 
                 if in_channels == 6:
-                    current_img = np.concatenate((current_img[0:2,:,:],current_img[2:5,:,:]),axis=1)
+                    current_img = np.concatenate((current_img[:,0:3,:,:],current_img[:,2:5,:,:]),axis=2)
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 

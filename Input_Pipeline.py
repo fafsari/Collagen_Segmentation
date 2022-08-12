@@ -90,6 +90,7 @@ class SegmentationDataSet(Dataset):
                         if type(img_name)==list:
                             img1,img2,tar = imread(str(img_name[0])), imread(str(img_name[1])),imread(str(tar_name))
                             img = np.concatenate((img1,img2),axis=-1)
+                            img_name = img_name[0]
                         else:
                             img, tar = imread(str(img_name)), imread(str(tar_name))
                     
@@ -231,6 +232,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             transforms_training = ComposeDouble([
                 AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
                 AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
+                AlbuSeg2d(albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.5,rotate_limit=45,interpolation=1,p=0.1)),
                 AlbuSeg2d(albumentations.VerticalFlip(p=0.5)),
                 FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
                 FunctionWrapperDouble(normalize_01, input = True, target = True)

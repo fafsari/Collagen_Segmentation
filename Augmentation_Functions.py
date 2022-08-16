@@ -21,7 +21,7 @@ from sklearn.model_selection import train_test_split
 
 # Gets the input image into 0-1 range as opposed to 0-255
 def normalize_01(inp: np.ndarray):
-    
+
     inp_out = (inp - np.min(inp))/np.ptp(inp)
     
     return inp_out

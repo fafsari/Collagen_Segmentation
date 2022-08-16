@@ -89,7 +89,8 @@ class SegmentationDataSet(Dataset):
                     else:
                         if type(img_name)==list:
                             img1,img2,tar = imread(str(img_name[0])), imread(str(img_name[1])),imread(str(tar_name))
-                            img = np.concatenate((img1,img2),axis=-1)
+                            # Adding inversion to one of the images
+                            img = np.concatenate((255-img1,img2),axis=-1)
                             img_name = img_name[0]
                         else:
                             img, tar = imread(str(img_name)), imread(str(tar_name))
@@ -167,8 +168,6 @@ def stupid_mask_thing(target):
         
         
     return final
-
-    
 
 def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type,parameters):
  

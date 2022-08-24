@@ -56,6 +56,8 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
         in_channels = 3
     elif test_parameters['in_channels'] == 6:
         in_channels = 6
+    elif test_parameters['in_channels'] == 4:
+        in_channels = 4
     else:
         in_channels = 1
 
@@ -168,6 +170,9 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
             if in_channels==6:
                 image = image.cpu().numpy()
                 image = np.concatenate((image[:,0:3,:,:],image[:,2:5,:,:]),axis=2)
+            elif in_channels == 4:
+                image = image.cpu().numpy()
+                image = np.concatenate((np.stack((image[:,0,:,:],)*3,axis=1),image[:,0:3,:,:]),axis=2)
             else:
                 image = image.cpu().numpy()
 

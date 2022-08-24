@@ -158,7 +158,7 @@ def stupid_mask_thing(target):
         """
         
         # Fix for binary labels
-        new_target = np.zeros((256,256,2))
+        new_target = np.zeros((512,512,2))
         mask = np.where(target.sum(axis=-1)<100)
         new_target[:,:,0][mask] = 1
         mask = np.where(target.sum(axis=-1)>100)
@@ -174,8 +174,11 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
     color_transform = parameters['in_channels']
     if parameters['in_channels'] == 6:
         img_size = (512,512,6)
-    else:
+    elif parameters['in_channels'] == 3:
         img_size = (512,512,3)
+    elif parameters['in_channels'] == 4:
+        img_size = (512,512,4)
+    
 
     if phase == 'train' or phase == 'optimize':
 
@@ -189,7 +192,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                     FunctionWrapperDouble(resize_special,
                                         input = False,
                                         target = True,
-                                        output_size = img_size,
+                                        output_size = (512,512,3),
                                         transform = color_transform),
                     FunctionWrapperDouble(stupid_mask_thing,
                                         input = False,
@@ -263,6 +266,8 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
 
         if parameters['in_channels']==6:
             img_size = (512,512,6)
+        elif parameters['in_channels'] == 4:
+            img_size = (512,512,4)
         else:
             img_size = (512,512,3)
 
@@ -276,7 +281,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             FunctionWrapperDouble(resize_special,
                                 input = False,
                                 target = True,
-                                output_size = img_size,
+                                output_size = (512,512,3),
                                 transform = color_transform),
             FunctionWrapperDouble(stupid_mask_thing,
                                 input = False,

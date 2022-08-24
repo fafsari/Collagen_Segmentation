@@ -90,6 +90,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
         in_channels = 3
     elif train_parameters['in_channels']==6:
         in_channels = 6
+    elif train_parameters['in_channels']==4:
+        in_channels = 4
     else:
         in_channels = 1
 
@@ -354,6 +356,8 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
                 if in_channels == 6:
                     current_img = np.concatenate((current_img[:,0:3,:,:],current_img[:,2:5,:,:]),axis=2)
+                elif in_channels==4:
+                    current_img = np.concatenate((np.stack((current_img[:,0,:,:],)*3,axis=1),current_img[:,0:3,:,:]),axis=2)
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 

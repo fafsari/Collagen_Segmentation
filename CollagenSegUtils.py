@@ -274,6 +274,10 @@ def resize_special(img,output_size,transform):
 
     if output_size[-1]==1:
         img = resize(img,output_size,preserve_range=True,order=0,anti_aliasing=False)
+    elif output_size[-1] == 4:
+        # This is for when the normalized fluorescence comprises the first 3 channels
+        img = np.concatenate((np.expand_dims(np.mean(img[:,:,0:3],axis=-1),axis=-1),img[:,:,2:5]),axis = -1)
+        img = resize(img,output_size)
     else:
         img = resize(img,output_size)
 

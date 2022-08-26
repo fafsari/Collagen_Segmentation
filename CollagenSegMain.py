@@ -337,7 +337,7 @@ elif phase == 'test':
     nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar, target_type,test_parameters)
     
     Test_Network(ann_classes, model_file, dataset_test, output_dir,nept_run, test_parameters, target_type)
-    
+"""
 elif phase == 'optimize':
     if not os.path.isdir(image_dir):
         
@@ -393,5 +393,5 @@ elif phase == 'optimize':
     neptune_callback = optuna_utils.NeptuneCallback(nept_run)
     study.optimize(lambda trial: objective(trial,train_parameters,test_parameters, model_params,model_dir, train_data,valid_data),n_trials = 500, callbacks=[neptune_callback])
     nept_run.stop()
-    
+"""
 

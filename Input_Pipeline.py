@@ -156,12 +156,11 @@ def stupid_mask_thing(target):
         
         final = new_target
         """
-        
         # Fix for binary labels
         new_target = np.zeros((512,512,2))
-        mask = np.where(target.sum(axis=-1)<100)
+        mask = np.where(target.sum(axis=-1)==0)
         new_target[:,:,0][mask] = 1
-        mask = np.where(target.sum(axis=-1)>100)
+        mask = np.where(target.sum(axis=-1)==255)
         new_target[:,:,1][mask] = 1
         
         final = new_target

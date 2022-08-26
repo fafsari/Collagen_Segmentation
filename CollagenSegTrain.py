@@ -250,9 +250,6 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             train_imgs = train_imgs.to(device)
             train_masks = train_masks.to(device)
 
-            # Testing whether the images were actually sent to cuda
-            #print(f'Images are on device: {train_imgs.get_device()}')
-
             # Running predictions on training batch
             train_preds = model(train_imgs)
 

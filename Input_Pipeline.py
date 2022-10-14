@@ -90,7 +90,7 @@ class SegmentationDataSet(Dataset):
                         if type(img_name)==list:
                             img1,img2,tar = imread(str(img_name[0])), imread(str(img_name[1])),imread(str(tar_name))
                             # Adding inversion to one of the images
-                            img = np.concatenate((255-img1,img2),axis=-1)
+                            img = np.concatenate((img1,255-img2),axis=-1)
                             img_name = img_name[0]
                         else:
                             img, tar = imread(str(img_name)), imread(str(tar_name))
@@ -135,8 +135,6 @@ class SegmentationDataSet(Dataset):
         return x, y, input_ID
     
 def stupid_mask_thing(target):
-    #print('Target shape{}'.format(np.shape(target)))
-    #print('Unique Values{}'.format(np.unique(target)))
     if np.shape(target)[-1] != 3:
         unique_vals = np.unique(target)
         final = np.zeros((np.shape(target)[0],np.shape(target)[1],len(unique_vals)))
@@ -149,18 +147,11 @@ def stupid_mask_thing(target):
             final[:,:,idx] += dummy
     else:
         
-        """
-        new_target = np.stack((np.zeros((256,256)), target[:,:,0],target[:,:,1],target[:,:,2]), -1) 
-        mask = np.where(target.sum(axis=-1)==0)
-        new_target[:,:,0][mask] = 1
-        
-        final = new_target
-        """
         # Fix for binary labels
         new_target = np.zeros((512,512,2))
         mask = np.where(target.sum(axis=-1)==0)
         new_target[:,:,0][mask] = 1
-        mask = np.where(target.sum(axis=-1)==255)
+        mask = np.where(target.sum(axis=-1)>0)
         new_target[:,:,1][mask] = 1
         
         final = new_target

@@ -65,46 +65,14 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
 
     device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
-    if test_parameters['architecture']=='Unet++':
-        model = smp.UnetPlusPlus(
-                encoder_name = encoder,
-                encoder_weights = encoder_weights,
-                in_channels = in_channels,
-                classes = n_classes,
-                activation = active
-                )
-    elif test_parameters['architecture'] == 'Unet':
-        model = smp.Unet(
+    model = smp.UnetPlusPlus(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
             in_channels = in_channels,
             classes = n_classes,
             activation = active
-        )
-    elif test_parameters['architecture'] == 'DeepLabV3':
-        model = smp.DeepLabV3(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = in_channels,
-            classes = n_classes,
-            activation = active
-        )
-    elif test_parameters['architecture'] == 'DeepLabV3+':
-        model = smp.DeepLabV3Plus(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = in_channels,
-            classes = n_classes,
-            activation = active
-        )
-    elif test_parameters['architecture'] == 'MAnet':
-        model = smp.MAnet(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = in_channels,
-            classes = n_classes,
-            activation = active
-        )
+            )
+
 
     if test_parameters['multi_task']:
         model = MultiTaskModel({'unet_model':model})

@@ -130,59 +130,24 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     nept_run['lr'] = train_parameters['lr']
     nept_run['multi_task'] = train_parameters['multi_task']
     
+    model = smp.UnetPlusPlus(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
+            in_channels = in_channels,
+            classes = n_classes,
+            activation = active
+            )
 
-    if train_parameters['architecture']=='Unet++':
-        model = smp.UnetPlusPlus(
-                encoder_name = encoder,
-                encoder_weights = encoder_weights,
-                in_channels = in_channels,
-                classes = n_classes,
-                activation = active
-                )
-    elif train_parameters['architecture'] == 'Unet':
-        model = smp.Unet(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = in_channels,
-            classes = n_classes,
-            activation = active
-        )
-    elif train_parameters['architecture'] == 'DeepLabV3':
-        model = smp.DeepLabV3(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = in_channels,
-            classes = n_classes,
-            activation = active
-        )
-    elif train_parameters['architecture'] == 'DeepLabV3+':
-        model = smp.DeepLabV3Plus(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = in_channels,
-            classes = n_classes,
-            activation = active
-        )
-    elif train_parameters['architecture'] == 'MAnet':
-        model = smp.MAnet(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = in_channels,
-            classes = n_classes,
-            activation = active
-        )
-    
+    """   
     if train_parameters['multi_task']:
 
         model = MultiTaskModel({'unet_model':model})
         loss = MultiTaskLoss()
 
-        """
         # For learning value of parameter in loss (this can lead to the model only optimizing one loss)
         optimizer = torch.optim.Adam([
                 dict(params = list(model.parameters())+list(loss.parameters()), lr = train_parameters['lr'],weight_decay = 0.001)
                 ])
-        """
         optimizer = torch.optim.Adam([
                 dict(params=model.parameters(), lr = train_parameters['lr'],weight_decay=0.001)
         ])
@@ -193,22 +158,20 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                                                     max_lr = train_parameters['lr']*2,
                                                     step_size_up = 100)
     else:
-
-        optimizer = torch.optim.Adam([
-                dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.001)
-                ])
-        #scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience = 35)
-        scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
-                                                    cycle_momentum = False,
-                                                    base_lr = train_parameters['lr']/2,
-                                                    max_lr = train_parameters['lr']*2,
-                                                    step_size_up = 150)
+    """
+    optimizer = torch.optim.Adam([
+            dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.001)
+            ])
+    scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
+                                                cycle_momentum = False,
+                                                base_lr = train_parameters['lr']/2,
+                                                max_lr = train_parameters['lr']*2,
+                                                step_size_up = 150)
 
 
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
     model = model.to(device)
     loss = loss.to(device)
-
 
     batch_size = train_parameters['batch_size']
     train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 12)
@@ -229,7 +192,6 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     with tqdm(total = epoch_num, position = 0, leave = True, file = sys.stdout) as pbar:
 
         for i in range(0,epoch_num):
-        
             # Turning on dropout
             model.train()
 
@@ -254,14 +216,7 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             train_preds = model(train_imgs)
 
             # Calculating loss
-            if train_parameters['multi_task']:
-                bin_loss, reg_loss, balanced_loss = loss(train_preds,train_masks)
-                nept_run['training_bin_loss'].log(bin_loss.item())
-                nept_run['training_reg_loss'].log(reg_loss.item())
-
-                train_loss = balanced_loss + bin_loss + reg_loss
-
-            elif train_parameters['loss']=='custom++':
+            if train_parameters['loss']=='custom++':
                 mse_loss,bin_loss = loss(train_preds,train_masks)
                 nept_run['training_reg_loss'].log(mse_loss.item())
                 nept_run['training_bin_loss'].log(bin_loss.item())
@@ -270,11 +225,6 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
             else:
                 train_loss = loss(train_preds,train_masks)
 
-
-            # Printing max and min for training GTs and predictions
-            #print(f'Min prediction: {np.min(train_preds.detach().cpu().numpy())}, Max prediction: {np.max(train_preds.detach().cpu().numpy())}')
-            #print(f'Min GT: {np.min(train_masks.cpu().numpy())}, Max GT: {np.max(train_masks.cpu().numpy())}')
-            
             # Backpropagation
             train_loss.backward()
             train_loss = train_loss.item()
@@ -288,7 +238,6 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
             # Updating optimizer
             optimizer.step()
-            #print(f'Model device: {next(model.parameters()).device}')
 
             # Validation (don't want it to influence gradients in network)
             with torch.no_grad():
@@ -301,19 +250,12 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
 
                 val_preds = model(val_imgs)
 
-                if train_parameters['multi_task']:
-                    val_bin_loss, val_reg_loss, val_balanced_loss = loss(val_preds,val_masks)
-                    nept_run['validation_bin_loss'].log(val_bin_loss.item())
-                    nept_run['validation_reg_loss'].log(val_reg_loss.item())
-
-                    val_loss = val_balanced_loss
-                elif train_parameters['loss'] == 'custom++':
+                if train_parameters['loss'] == 'custom++':
                     val_mse_loss, val_bin_loss = loss(val_preds,val_masks)
                     nept_run['validation_bin_loss'].log(val_bin_loss.item())
                     nept_run['validation_reg_loss'].log(val_mse_loss.item())
                     val_loss = val_mse_loss+val_bin_loss
                 else:
-
                     val_loss = loss(val_preds,val_masks)
 
                 val_loss = val_loss.item()
@@ -324,14 +266,6 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                 else:
                     nept_run[f'validation_loss_{train_parameters["current_k_fold"]}'].log(val_loss)
 
-            # Updating learning rate scheduler
-            """
-            # Use if the schedulers are different
-            if train_parameters['multi_task']:
-                scheduler.step()
-            else:
-                scheduler.step(val_loss)
-            """
             scheduler.step()
 
             # Saving model if current i is a multiple of "save_step"
@@ -380,9 +314,6 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                         im = Image.fromarray(fig.astype(np.uint8))
                         im.save(output_dir+f'Training_Epoch_{i}_Example.tif')
                         nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.tif')
-
-                #fig.savefig(output_dir+f'Training_Epoch_{i}_Example.png')
-                #nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.png')
 
     if not i%save_step==0:
         torch.save(model.state_dict(),model_dir+f'Collagen_Seg_Model_{i}.pth')

@@ -121,8 +121,9 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
 
             if target_type=='binary':        
                 target_img = target.cpu().numpy().round()
-                pred_mask_img = pred_mask.detach().cpu().numpy().round()
+                pred_mask_img = pred_mask.detach().cpu().numpy()
                 testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
+                # Outputting the prediction as a continuous mask even though running binary metrics
 
             elif test_parameters['multi_task']:
                 target_img = target.cpu().numpy()
@@ -166,8 +167,7 @@ def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_
                 else:
                     im = Image.fromarray((fig*255).astype(np.uint8))
                     im.save(test_output_dir+'Test_Example_'+input_name.replace('.jpg','.tif'))
-                    #nept_run['testing/Testing_Output_'+input_name.replace('.jpg','.tif')].upload(test_output_dir+'Test_Example_'+input_name.replace('.jpg','.tif'))
-                
+                    
         # Used during hyperparameter optimization to compute objective value
         testing_metrics_df.to_csv(test_output_dir+'Test_Metrics.csv')
         

@@ -38,13 +38,14 @@ def back_to_reality(tar):
 
 def apply_colormap(img):
 
-    #print(f'Size of image: {np.shape(img)}')
-    #print(f'Min:{np.min(img)}, Max: {np.max(img)}, Type: {img.dtype}')
     n_classes = np.shape(img)[-1]
 
-    image = img[:,:,0]
-    for cl in range(1,n_classes):
-        image = np.concatenate((image, img[:,:,cl]),axis = 1)
+    if n_classes==2:
+        image = img[:,:,1]
+    else:
+        image = img[:,:,0]
+        for cl in range(1,n_classes):
+            image = np.concatenate((image, img[:,:,cl]),axis = 1)
 
     return image
 

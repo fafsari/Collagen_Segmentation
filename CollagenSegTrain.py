@@ -282,9 +282,11 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
                     current_gt = val_masks[0].cpu().numpy()
                     current_pred = val_preds[0].cpu().numpy()
 
+                """
                 if target_type=='binary':
                     current_pred = current_pred.round()
-
+                """
+                
                 if in_channels == 6:
                     current_img = np.concatenate((current_img[:,0:3,:,:],current_img[:,2:5,:,:]),axis=2)
                 elif in_channels==4:

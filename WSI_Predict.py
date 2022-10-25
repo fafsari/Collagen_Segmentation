@@ -39,7 +39,7 @@ def Test_Network(model_path,test_dataset,output_dir,test_parameters):
         encoder_weights = test_parameters['encoder_weights'],
         in_channels = 3,
         classes = n_classes,
-        active = test_parameters['active']
+        activation = test_parameters['active']
     )
 
     model.load_state_dict(torch.load(model_path))
@@ -52,10 +52,11 @@ def Test_Network(model_path,test_dataset,output_dir,test_parameters):
     with torch.no_grad():
 
         test_dataloader = iter(test_dataset)
+        print(test_dataloader.batches)
 
-        for i in tqdm(len(test_dataloader.slides)):
+        for i in range(len(test_dataloader.slides)):
 
-            for j in range(test_dataloader.batches):
+            for j in tqdm(range(test_dataloader.batches)):
 
                 img_batch, coords = next(test_dataloader)
                 pred_masks = model.predict(img_batch.to(device))
@@ -63,10 +64,13 @@ def Test_Network(model_path,test_dataset,output_dir,test_parameters):
                 # Assembling predicted masks into combined tif file
                 test_dataloader.add_to_mask(pred_masks.detach().cpu().numpy(),coords)
             
+
             final_mask = Image.fromarray(test_dataloader.combined_mask)
             final_mask.save(output_dir+test_dataloader.current_slide.name+'.tif')
 
+            final_width,final_height = final_mask.size
+            scaled_final_mask = final_mask.resize((int(final_width/100),int(final_height/100)))
+            scaled_final_mask.save(output_dir+test_dataloader.current_slide.name+'_small.tif')
             test_dataloader = iter(test_dataloader)
-
 
 

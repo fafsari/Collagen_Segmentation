@@ -39,7 +39,7 @@ class WSISegmentationDataSet(Dataset):
         self.batch_size = batch_size
 
         if target_type == 'binary':
-            self.target_dtype = torch.Long
+            self.target_dtype = torch.long
         else:
             self.target_dtype = torch.float32
 
@@ -54,33 +54,36 @@ class WSISegmentationDataSet(Dataset):
     def __iter__(self):
 
         self.slide_idx+=1
-        self.current_slide = self.slides[self.slide_idx]
+        if self.slide_idx<len(self.slides):
+            self.current_slide = self.slides[self.slide_idx]
 
-        # Initialize prediction mask
-        self.combined_mask = np.zeros(self.current_slide.dimensions)
+            # Initialize prediction mask (reversed so it is height X width)
+            self.combined_mask = np.zeros(self.current_slide.dimensions[::-1])
 
-        if not self.slide_idx==0:
-            previous_slide = self.slides[self.slide_idx-1]
-            os.rmdir(previous_slide._processed_path)
+            if not self.slide_idx==0:
+                previous_slide = self.slides[self.slide_idx-1]
+                os.rmdir(previous_slide._processed_path)
 
-        self.grid_extractor = GridTiler(
-            tile_size = (self.patch_size,self.patch_size),
-            level = 0
-        )
+            self.grid_extractor = GridTiler(
+                tile_size = (self.patch_size,self.patch_size),
+                level = 0
+            )
 
-        # Saves extracted tiles to processed directory for each slide
-        self.grid_extractor.extract(self.current_slide)
-        self.patch_dir = glob(self.current_slide._processed_path+'*.png')
-        self.patch_idx = 0
+            # Saves extracted tiles to processed directory for each slide
+            if not os.path.exists(self.current_slide._processed_path):
+                print('Extracting tiles')
+                self.grid_extractor.extract(self.current_slide)
+            self.patch_dir = glob(self.current_slide._processed_path+'*.png')
+            self.patch_idx = 0
 
-        self.batches = round(len(self.patch_dir)/self.batch_size)
+            self.batches = round(len(self.patch_dir)/self.batch_size)
+            
+            return self
 
-        return self
     
     def add_to_mask(self,pred_batch,coordinates):
-
         for idx,coords in enumerate(coordinates):
-            self.combined_mask[coords[0]:coords[1],coords[2]:coords[3]]+=pred_batch[idx,:,:]
+            self.combined_mask[coords[1]:coords[3],coords[0]:coords[2]]+=255*pred_batch[idx,1,:,:]
 
     def __next__(self):
         
@@ -100,13 +103,14 @@ class WSISegmentationDataSet(Dataset):
             coords_list = []
             for img in batch_img_paths:
 
-                current_img = normalize_01(np.array(Image.open(img)))
+                current_img = normalize_01(np.array(Image.open(img))[:,:,0:3])
+                current_img = np.moveaxis(current_img,source=-1,destination=0)
                 batch_img_list.append(current_img)
 
                 coords = img.split('_')[-1].replace('.png','').split('-')
                 coords_list.append([int(i) for i in coords])
 
-            batch_img_list = torch.from_numpy(np.stack(batch_img_list,axis=0)).type(self.target_dtype)
+            batch_img_list = torch.from_numpy(np.stack(batch_img_list,axis=0)).type(torch.float32)
 
             return batch_img_list, coords_list
 

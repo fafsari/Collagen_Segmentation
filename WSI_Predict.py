@@ -21,9 +21,7 @@ import pandas as pd
 
 import neptune.new as neptune
 
-from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
-from CollagenSegUtils import visualize_continuous, get_metrics, visualize_multi_task
-
+import datetime
 
 def Test_Network(model_path,test_dataset,output_dir,test_parameters):
 
@@ -52,10 +50,9 @@ def Test_Network(model_path,test_dataset,output_dir,test_parameters):
     with torch.no_grad():
 
         test_dataloader = iter(test_dataset)
-        print(test_dataloader.batches)
 
         for i in range(len(test_dataloader.slides)):
-
+            print(f'Starting Predictions: {datetime.datetime.now()}')
             for j in tqdm(range(test_dataloader.batches)):
 
                 img_batch, coords = next(test_dataloader)
@@ -71,6 +68,11 @@ def Test_Network(model_path,test_dataset,output_dir,test_parameters):
             final_width,final_height = final_mask.size
             scaled_final_mask = final_mask.resize((int(final_width/100),int(final_height/100)))
             scaled_final_mask.save(output_dir+test_dataloader.current_slide.name+'_small.tif')
-            test_dataloader = iter(test_dataloader)
+            
+            try:
+                test_dataloader = iter(test_dataloader)
+            except StopIteration:
+                print('Done!')
+                break
 
-
+        print(f'Done with Predictions: {datetime.datetime.now()}')

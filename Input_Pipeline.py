@@ -161,7 +161,14 @@ def stupid_mask_thing(target):
 
 def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type,parameters):
  
-    color_transform = parameters['in_channels']
+    color_transform = parameters['color_transform']
+
+    if not parameters['norm_mean']==[]:
+        color_transform = {}
+        color_transform['transform'] = parameters['color_transform']
+        color_transform['norm_mean'] = np.array(parameters['norm_mean'])
+        color_transform['norm_std'] = np.array(parameters['norm_std'])
+
     if parameters['in_channels'] == 6:
         img_size = (512,512,6)
     elif parameters['in_channels'] == 3:
@@ -179,11 +186,10 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                         target = False,
                                         output_size = img_size,
                                         transform = color_transform),
-                    FunctionWrapperDouble(resize_special,
+                    FunctionWrapperDouble(resize,
                                         input = False,
                                         target = True,
-                                        output_size = (512,512,3),
-                                        transform = color_transform),
+                                        output_shape = (512,512,3)),
                     FunctionWrapperDouble(stupid_mask_thing,
                                         input = False,
                                         target = True)
@@ -195,11 +201,10 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                         target = False,
                                         output_size = img_size,
                                         transform = color_transform),
-                    FunctionWrapperDouble(resize_special,
+                    FunctionWrapperDouble(resize,
                                         input = False,
                                         target = True,
-                                        output_size = (512,512,1),
-                                        transform = color_transform)
+                                        output_shape = (512,512,1))
             ])        
 
         if target_type=='binary':
@@ -268,11 +273,10 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                 target = False,
                                 output_size = img_size,
                                 transform = color_transform),
-            FunctionWrapperDouble(resize_special,
+            FunctionWrapperDouble(resize,
                                 input = False,
                                 target = True,
-                                output_size = (512,512,3),
-                                transform = color_transform),
+                                output_shape = (512,512,3)),
             FunctionWrapperDouble(stupid_mask_thing,
                                 input = False,
                                 target = True)
@@ -292,11 +296,10 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                 target = False,
                                 output_size = img_size,
                                 transform = color_transform),
-            FunctionWrapperDouble(resize_special,
+            FunctionWrapperDouble(resize,
                                 input = False,
                                 target = True,
-                                output_size = (512,512,1),
-                                transform = color_transform)
+                                output_shape = (512,512,1))
             ])
             
             transforms_testing = ComposeDouble([

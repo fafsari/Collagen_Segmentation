@@ -5,7 +5,7 @@ Created on Fri Jul 23 10:28:08 2021
 @author: spborder
 
 
-DGCS Testing best model
+CS Testing best model
 
 from: https://github.com/qubvel/segmentation_models.pytorch/blob/master/examples/cars%20segmentation%20(camvid).ipynb
 

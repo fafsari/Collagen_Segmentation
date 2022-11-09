@@ -63,6 +63,21 @@ if phase == 'train':
     train_parameters = parameters['training_parameters']
     test_parameters = parameters['testing_parameters']
 
+    if 'color_transform' in input_parameters:
+        train_parameters['color_transform'] = input_parameters['color_transform']
+        test_parameters['color_transform'] = input_parameters['color_transform']
+        train_parameters['norm_mean'] = input_parameters['norm_mean']
+        test_parameters['norm_mean'] = input_parameters['norm_mean']
+        train_parameters['norm_std'] = input_parameters['norm_std']
+        test_parameters['norm_std'] = input_parameters['norm_std']
+    else:
+        test_parameters['color_transform'] = []
+        test_parameters['norm_mean'] = []
+        test_parameters['norm_std'] = []
+        train_parameters['color_transform'] = []
+        train_parameters['norm_mean'] = []
+        train_parameters['norm_std'] = []
+
     if train_parameters['multi_task']:
         label_bin_dir = input_parameters['label_bin_dir']+'/'
         label_reg_dir = input_parameters['label_reg_dir']+'/'
@@ -77,10 +92,20 @@ elif phase == 'test':
     model_file = input_parameters['model_file']
     test_parameters = parameters['testing_parameters']
 
+    # Adding parameters for Reinhard color normalization
+    if 'color_transform' in input_parameters:
+        test_parameters['color_transform'] = input_parameters['color_transform']
+        test_parameters['norm_mean'] = input_parameters['norm_mean']
+        test_parameters['norm_std'] = input_parameters['norm_std']
+    else:
+        test_parameters['color_transform'] = []
+        test_parameters['norm_mean'] = []
+        test_parameters['norm_std'] = []
+
     if test_parameters['multi_task']:
         label_bin_dir = input_parameters['label_bin_dir']+'/'
         label_reg_dir = input_parameters['label_reg_dir']+'/'
-    else:
+    elif 'label_dir' in input_parameters:
         label_dir = input_parameters['label_dir']
     
     ann_classes = test_parameters['ann_classes']
@@ -103,7 +128,8 @@ except:
     nept_run['f_image_dir'] = f_image_dir
     nept_run['b_image_dir'] = b_image_dir
 try:
-    nept_run['label_dir'] = label_dir
+    if 'label_dir' in input_parameters:
+        nept_run['label_dir'] = label_dir
 except:
     nept_run['label_bin_dir'] = label_bin_dir
     nept_run['label_reg_dir'] = label_reg_dir
@@ -134,7 +160,6 @@ if phase == 'train':
             image_paths.append([f_image_paths_base[idx],b_path])
             l_path = label_paths_base[label_names.index(f)]
             label_paths.append(l_path)
-
 
     else:
         image_paths = glob(image_dir+'*')
@@ -245,7 +270,8 @@ elif phase == 'test':
     
     if 'image_dir' in input_parameters:
         image_paths = glob(image_dir+'*')
-        label_paths = glob(label_dir+'*')
+        if 'label_dir' in input_parameters:
+            label_paths = glob(label_dir+'*')
     else:
         f_image_paths_base = glob(f_image_dir+'*')
         b_image_paths_base = glob(b_image_dir+'*')

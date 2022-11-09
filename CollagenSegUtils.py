@@ -21,9 +21,10 @@ from PIL import Image
 
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 from skimage.transform import resize
-from skimage.color import rgb2gray
+from skimage.color import rgb2gray, rgb2lab, lab2rgb
 
-
+from histomicstk.saliency.tissue_detection import get_tissue_mask
+from histomicstk.preprocessing.color_normalization import reinhard
 
 def back_to_reality(tar):
     
@@ -176,6 +177,9 @@ def visualize_continuous(images,output_type):
 
                 plt.imshow(img,cmap='jet')
             else:
+                if (img<0).any():
+                    img = lab2rgb(img)
+
                 plt.imshow(img)
         output_fig = plt.gcf()
 
@@ -289,6 +293,14 @@ def resize_special(img,output_size,transform):
             img = rgb2gray(img)
             img = img[:,:,np.newaxis]
 
+        elif transform == 'rgb2lab':
+            img = rgb2lab(img)
+        
+        elif type(transform)==dict:
+            tissue_mask,_ = get_tissue_mask(img,deconvolve_first = False, n_thresholding_steps=1,sigma=1.5,min_size=10)
+            tissue_mask = resize(tissue_mask==0,output_shape=img.shape[:2],order=0,preserve_range=True)==1
+
+            img = reinhard(img,target_mu=transform['norm_mean'],target_sigma=transform['norm_std'],mask_out=tissue_mask)
 
     return img
 

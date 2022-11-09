@@ -17,11 +17,12 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset
 
-
 from Augmentation_Functions import normalize_01
 
 from histolab.tiler import GridTiler
 from histolab.slide import Slide
+
+import datetime
 
 
 class WSISegmentationDataSet(Dataset):
@@ -66,24 +67,30 @@ class WSISegmentationDataSet(Dataset):
 
             self.grid_extractor = GridTiler(
                 tile_size = (self.patch_size,self.patch_size),
-                level = 0
+                level = 0,
+                tissue_percent = 1.0,
+                pixel_overlap = 500
             )
 
             # Saves extracted tiles to processed directory for each slide
             if not os.path.exists(self.current_slide._processed_path):
-                print('Extracting tiles')
+                print(f'Extracting tiles start: {datetime.datetime.now()}')
                 self.grid_extractor.extract(self.current_slide)
+                print(f'Extracting tiles stop: {datetime.datetime.now()}')
             self.patch_dir = glob(self.current_slide._processed_path+'*.png')
             self.patch_idx = 0
 
             self.batches = round(len(self.patch_dir)/self.batch_size)
             
             return self
+        else:
+            raise StopIteration
 
     
     def add_to_mask(self,pred_batch,coordinates):
         for idx,coords in enumerate(coordinates):
-            self.combined_mask[coords[1]:coords[3],coords[0]:coords[2]]+=255*pred_batch[idx,1,:,:]
+            self.combined_mask[coords[1]:coords[3],coords[0]:coords[2]]+=np.mean(np.concatenate((self.combined_mask[coords[1]:coords[3],coords[0]:coords[2],None],
+                                                                                    pred_batch[idx,1,:,:,None]),axis=-1))
 
     def __next__(self):
         

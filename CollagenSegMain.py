@@ -40,7 +40,7 @@ from CollagenSegTest import Test_Network
 
 nept_run = neptune.init(
     project = 'spborder/AssortedSegmentations',
-    #source_files = ['**/*'],
+    source_files = ['*.py','../'+sys.argv[1]],
     api_token = 'eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiIwMjE3MzBiOS1lOGMwLTRmZjAtOGUyYS0yMGFlMmM4ZTRkMzMifQ==')
 
 

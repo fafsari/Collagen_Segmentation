@@ -297,10 +297,16 @@ def resize_special(img,output_size,transform):
             img = rgb2lab(img)
         
         elif type(transform)==dict:
-            tissue_mask,_ = get_tissue_mask(img,deconvolve_first = False, n_thresholding_steps=1,sigma=1.5,min_size=10)
-            tissue_mask = resize(tissue_mask==0,output_shape=img.shape[:2],order=0,preserve_range=True)==1
+            # Don't use histomicstk
+            #img = reinhard(img,target_mu=transform['norm_mean'],target_sigma=transform['norm_std'])
+            lab_img = rgb2lab(img)
+            scaled_img = (lab_img-np.nanmean(lab_img))/np.nanstd(lab_img)
 
-            img = reinhard(img,target_mu=transform['norm_mean'],target_sigma=transform['norm_std'],mask_out=tissue_mask)
+            for i in range(3):
+                scaled_img[:,:,i] = scaled_img[:,:,i]*transform['norm_std'][i]+transform['norm_mean'][i]
+
+            # converting back to rgb
+            img = lab2rgb(scaled_img)
 
     return img
 

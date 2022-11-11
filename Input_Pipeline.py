@@ -97,7 +97,7 @@ class SegmentationDataSet(Dataset):
                     
                     if self.pre_transform is not None:
                         img, tar = self.pre_transform(img, tar)
-                        imsave(img_name.replace('.jpg','_processed.jpg'),img)
+                        #imsave(img_name.replace('.jpg','_processed.jpg'),img)
                         
                     self.cached_data.append((img,tar))
                     self.cached_names.append(img_name)

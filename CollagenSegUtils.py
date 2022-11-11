@@ -306,7 +306,8 @@ def resize_special(img,output_size,transform):
                 scaled_img[:,:,i] = scaled_img[:,:,i]*transform['norm_std'][i]+transform['norm_mean'][i]
 
             # converting back to rgb
-            img = lab2rgb(scaled_img)
+            #img = lab2rgb(scaled_img)
+            img = (scaled_img-np.nanmean(scaled_img))/np.nanstd(scaled_img)
 
     return img
 

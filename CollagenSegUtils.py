@@ -299,7 +299,23 @@ def resize_special(img,output_size,transform):
         elif type(transform)==dict:
             # Don't use histomicstk
             #img = reinhard(img,target_mu=transform['norm_mean'],target_sigma=transform['norm_std'])
+
+            # Determining non-tissue regions to mask out prior to scaling/conversion
+            # For BF images the non-tissue regions are closer to white whereas with fluorescence images they 
+            # are closer to black
+            gray_img = rgb2gray(img)
+            if transform['transform']=='min':
+                # for fluorescence images where non-tissue regions are closer to min
+                threshold_val = np.quantile(gray_img,0.1)
+                non_tissue_mask = gray_img<=threshold_val
+            elif transform['transform']=='max':
+                # for brighfield images where non-tissue regions are closer to max
+                threshold_val = np.quantile(gray_img,0.9)
+                non_tissue_mask = gray_img>=threshold_val
+
             lab_img = rgb2lab(img)
+            lab_img[np.stack((non_tissue_mask,non_tissue_mask,non_tissue_mask),axis=2)] = np.nan
+
             scaled_img = (lab_img-np.nanmean(lab_img))/np.nanstd(lab_img)
 
             for i in range(3):

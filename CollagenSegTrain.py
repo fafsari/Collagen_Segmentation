@@ -160,13 +160,13 @@ def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_d
     else:
     """
     optimizer = torch.optim.Adam([
-            dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.001)
+            dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.0001)
             ])
     scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
                                                 cycle_momentum = False,
                                                 base_lr = train_parameters['lr']/2,
                                                 max_lr = train_parameters['lr']*2,
-                                                step_size_up = 150)
+                                                step_size_up = 250)
 
 
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')

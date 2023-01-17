@@ -190,27 +190,35 @@ if phase == 'train':
     # Determining whether or not doing k-fold CV and proceeding to training loop
     if int(k_folds)==1:
         
-        # shuffling image and target paths
-        shuffle_idx = np.random.permutation(len(image_paths))
-        
-        train_idx = shuffle_idx[0:floor(0.8*len(image_paths))]    
-        val_idx = shuffle_idx[floor(0.8*len(image_paths)):len(image_paths)]
-            
-        train_img_paths = [image_paths[i] for i in train_idx]
-        valid_img_paths = [image_paths[i] for i in val_idx]
-        
-        if train_parameters['multi_task']:
-            train_bin_tar = [label_bin_paths[i] for i in train_idx]
-            train_reg_tar = [label_reg_paths[i] for i in train_idx]
-            valid_bin_tar = [label_bin_paths[i] for i in val_idx]
-            valid_reg_tar = [label_reg_paths[i] for i in val_idx]
+        # If a specific set of files is mentioned for training and testing
+        if 'train_set' in input_parameters:
+            train_df = pd.read_csv(input_parameters['train_set'])
+            test_df = pd.read_csv(input_parameters['test_set'])
+            train_img_paths = train_df['Training_Image_Paths'].tolist()
+            valid_img_paths = test_df['Testing_Image_Paths'].tolist()
+
+            train_tar = [i.replace(train_parameters['image_dir'],train_parameters['label_dir']) for i in train_img_paths]
+            valid_tar = [i.replace(train_parameters['image_dir'],train_parameters['label_dir']) for i in valid_img_paths]
 
         else:
-            train_tar = [label_paths[i] for i in train_idx]
-            valid_tar = [label_paths[i] for i in val_idx]
+            # shuffling image and target paths
+            shuffle_idx = np.random.permutation(len(image_paths))
+            
+            train_idx = shuffle_idx[0:floor(0.8*len(image_paths))]    
+            val_idx = shuffle_idx[floor(0.8*len(image_paths)):len(image_paths)]
+                
+            train_img_paths = [image_paths[i] for i in train_idx]
+            valid_img_paths = [image_paths[i] for i in val_idx]
         
-        #print(f'Training image paths: {train_img_paths[0:4]}')
-        #print(f'Training mask paths: {train_tar[0:4]}')
+            if train_parameters['multi_task']:
+                train_bin_tar = [label_bin_paths[i] for i in train_idx]
+                train_reg_tar = [label_reg_paths[i] for i in train_idx]
+                valid_bin_tar = [label_bin_paths[i] for i in val_idx]
+                valid_reg_tar = [label_reg_paths[i] for i in val_idx]
+
+            else:
+                train_tar = [label_paths[i] for i in train_idx]
+                valid_tar = [label_paths[i] for i in val_idx]
 
         nept_run['N_Training'] = len(train_img_paths)
         nept_run['N_Valid'] = len(valid_img_paths)

@@ -116,11 +116,11 @@ target_type = input_parameters['target_type']
 output_dir = input_parameters['output_dir']
 
 if not os.path.isdir(output_dir):
-    os.mkdir(output_dir)
+    os.makedirs(output_dir)
 
 model_dir = output_dir+'/models/'
 if not os.path.isdir(model_dir):
-    os.mkdir(model_dir)
+    os.makedirs(model_dir)
 
 try:
     nept_run['image_dir'] = image_dir
@@ -197,8 +197,11 @@ if phase == 'train':
             train_img_paths = train_df['Training_Image_Paths'].tolist()
             valid_img_paths = test_df['Testing_Image_Paths'].tolist()
 
-            train_tar = [i.replace(train_parameters['image_dir'],train_parameters['label_dir']) for i in train_img_paths]
-            valid_tar = [i.replace(train_parameters['image_dir'],train_parameters['label_dir']) for i in valid_img_paths]
+            train_tar = [i.replace(input_parameters['image_dir'],input_parameters['label_dir']) for i in train_img_paths]
+            valid_tar = [i.replace(input_parameters['image_dir'],input_parameters['label_dir']) for i in valid_img_paths]
+
+            nept_run['Training_Set'].upload(neptune.types.File.as_html(train_df))
+            nept_run['Testing_Set'].upload(neptune.types.File.as_html(test_df))
 
         else:
             # shuffling image and target paths

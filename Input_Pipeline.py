@@ -82,25 +82,27 @@ class SegmentationDataSet(Dataset):
                     self.cached_names.append(img_name)
             else:
                 for i, img_name, tar_name in zip(progressbar, self.inputs, self.targets):
+                    try:
+                        if 'tif' in tar_name:
+                            img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')
 
-                    if 'tif' in tar_name:
-                        img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')
-
-                    else:
-                        if type(img_name)==list:
-                            img1,img2,tar = imread(str(img_name[0])), imread(str(img_name[1])),imread(str(tar_name))
-                            # Adding inversion to one of the images
-                            img = np.concatenate((img1,255-img2),axis=-1)
-                            img_name = img_name[0]
                         else:
-                            img, tar = imread(str(img_name)), imread(str(tar_name))
-                    
-                    if self.pre_transform is not None:
-                        img, tar = self.pre_transform(img, tar)
-                        #imsave(img_name.replace('.jpg','_processed.jpg'),img)
+                            if type(img_name)==list:
+                                img1,img2,tar = imread(str(img_name[0])), imread(str(img_name[1])),imread(str(tar_name))
+                                # Adding inversion to one of the images
+                                img = np.concatenate((img1,255-img2),axis=-1)
+                                img_name = img_name[0]
+                            else:
+                                img, tar = imread(str(img_name)), imread(str(tar_name))
                         
-                    self.cached_data.append((img,tar))
-                    self.cached_names.append(img_name)
+                        if self.pre_transform is not None:
+                            img, tar = self.pre_transform(img, tar)
+                            #imsave(img_name.replace('.jpg','_processed.jpg'),img)
+                            
+                        self.cached_data.append((img,tar))
+                        self.cached_names.append(img_name)
+                    except FileNotFoundError:
+                        print(f'File not found: {img_name},{tar_name}')
 
                 print(f'Cached Data: {len(self.cached_data)}')
         

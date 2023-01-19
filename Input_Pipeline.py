@@ -107,7 +107,7 @@ class SegmentationDataSet(Dataset):
                 print(f'Cached Data: {len(self.cached_data)}')
         
     def __len__(self):
-        return len(self.inputs)
+        return len(self.cached_data)
     
     # Getting matching input and target(label)
     def __getitem__(self,

@@ -34,12 +34,14 @@ from CollagenSegUtils import visualize_continuous, get_metrics, visualize_multi_
 from MultiTaskModel import MultiTaskLoss, MultiTaskModel
     
         
-def Test_Network(classes, model_path, dataset_valid, output_dir, nept_run, test_parameters, target_type):
+def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
 
     encoder = test_parameters['encoder']
     encoder_weights = test_parameters['encoder_weights']
-    ann_classes = classes
+    ann_classes = test_parameters['ann_classes']
     active = test_parameters['active']
+    target_type = test_parameters['target_type']
+    output_dir = test_parameters['output_dir']
 
     if active == 'None':
         active = None

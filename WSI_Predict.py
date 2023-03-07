@@ -23,9 +23,10 @@ import neptune.new as neptune
 
 import datetime
 
-def Test_Network(model_path,test_dataset,output_dir,test_parameters):
+def Test_Network(model_path,test_dataset,test_parameters):
 
     device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
+    output_dir = test_parameters['output_dir']
 
     if test_parameters['target_type']=='binary':
         n_classes = 2

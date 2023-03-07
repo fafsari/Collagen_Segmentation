@@ -273,6 +273,23 @@ def resize_special(img,output_size,transform):
         # This is for when the normalized fluorescence comprises the first 3 channels
         img = np.concatenate((np.expand_dims(np.mean(img[:,:,0:3],axis=-1),axis=-1),img[:,:,2:5]),axis = -1)
         img = resize(img,output_size)
+
+    elif output_size[-1] == 6:
+        # Special normalization procedures for 6-channel images
+        if transform == 'invert_bf_norm01':
+            img = resize(img,output_size)
+
+            # Normalizing fluorescence channels between 0 and 1
+            f_img = img[:,:,0:3]
+            f_img = (f_img - np.min(f_img))/np.ptp(f_img)
+
+            # Inverting and normalizing brightfield channels
+            b_img = img[:,:,4:]
+            b_img = 255-b_img
+            b_img = (b_img - np.min(b_img))/np.ptp(b_img)
+
+            img = np.concatenate((f_img,b_img),axis=-1)
+
     else:
         img = resize(img,output_size)
 
@@ -301,25 +318,7 @@ def resize_special(img,output_size,transform):
             # Determining non-tissue regions to mask out prior to scaling/conversion
             # For BF images the non-tissue regions are closer to white whereas with fluorescence images they 
             # are closer to black
-            """
-            gray_img = rgb2gray(img)
-            non_tissue_mask = np.zeros(img.shape[:2])
-            if transform['transform']=='min':
-                # for fluorescence images where non-tissue regions are closer to min
-                threshold_val = np.quantile(gray_img,0.01)
-                print(f'Threshold value: {threshold_val}')
-                non_tissue_mask[gray_img<=threshold_val] = 1
-            elif transform['transform']=='max':
-                # for brighfield images where non-tissue regions are closer to max
-                threshold_val = np.quantile(gray_img,0.99)
-                non_tissue_mask[gray_img>=threshold_val] = 1
-            
-            non_tissue_mask = np.stack((non_tissue_mask,non_tissue_mask,non_tissue_mask),axis=2)
 
-            print(f'Non tissue pixels: {np.sum(non_tissue_mask)}')
-            lab_img = rgb2lab(img)
-            lab_img[np.argwhere(non_tissue_mask==1)] = np.nan
-            """
             lab_img = rgb2lab(img)
             scaled_img = (lab_img-np.nanmean(lab_img))/np.nanstd(lab_img)
 
@@ -329,20 +328,6 @@ def resize_special(img,output_size,transform):
             # converting back to rgb
             img = (scaled_img-np.nanmean(scaled_img))/np.nanstd(scaled_img)
 
-            #print(f'Any nans: {np.isnan(img).any()}')
-
-            """
-            if transform['transform']=='min':
-                min_vals = np.nanmin(img,axis=(0,1)).tolist()
-                print(min_vals)
-                for j in range(3):
-                    img[:,:,j] = non_tissue_mask[:,:,j]*min_vals[j]
-            elif transform['transform']=='max':
-                max_vals = np.nanmax(img,axis=(0,1)).tolist()
-                for j in range(3):
-                    img[:,:,j] = non_tissue_mask[:,:,j]*max_vals[j]
-            """
-            #print(f'Any nans: {np.isnan(img).any()}')
 
     return img
 

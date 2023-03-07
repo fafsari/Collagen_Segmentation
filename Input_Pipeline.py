@@ -87,17 +87,16 @@ class SegmentationDataSet(Dataset):
                             img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')
 
                         else:
+                            # For multi-channel image inputs
                             if type(img_name)==list:
                                 img1,img2,tar = imread(str(img_name[0])), imread(str(img_name[1])),imread(str(tar_name))
-                                # Adding inversion to one of the images
-                                img = np.concatenate((img1,255-img2),axis=-1)
+                                img = np.concatenate((img1,img2),axis=-1)
                                 img_name = img_name[0]
                             else:
                                 img, tar = imread(str(img_name)), imread(str(tar_name))
                         
                         if self.pre_transform is not None:
                             img, tar = self.pre_transform(img, tar)
-                            #imsave(img_name.replace('.jpg','_processed.jpg'),img)
                             
                         self.cached_data.append((img,tar))
                         self.cached_names.append(img_name)
@@ -163,13 +162,8 @@ def stupid_mask_thing(target):
 
 def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type,parameters):
  
-    color_transform = parameters['color_transform']
-
-    if not parameters['norm_mean']==[]:
-        color_transform = {}
-        color_transform['transform'] = parameters['color_transform']
-        color_transform['norm_mean'] = np.array(parameters['norm_mean'])
-        color_transform['norm_std'] = np.array(parameters['norm_std'])
+    if 'color_transform' in parameters:
+        color_transform = parameters['color_transform']
 
     if parameters['in_channels'] == 6:
         img_size = (512,512,6)
@@ -227,6 +221,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                     FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
                     FunctionWrapperDouble(normalize_01, input = True, target = True)
                     ])
+            
         elif target_type=='nonbinary':
             # Continuous target type augmentations
             transforms_training = ComposeDouble([

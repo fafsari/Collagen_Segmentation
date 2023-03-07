@@ -75,13 +75,17 @@ class Custom_Plus_Plus_Loss(torch.nn.Module):
         return mse_loss, bin_loss
     
 
-def Training_Loop(ann_classes, dataset_train, dataset_valid, model_dir, output_dir,target_type, train_parameters, nept_run):
+def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     
     encoder = train_parameters['encoder']
     encoder_weights = train_parameters['encoder_weights']
 
     output_type = train_parameters['output_type']
     active = train_parameters['active']
+    target_type = train_parameters['target_type']
+    ann_classes = train_parameters['target_type']
+    model_dir = train_parameters['model_dir']
+    output_dir = train_parameters['output_dir']
 
     if active=='None':
         active = None

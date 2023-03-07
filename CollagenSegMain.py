@@ -69,12 +69,14 @@ if phase == 'train':
         image_paths = []
         label_paths = []
         for idx,f in enumerate(f_img_names):
-            b_path = b_image_paths_base[b_img_names.index(f)]
+            try:
+                b_path = b_image_paths_base[b_img_names.index(f)]
 
-            image_paths.append([f_image_paths_base[idx],b_path])
-            l_path = label_paths_base[label_names.index(f)]
-            label_paths.append(l_path)
-
+                image_paths.append([f_image_paths_base[idx],b_path])
+                l_path = label_paths_base[label_names.index(f)]
+                label_paths.append(l_path)
+            except ValueError:
+                continue
     else:
         image_paths = glob(train_parameters['image_dir']+'*')
 

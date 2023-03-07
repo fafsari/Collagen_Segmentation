@@ -20,6 +20,8 @@ import matplotlib.pyplot as plt
 from skimage.io import imread, imsave
 from glob import glob
 
+from random import sample
+
 import torch
 from torch.utils.data import Dataset
 from torchvision.transforms import ToTensor
@@ -44,7 +46,8 @@ class SegmentationDataSet(Dataset):
                  transform = None,
                  use_cache = False,
                  pre_transform = None,
-                 target_type = None):
+                 target_type = None,
+                 batch_size = None):
         self.inputs = inputs
         self.targets = targets
         self.transform = transform
@@ -59,6 +62,8 @@ class SegmentationDataSet(Dataset):
             elif target_type == 'nonbinary':
                 self.targets_dtype = torch.float32
         
+        self.batch_size = batch_size
+
         # increasing dataset loading efficiency
         self.use_cache = use_cache
         self.pre_transform = pre_transform
@@ -111,7 +116,6 @@ class SegmentationDataSet(Dataset):
     # Getting matching input and target(label)
     def __getitem__(self,
                     index: int):
-        
         if self.use_cache:
             x, y = self.cached_data[index]
             input_ID = self.cached_names[index]
@@ -124,7 +128,7 @@ class SegmentationDataSet(Dataset):
                 x, y = imread(input_ID),imread(target_ID,plugin='pil')
             else:
                 x, y = imread(input_ID),imread(target_ID)
-        
+    
         # Preprocessing steps (if there are any)
         if self.transform is not None:
             x, y = self.transform(x, y)
@@ -132,7 +136,7 @@ class SegmentationDataSet(Dataset):
         # Getting in the right input/target data types
 
         x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
-        
+
         return x, y, input_ID
     
 def stupid_mask_thing(target):
@@ -160,7 +164,7 @@ def stupid_mask_thing(target):
         
     return final
 
-def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,target_type,parameters):
+def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,parameters):
  
     if 'color_transform' in parameters:
         color_transform = parameters['color_transform']
@@ -172,6 +176,8 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
     elif parameters['in_channels'] == 4:
         img_size = (512,512,4)
     
+    target_type = parameters['target_type']
+    batch_size = parameters['batch_size']
 
     if phase == 'train' or phase == 'optimize':
 
@@ -244,14 +250,16 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                              transform = transforms_training,
                                              use_cache = True,
                                              pre_transform = pre_transforms,
-                                             target_type = target_type)
+                                             target_type = target_type,
+                                             batch_size = batch_size)
         
         dataset_valid = SegmentationDataSet(inputs = valid_img_paths,
                                              targets = valid_tar,
                                              transform = transforms_validation,
                                              use_cache = True,
                                              pre_transform = pre_transforms,
-                                             target_type = target_type)
+                                             target_type = target_type,
+                                             batch_size = batch_size)
         
     elif phase == 'test':
         
@@ -313,7 +321,8 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                             transform = transforms_testing,
                                             use_cache = True,
                                             pre_transform = pre_transforms,
-                                            target_type = target_type)
+                                            target_type = target_type,
+                                            batch_size = batch_size)
         
     
     return dataset_train, dataset_valid

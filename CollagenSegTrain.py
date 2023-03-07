@@ -84,8 +84,8 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     active = train_parameters['active']
     target_type = train_parameters['target_type']
     ann_classes = train_parameters['target_type']
-    model_dir = train_parameters['model_dir']
     output_dir = train_parameters['output_dir']
+    model_dir = output_dir+'/models/'
 
     if active=='None':
         active = None
@@ -292,9 +292,9 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 """
                 
                 if in_channels == 6:
-                    current_img = np.concatenate((current_img[:,0:3,:,:],current_img[:,2:5,:,:]),axis=2)
+                    current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=2)
                 elif in_channels==4:
-                    current_img = np.concatenate((np.stack((current_img[:,0,:,:],)*3,axis=1),current_img[:,0:3,:,:]),axis=2)
+                    current_img = np.concatenate((np.stack((current_img[0,:,:],)*3,axis=1),current_img[0:3,:,:]),axis=2)
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 

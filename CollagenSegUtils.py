@@ -284,7 +284,7 @@ def resize_special(img,output_size,transform):
             f_img = (f_img - np.min(f_img))/np.ptp(f_img)
 
             # Inverting and normalizing brightfield channels
-            b_img = img[:,:,4:]
+            b_img = img[:,:,2:5]
             b_img = 255-b_img
             b_img = (b_img - np.min(b_img))/np.ptp(b_img)
 

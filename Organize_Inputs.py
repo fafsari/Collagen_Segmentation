@@ -24,6 +24,9 @@ def organize_parameters(parameters,nept_run):
         train_parameters = parameters['training_parameters']
         test_parameters = parameters['testing_parameters']
 
+        train_parameters['output_dir'] = input_parameters['output_dir']
+        test_parameters['output_dir'] = input_parameters['output_dir']
+
         if 'color_transform' in input_parameters:
             train_parameters['color_transform'] = input_parameters['color_transform']
             test_parameters['color_transform'] = input_parameters['color_transform']
@@ -32,12 +35,21 @@ def organize_parameters(parameters,nept_run):
             test_parameters['color_transform'] = []
             train_parameters['color_transform'] = []
 
+        if 'image_dir' in input_parameters:
+            train_parameters['image_dir'] = input_parameters['image_dir']+'/'
+            test_parameters['image_dir'] = input_parameters['image_dir']+'/'
+        else:
+            train_parameters['f_image_dir'] = input_parameters['f_image_dir']+'/'
+            train_parameters['b_image_dir'] = input_parameters['b_image_dir']+'/'
+            test_parameters['f_image_dir'] = input_parameters['f_image_dir']+'/'
+            test_parameters['b_image_dir'] = input_parameters['b_image_dir']+'/'
 
         if train_parameters['multi_task']:
             train_parameters['label_bin_dir'] = input_parameters['label_bin_dir']+'/'
             train_parameters['label_reg_dir'] = input_parameters['label_reg_dir']+'/'
         else:
             train_parameters['label_dir'] = input_parameters['label_dir']+'/'
+            test_parameters['label_dir'] = input_parameters['label_dir']+'/'
 
         train_parameters['k_folds'] = input_parameters['k_folds']
 
@@ -45,6 +57,7 @@ def organize_parameters(parameters,nept_run):
 
     elif phase == 'test':
         test_parameters = parameters['testing_parameters']
+        test_parameters['output_dir'] = input_parameters['output_dir']
         test_parameters['model_file'] = input_parameters['model_file']
 
         # Adding parameters for Reinhard color normalization

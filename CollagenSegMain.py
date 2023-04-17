@@ -32,7 +32,6 @@ from sklearn.model_selection import KFold
 
 import neptune.new as neptune
 import neptune.new.integrations.optuna as optuna_utils
-import optuna
 
 from Input_Pipeline import *
 from CollagenSegTrain import Training_Loop
@@ -80,28 +79,15 @@ if phase == 'train':
     else:
         image_paths = glob(train_parameters['image_dir']+'*')
 
-        if not train_parameters['multi_task']:
-            label_paths_base = glob(train_parameters['label_dir']+'*')
-            
-            # For when image and label paths don't line up
-            label_paths = []
-            label_names = [i.split('/')[-1] for i in label_paths_base]
-            for j in range(0,len(image_paths)):
-                image_name = image_paths[j].split('/')[-1]
-                label_paths.append(label_paths_base[label_names.index(image_name)])
-        else:
-            label_bin_paths_base = glob(train_parameters['label_bin_dir']+'*')
-            label_reg_paths_base = glob(train_parameters['label_reg_dir']+'*')
+        label_paths_base = glob(train_parameters['label_dir']+'*')
+        
+        # For when image and label paths don't line up
+        label_paths = []
+        label_names = [i.split('/')[-1] for i in label_paths_base]
+        for j in range(0,len(image_paths)):
+            image_name = image_paths[j].split('/')[-1]
+            label_paths.append(label_paths_base[label_names.index(image_name)])
 
-            label_bin_paths = []
-            label_bin_names = [i.split('/')[-1] for i in label_bin_paths_base]
-            label_reg_paths = []
-            label_reg_names = [i.split('/')[-1] for i in label_reg_paths_base]
-
-            for j in range(0,len(image_paths)):
-                image_name = image_paths[j].split('/')[-1]
-                label_bin_paths.append(label_bin_paths_base[label_bin_names.index(image_name)])
-                label_reg_paths.append(label_reg_paths_base[label_reg_names.index(image_name)])
 
     # Determining whether or not doing k-fold CV and proceeding to training loop
     if int(train_parameters['k_folds'])==1:
@@ -110,9 +96,13 @@ if phase == 'train':
         if 'train_set' in train_parameters:
             train_df = pd.read_csv(train_parameters['train_set'])
             test_df = pd.read_csv(train_parameters['test_set'])
-            train_img_paths = train_df['Training_Image_Paths'].tolist()
-            valid_img_paths = test_df['Testing_Image_Paths'].tolist()
-
+            if 'Training_Image_Paths' in train_df.columns.values.tolist():
+                train_img_paths = train_df['Training_Image_Paths'].tolist()
+                valid_img_paths = test_df['Testing_Image_Paths'].tolist()
+            elif 'F_Training_Image_Paths' in train_df.columns.values.tolist():
+                train_img_paths = (train_df['F_Training_Image_Paths']+train_df['B_Training_Image_Paths']).tolist()
+                valid_img_paths = (test_df['F_Training_Image_Paths']+test_df['B_Training_Image_Paths']).tolist()
+                
             train_tar = [i.replace(train_parameters['image_dir'],train_parameters['label_dir']) for i in train_img_paths]
             valid_tar = [i.replace(train_parameters['image_dir'],train_parameters['label_dir']) for i in valid_img_paths]
 
@@ -128,25 +118,15 @@ if phase == 'train':
                 
             train_img_paths = [image_paths[i] for i in train_idx]
             valid_img_paths = [image_paths[i] for i in val_idx]
-        
-            if train_parameters['multi_task']:
-                train_bin_tar = [label_bin_paths[i] for i in train_idx]
-                train_reg_tar = [label_reg_paths[i] for i in train_idx]
-                valid_bin_tar = [label_bin_paths[i] for i in val_idx]
-                valid_reg_tar = [label_reg_paths[i] for i in val_idx]
 
-            else:
-                train_tar = [label_paths[i] for i in train_idx]
-                valid_tar = [label_paths[i] for i in val_idx]
+            train_tar = [label_paths[i] for i in train_idx]
+            valid_tar = [label_paths[i] for i in val_idx]
 
         nept_run['N_Training'] = len(train_img_paths)
         nept_run['N_Valid'] = len(valid_img_paths)
         
-        if train_parameters['multi_task']:
-            # slightly different inputs into the multi-task training set function compared to the regular
-            dataset_train, dataset_valid = make_multi_training_set(phase, train_img_paths, train_bin_tar, train_reg_tar, valid_img_paths, valid_bin_tar, valid_reg_tar)
-        else:
-            dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar, train_parameters)
+
+        dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar, train_parameters)
         
         model = Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run)
         
@@ -183,10 +163,8 @@ if phase == 'train':
             nept_run[f'{k_count}_Training_Set'].upload(neptune.types.File.as_html(k_training_set))
             nept_run[f'{k_count}_Testing_Set'].upload(neptune.types.File.as_html(k_testing_set))
     
-            if train_parameters['multi_task']:
-                dataset_train, dataset_valid = make_multi_training_set(phase, X_train, y_train, X_test, y_test, train_parameters)
-            else:
-                dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,train_parameters)
+
+            dataset_train, dataset_valid = make_training_set(phase, X_train, y_train, X_test, y_test,train_parameters)
             
             model = Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run)
             
@@ -213,15 +191,17 @@ elif phase == 'test':
         image_paths = []
         label_paths = []
         for idx,f in enumerate(f_img_names):
-            b_path = b_image_paths_base[b_img_names.index(f)]
+            try:
+                b_path = b_image_paths_base[b_img_names.index(f)]
 
-            image_paths.append([f_image_paths_base[idx],b_path])
-            l_path = label_paths_base[label_names.index(f)]
-            label_paths.append(l_path)
-
+                image_paths.append([f_image_paths_base[idx],b_path])
+                l_path = label_paths_base[label_names.index(f)]
+                label_paths.append(l_path)
+            except ValueError:
+                print(f'{f} not found')
 
     valid_img_paths = image_paths
-    valid_tar = image_paths
+    valid_tar = label_paths
     
     nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar,test_parameters)
     

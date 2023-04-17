@@ -56,6 +56,7 @@ def organize_parameters(parameters,nept_run):
         train_parameters['ann_classes'] = train_parameters['ann_classes']
 
     elif phase == 'test':
+        train_parameters = {}
         test_parameters = parameters['testing_parameters']
         test_parameters['output_dir'] = input_parameters['output_dir']
         test_parameters['model_file'] = input_parameters['model_file']
@@ -71,7 +72,15 @@ def organize_parameters(parameters,nept_run):
             test_parameters['label_bin_dir'] = input_parameters['label_bin_dir']+'/'
             test_parameters['label_reg_dir'] = input_parameters['label_reg_dir']+'/'
         elif 'label_dir' in input_parameters:
-            test_parameters['label_dir'] = input_parameters['label_dir']
+            test_parameters['label_dir'] = input_parameters['label_dir']+'/'
+
+
+        if 'image_dir' in input_parameters:
+            test_parameters['image_dir'] = input_parameters['image_dir']+'/'
+        else:
+            test_parameters['f_image_dir'] = input_parameters['f_image_dir']+'/'
+            test_parameters['b_image_dir'] = input_parameters['b_image_dir']+'/'
+
         
         test_parameters['ann_classes'] = test_parameters['ann_classes']
 

@@ -24,9 +24,9 @@ import pandas as pd
 from tqdm import tqdm
 import sys
 
-from CollagenSegUtils import visualize_continuous, visualize_multi_task
+from CollagenSegUtils import visualize_continuous
 
-from MultiTaskModel import MultiTaskLoss, MultiTaskModel
+#from MultiTaskModel import MultiTaskLoss, MultiTaskModel
 
 
 class Custom_MSE_Loss(torch.nn.Module):
@@ -99,27 +99,24 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     else:
         in_channels = 1
 
-    if not train_parameters['multi_task']:
-        if target_type=='binary':
-            loss = smp.losses.DiceLoss(mode='binary')
-            n_classes = len(ann_classes)
+    if target_type=='binary':
+        loss = smp.losses.DiceLoss(mode='binary')
+        n_classes = len(ann_classes)
 
-        elif target_type=='nonbinary':
-            if train_parameters['loss']=='MSE':
-                loss = torch.nn.MSELoss(reduction='mean')
-            elif train_parameters['loss'] == 'L1':
-                loss = torch.nn.L1Loss()
-            elif train_parameters['loss'] == 'custom':
-                loss = Custom_MSE_Loss()
-            elif train_parameters['loss'] == 'custom+':
-                loss = Custom_MSE_LossPlus()
-            elif train_parameters['loss'] == 'custom++':
-                loss = Custom_Plus_Plus_Loss()
+    elif target_type=='nonbinary':
+        if train_parameters['loss']=='MSE':
+            loss = torch.nn.MSELoss(reduction='mean')
+        elif train_parameters['loss'] == 'L1':
+            loss = torch.nn.L1Loss()
+        elif train_parameters['loss'] == 'custom':
+            loss = Custom_MSE_Loss()
+        elif train_parameters['loss'] == 'custom+':
+            loss = Custom_MSE_LossPlus()
+        elif train_parameters['loss'] == 'custom++':
+            loss = Custom_Plus_Plus_Loss()
 
-            n_classes = 1
-    else:
-        loss = MultiTaskLoss()
-        n_classes = 2
+        n_classes = 1
+
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f'Is training on GPU available? : {torch.cuda.is_available()}')
@@ -132,7 +129,6 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     nept_run['Loss'] = train_parameters['loss']
     nept_run['output_type'] = output_type
     nept_run['lr'] = train_parameters['lr']
-    nept_run['multi_task'] = train_parameters['multi_task']
     
     model = smp.UnetPlusPlus(
             encoder_name = encoder,
@@ -142,27 +138,6 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
             activation = active
             )
 
-    """   
-    if train_parameters['multi_task']:
-
-        model = MultiTaskModel({'unet_model':model})
-        loss = MultiTaskLoss()
-
-        # For learning value of parameter in loss (this can lead to the model only optimizing one loss)
-        optimizer = torch.optim.Adam([
-                dict(params = list(model.parameters())+list(loss.parameters()), lr = train_parameters['lr'],weight_decay = 0.001)
-                ])
-        optimizer = torch.optim.Adam([
-                dict(params=model.parameters(), lr = train_parameters['lr'],weight_decay=0.001)
-        ])
-
-        scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
-                                                    cycle_momentum = False,
-                                                    base_lr = train_parameters['lr']/2,
-                                                    max_lr = train_parameters['lr']*2,
-                                                    step_size_up = 100)
-    else:
-    """
     optimizer = torch.optim.Adam([
             dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.0001)
             ])
@@ -298,28 +273,17 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 
-                if train_parameters['multi_task']:
-                    fig = visualize_multi_task(img_dict,output_type)
-                else:
-                    fig = visualize_continuous(img_dict,output_type)
+                fig = visualize_continuous(img_dict,output_type)
 
                 # Different process for saving comparison figures vs. only predictions
                 if output_type == 'comparison':
                     fig.savefig(output_dir+f'Training_Epoch_{i}_Example.png')
                     nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.png')
                 elif output_type == 'prediction':
-                    if train_parameters['multi_task']:
-                        coll_im = Image.fromarray(fig[0].astype(np.uint8))
-                        coll_im.save(output_dir+f'Training_Epoch_{i}_collagen.tif')
-                        nept_run[f'Example_Output_{i}_collagen'].upload(output_dir+f'Training_Epoch_{i}_collagen.tif')
 
-                        bin_im = Image.fromarray(fig[1].astype(np.uint8))
-                        bin_im.save(output_dir+f'Training_Epoch_{i}_binary.tif')
-                        nept_run[f'Example_Output_{i}_binary'].upload(output_dir+f'Training_Epoch_{i}_binary.tif')
-                    else:
-                        im = Image.fromarray(fig.astype(np.uint8))
-                        im.save(output_dir+f'Training_Epoch_{i}_Example.tif')
-                        nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.tif')
+                    im = Image.fromarray(fig.astype(np.uint8))
+                    im.save(output_dir+f'Training_Epoch_{i}_Example.tif')
+                    nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.tif')
 
     if not i%save_step==0:
         torch.save(model.state_dict(),model_dir+f'Collagen_Seg_Model_{i}.pth')

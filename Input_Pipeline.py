@@ -159,10 +159,12 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
 
     if parameters['in_channels'] == 6:
         img_size = (512,512,6)
-    elif parameters['in_channels'] == 3:
-        img_size = (512,512,3)
     elif parameters['in_channels'] == 4:
         img_size = (512,512,4)
+    else:
+        img_size = (512,512,3)
+
+    mask_size = (512,512,1)
     
     target_type = parameters['target_type']
     batch_size = parameters['batch_size']
@@ -179,7 +181,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                     FunctionWrapperDouble(resize,
                                         input = False,
                                         target = True,
-                                        output_shape = (512,512,3)),
+                                        output_shape = img_size),
                     FunctionWrapperDouble(stupid_mask_thing,
                                         input = False,
                                         target = True)
@@ -194,7 +196,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                     FunctionWrapperDouble(resize,
                                         input = False,
                                         target = True,
-                                        output_shape = (512,512,1))
+                                        output_shape = mask_size)
             ])        
 
         if target_type=='binary':
@@ -257,8 +259,12 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             img_size = (512,512,6)
         elif parameters['in_channels'] == 4:
             img_size = (512,512,4)
+        elif parameters['in_channels'] == 1:
+            img_size = (512,512,1)
         else:
             img_size = (512,512,3)
+
+        mask_size = (512,512,1)
 
         if target_type=='binary':
             pre_transforms = ComposeDouble([
@@ -270,7 +276,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             FunctionWrapperDouble(resize,
                                 input = False,
                                 target = True,
-                                output_shape = (512,512,3)),
+                                output_shape = img_size),
             FunctionWrapperDouble(stupid_mask_thing,
                                 input = False,
                                 target = True)
@@ -293,7 +299,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             FunctionWrapperDouble(resize,
                                 input = False,
                                 target = True,
-                                output_shape = (512,512,1))
+                                output_shape = mask_size)
             ])
             
             transforms_testing = ComposeDouble([

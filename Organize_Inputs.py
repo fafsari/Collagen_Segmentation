@@ -44,12 +44,8 @@ def organize_parameters(parameters,nept_run):
             test_parameters['f_image_dir'] = input_parameters['f_image_dir']+'/'
             test_parameters['b_image_dir'] = input_parameters['b_image_dir']+'/'
 
-        if train_parameters['multi_task']:
-            train_parameters['label_bin_dir'] = input_parameters['label_bin_dir']+'/'
-            train_parameters['label_reg_dir'] = input_parameters['label_reg_dir']+'/'
-        else:
-            train_parameters['label_dir'] = input_parameters['label_dir']+'/'
-            test_parameters['label_dir'] = input_parameters['label_dir']+'/'
+        train_parameters['label_dir'] = input_parameters['label_dir']+'/'
+        test_parameters['label_dir'] = input_parameters['label_dir']+'/'
 
         train_parameters['k_folds'] = input_parameters['k_folds']
 
@@ -68,11 +64,7 @@ def organize_parameters(parameters,nept_run):
         else:
             test_parameters['color_transform'] = []
 
-        if test_parameters['multi_task']:
-            test_parameters['label_bin_dir'] = input_parameters['label_bin_dir']+'/'
-            test_parameters['label_reg_dir'] = input_parameters['label_reg_dir']+'/'
-        elif 'label_dir' in input_parameters:
-            test_parameters['label_dir'] = input_parameters['label_dir']+'/'
+        test_parameters['label_dir'] = input_parameters['label_dir']+'/'
 
 
         if 'image_dir' in input_parameters:

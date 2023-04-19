@@ -29,9 +29,9 @@ import pandas as pd
 import neptune.new as neptune
 
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
-from CollagenSegUtils import visualize_continuous, get_metrics, visualize_multi_task
+from CollagenSegUtils import visualize_continuous, get_metrics
 
-from MultiTaskModel import MultiTaskLoss, MultiTaskModel
+#from MultiTaskModel import MultiTaskLoss, MultiTaskModel
     
         
 def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
@@ -46,13 +46,11 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
     if active == 'None':
         active = None
 
-    if not test_parameters['multi_task']:
-        if target_type=='binary':
-            n_classes = len(ann_classes)
-        elif target_type == 'nonbinary':
-            n_classes = 1
-    else:
-        n_classes = 2
+    if target_type=='binary':
+        n_classes = len(ann_classes)
+    elif target_type == 'nonbinary':
+        n_classes = 1
+
 
     if test_parameters['in_channels'] == 3:
         in_channels = 3
@@ -75,10 +73,6 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
             activation = active
             )
 
-
-    if test_parameters['multi_task']:
-        model = MultiTaskModel({'unet_model':model})
-
     model.load_state_dict(torch.load(model_path))
     model.to(device)
     model.eval()
@@ -99,10 +93,6 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
             metrics_calculator = []
             testing_metrics_df = pd.DataFrame(data = {'MSE':[],'Norm_MSE':[]})
 
-        elif test_parameters['multi_task']:
-            metrics_calculator = BinaryMetrics()
-            testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[],'Specificity':[],'Sensitivity':[],'MSE':[],'Norm_MSE':[]})
-        
         # Setting up iterator to generate images from the validation dataset
         data_iterator = iter(test_dataloader)
         for i in tqdm(range(0,len(dataset_valid)),desc = 'Testing'):
@@ -127,11 +117,6 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                 testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
                 # Outputting the prediction as a continuous mask even though running binary metrics
 
-            elif test_parameters['multi_task']:
-                target_img = target.cpu().numpy()
-                pred_mask_img = pred_mask.detach().cpu().numpy()
-                testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,'multi_task')),ignore_index=True)
-            
             elif target_type=='nonbinary':
                 pred_mask_img = pred_mask.detach().cpu().numpy()
                 target_img = target.cpu().numpy()
@@ -148,28 +133,18 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                 image = image.cpu().numpy()
 
             img_dict = {'Image':image,'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
-            
-            if test_parameters['multi_task']:
-                fig = visualize_multi_task(img_dict,output_type)
-            else:
-                fig = visualize_continuous(img_dict,output_type)
+
+            fig = visualize_continuous(img_dict,output_type)
 
             # Different process for saving comparison figures vs. only predictions
             if output_type=='comparison':
                 fig.savefig(test_output_dir+'Test_Example_'+input_name)
                 #nept_run['testing/Testing_Output_'+input_name].upload(test_output_dir+'Test_Example_'+input_name)
             elif output_type=='prediction':
-                if test_parameters['multi_task']:
-                    coll_im = Image.fromarray((fig[0]*255).astype(np.uint8))
-                    coll_im.save(test_output_dir+'Test_Example_Collagen_'+input_name.replace('.jpg','.tif'))
 
-                    bin_im = Image.fromarray((fig[1]*255).astype(np.uint8))
-                    bin_im.save(test_output_dir+'Test_Example_Binary_'+input_name.replace('.jpg','.tif'))
-
-                else:
-                    im = Image.fromarray((fig*255).astype(np.uint8))
-                    im.save(test_output_dir+'Test_Example_'+input_name.replace('.jpg','.tif'))
-                    
+                im = Image.fromarray((fig*255).astype(np.uint8))
+                im.save(test_output_dir+'Test_Example_'+input_name.replace('.jpg','.tif'))
+                
         # Used during hyperparameter optimization to compute objective value
         testing_metrics_df.to_csv(test_output_dir+'Test_Metrics.csv')
         

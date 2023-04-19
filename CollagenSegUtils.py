@@ -114,42 +114,6 @@ def visualize_multi_task(images,output_type):
 
     return fig
 
-"""   
- # This visualization function can be used for binary outputs
-def visualize(images,output_type):
-    
-    n = len(images)
-    
-    for i,key in enumerate(images):
-
-        plt.subplot(1,n,i+1)
-        plt.xticks([])
-        plt.yticks([])
-        plt.title(key)
-        
-        if len(np.shape(images[key]))==4:
-            img = images[key][0,:,:,:]
-        else:
-            img = images[key]
-            
-        img = np.float32(np.moveaxis(img, source = 0, destination = -1))
-        #print(key)
-        if key == 'Pred_Mask' or key == 'Ground_Truth':
-            if output_type=='binary' or key == 'Ground_Truth':
-                #print('using back_to_reality')
-                img = back_to_reality(img)
-
-                plt.imshow(img)
-            if output_type == 'continuous' and not key == 'Ground_Truth':
-                #print('applying colormap')
-                img = apply_colormap(img)
-
-                plt.imshow(img,cmap='jet')
-        else:
-            plt.imshow(img)
-
-    return plt.gcf()
-    """
 
 def visualize_continuous(images,output_type):
 

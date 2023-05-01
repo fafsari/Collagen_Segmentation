@@ -96,7 +96,7 @@ class SegmentationDataSet(Dataset):
                 except FileNotFoundError:
                     print(f'File not found: {img_name},{tar_name}')
 
-                print(f'Cached Data: {len(self.cached_data)}')
+            print(f'Cached Data: {len(self.cached_data)}')
         
     def __len__(self):
         return len(self.cached_data)
@@ -161,6 +161,8 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
         img_size = (512,512,6)
     elif parameters['in_channels'] == 4:
         img_size = (512,512,4)
+    elif parameters['in_channels'] == 2:
+        img_size = (512,512,2)
     else:
         img_size = (512,512,3)
 
@@ -261,6 +263,8 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             img_size = (512,512,4)
         elif parameters['in_channels'] == 1:
             img_size = (512,512,1)
+        elif parameters['in_channels'] == 2:
+            img_size = (512,512,2)
         else:
             img_size = (512,512,3)
 

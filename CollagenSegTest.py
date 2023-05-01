@@ -58,6 +58,8 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
         in_channels = 6
     elif test_parameters['in_channels'] == 4:
         in_channels = 4
+    elif test_parameters['in_channels'] == 2:
+        in_channels = 2
     else:
         in_channels = 1
 
@@ -123,14 +125,15 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
 
                 testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
 
+
+            image = image.cpu().numpy()
             if in_channels==6:
-                image = image.cpu().numpy()
                 image = np.concatenate((image[:,0:3,:,:],image[:,2:5,:,:]),axis=2)
             elif in_channels == 4:
-                image = image.cpu().numpy()
                 image = np.concatenate((np.stack((image[:,0,:,:],)*3,axis=1),image[:,0:3,:,:]),axis=2)
-            else:
-                image = image.cpu().numpy()
+            elif in_channels == 2:
+                image = np.concatenate((image[:,0,:,:],image[:,1,:,:]),axis=2)
+
 
             img_dict = {'Image':image,'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
 

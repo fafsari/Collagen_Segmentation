@@ -96,6 +96,8 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
         in_channels = 6
     elif train_parameters['in_channels']==4:
         in_channels = 4
+    elif train_parameters['in_channels'] == 2:
+        in_channels = 2
     else:
         in_channels = 1
 
@@ -190,6 +192,7 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
             # Sending to device
             train_imgs = train_imgs.to(device)
             train_masks = train_masks.to(device)
+            print(train_imgs.shape)
 
             # Running predictions on training batch
             train_preds = model(train_imgs)
@@ -270,6 +273,9 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                     current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=2)
                 elif in_channels==4:
                     current_img = np.concatenate((np.stack((current_img[0,:,:],)*3,axis=1),current_img[0:3,:,:]),axis=2)
+                elif in_channels==2:
+                    print(np.shape(current_img))
+                    current_img = np.concatenate((current_img[0,:,:],current_img[1,:,:]),axis=2)
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 

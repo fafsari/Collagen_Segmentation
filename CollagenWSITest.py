@@ -27,4 +27,4 @@ testing_dataset = WSISegmentationDataSet(test_parameters['target_type'],
 
 model_path = input_parameters['model_file']
 
-Test_Network(model_path,testing_dataset,input_parameters['output_dir'],test_parameters)
+Test_Network(model_path,testing_dataset,test_parameters)

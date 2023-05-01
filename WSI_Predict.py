@@ -62,13 +62,13 @@ def Test_Network(model_path,test_dataset,test_parameters):
                 # Assembling predicted masks into combined tif file
                 test_dataloader.add_to_mask(pred_masks.detach().cpu().numpy(),coords)
             
+            #final_mask = Image.fromarray(test_dataloader.combined_mask)
+            #final_mask.save(output_dir+test_dataloader.current_slide.name+'.tif')
+            test_dataloader.make_tiff(save_path = output_dir+test_dataloader.current_slide.name+'.tiff')
 
-            final_mask = Image.fromarray(test_dataloader.combined_mask)
-            final_mask.save(output_dir+test_dataloader.current_slide.name+'.tif')
-
-            final_width,final_height = final_mask.size
-            scaled_final_mask = final_mask.resize((int(final_width/100),int(final_height/100)))
-            scaled_final_mask.save(output_dir+test_dataloader.current_slide.name+'_small.tif')
+            #final_width,final_height = final_mask.size
+            #scaled_final_mask = final_mask.resize((int(final_width/100),int(final_height/100)))
+            #scaled_final_mask.save(output_dir+test_dataloader.current_slide.name+'_small.tif')
             
             try:
                 test_dataloader = iter(test_dataloader)

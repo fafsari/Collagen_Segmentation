@@ -245,34 +245,42 @@ def resize_special(img,output_size,transform):
 
             # Normalizing fluorescence channels between 0 and 1
             f_img = img[:,:,0:3]
-            f_img = (f_img - np.min(f_img))/np.ptp(f_img)
+            #f_img = (f_img - np.min(f_img))/np.ptp(f_img)
+            f_img = f_img/np.sum(f_img,axis=-1)
 
             # Inverting and normalizing brightfield channels
             b_img = img[:,:,2:5]
             b_img = 255-b_img
-            b_img = (b_img - np.min(b_img))/np.ptp(b_img)
+            #b_img = (b_img - np.min(b_img))/np.ptp(b_img)
+            b_img = b_img/np.sum(b_img,axis=-1)
 
             img = np.concatenate((f_img,b_img),axis=-1)
 
     else:
-        img = resize(img,output_size)
 
         # Setting default size to 256,256,n_channels
         if transform=='mean':
+            img = resize(img,output_size)
 
             img = np.mean(img,axis = -1)
             img = img[:,:,np.newaxis]
 
         elif transform in ['red','green','blue']:
+            img = resize(img,output_size)
+
             color_list = ['red','green','blue']
             img = img[:,:,color_list.index(transform)]
             img = img[:,:,np.newaxis]
+
         elif transform == 'rgb2gray':
+            img = resize(img,output_size)
 
             img = rgb2gray(img)
             img = img[:,:,np.newaxis]
 
         elif transform == 'rgb2lab':
+            img = resize(img,output_size)
+
             img = rgb2lab(img)
         
         elif type(transform)==dict:
@@ -282,6 +290,7 @@ def resize_special(img,output_size,transform):
             # Determining non-tissue regions to mask out prior to scaling/conversion
             # For BF images the non-tissue regions are closer to white whereas with fluorescence images they 
             # are closer to black
+            img = resize(img,output_size)
 
             lab_img = rgb2lab(img)
             scaled_img = (lab_img-np.nanmean(lab_img))/np.nanstd(lab_img)
@@ -291,6 +300,18 @@ def resize_special(img,output_size,transform):
             
             # converting back to rgb
             img = (scaled_img-np.nanmean(scaled_img))/np.nanstd(scaled_img)
+
+        elif transform == 'invert_bf_intensity':
+            # Grabbing the green channel from both the fluorescence and brightfield images
+            #print(f'Shape of image: {np.shape(img)}')
+            f_green_img = img[:,:,1]
+            f_green_img = f_green_img/np.sum(f_green_img,axis=-1)
+
+            # Inverting brightfield channels
+            b_green_inv_img = 255-img[:,:,3]
+            b_green_inv_img = b_green_inv_img/np.sum(b_green_inv_img,axis=-1)
+
+            img = np.concatenate((f_green_img[:,:,None],b_green_inv_img[:,:,None]),axis=-1)
 
 
     return img

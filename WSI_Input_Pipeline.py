@@ -13,6 +13,8 @@ from tqdm import tqdm
 from glob import glob
 
 from PIL import Image
+import tifffile as ti
+#import ome_types as ot
 
 import torch
 from torch.utils.data import Dataset
@@ -85,12 +87,43 @@ class WSISegmentationDataSet(Dataset):
             return self
         else:
             raise StopIteration
-
-    
+  
     def add_to_mask(self,pred_batch,coordinates):
         for idx,coords in enumerate(coordinates):
             self.combined_mask[coords[1]:coords[3],coords[0]:coords[2]]+=np.mean(np.concatenate((self.combined_mask[coords[1]:coords[3],coords[0]:coords[2],None],
                                                                                     pred_batch[idx,1,:,:,None]),axis=-1))
+
+    def make_ome_tiff(self,cyz = False):
+
+        if cyz:
+            img = np.transpose(self.combined_mask,axes=(2,0,1))
+        else:
+            img = self.combined_mask
+
+        img = img.astype(np.uint8)
+        
+        tiff_writer = ti.TiffWriter(self.current_slide._processed_path+'slide_tiff.ome.tiff',ome=True,bigtiff=True)
+        if cyz:
+            tiff_writer.write(img,metadata={'axes':'CYX'})
+        else:
+            tiff_writer.write(img,metadata={'axes':'XYC'})
+        tiff_writer.close()
+
+        tiff_file = ot.from_tiff(self.current_slide._processed_path+'slide_tiff.ome.tiff')
+        xml_name = self.current_slide._processed_path+'slide_tiff.ome.xml'
+        xml_data = ot.to_xml(tiff_file)
+        xml_data = xml_data.replace('<Pixels','<Pixels PhysicalSizeXUnit="\u03BCm" PhysicalSizeYUnit="u03BCm"')
+        with open(xml_name,'wt+') as fh:
+            fh.write(xml_data)
+
+    def make_tiff(self,save_path = None):
+        if save_path is None:
+            tiff_writer = ti.TiffWriter(self.current_slide._processed_path+'slide_tiff.tiff',ome=False,bigtiff=True)
+        else:
+            tiff_writer = ti.TiffWriter(save_path,ome=False,bigtiff=True)
+
+        tiff_writer.write(self.combined_mask,metadata={'axes':'XYC'})
+        tiff_writer.close()
 
     def __next__(self):
         

@@ -303,16 +303,12 @@ def resize_special(img,output_size,transform):
 
         elif transform == 'invert_bf_intensity':
             # Grabbing the green channel from both the fluorescence and brightfield images
-            #print(f'Shape of image: {np.shape(img)}')
             f_green_img = img[:,:,1]
-            f_green_img = f_green_img/np.sum(f_green_img,axis=-1)
-
+            f_green_img = np.divide(f_green_img,np.sum(img[:,:,0:3],axis=-1),where=(np.sum(img[:,:,0:3],axis=-1)!=0))
             # Inverting brightfield channels
             b_green_inv_img = 255-img[:,:,3]
-            b_green_inv_img = b_green_inv_img/np.sum(b_green_inv_img,axis=-1)
-
+            b_green_inv_img = np.divide(b_green_inv_img,np.sum(255-img[:,:,2:5],axis=-1),where=(np.sum(255-img[:,:,2:5],axis=-1)!=0))
             img = np.concatenate((f_green_img[:,:,None],b_green_inv_img[:,:,None]),axis=-1)
-
 
     return img
 

@@ -26,6 +26,8 @@ import sys
 
 from CollagenSegUtils import visualize_continuous
 
+from FusionModel import DUNet
+
 #from MultiTaskModel import MultiTaskLoss, MultiTaskModel
 
 
@@ -77,8 +79,11 @@ class Custom_Plus_Plus_Loss(torch.nn.Module):
 
 def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     
-    encoder = train_parameters['encoder']
-    encoder_weights = train_parameters['encoder_weights']
+    if not train_parameters['architecture'] == 'DUnet':
+        encoder = train_parameters['encoder']
+        encoder_weights = train_parameters['encoder_weights']
+        nept_run['encoder'] = encoder
+        nept_run['encoder_pre_train'] = encoder_weights
 
     output_type = train_parameters['output_type']
     active = train_parameters['active']
@@ -90,16 +95,7 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     if active=='None':
         active = None
 
-    if train_parameters['in_channels']==3:
-        in_channels = 3
-    elif train_parameters['in_channels']==6:
-        in_channels = 6
-    elif train_parameters['in_channels']==4:
-        in_channels = 4
-    elif train_parameters['in_channels'] == 2:
-        in_channels = 2
-    else:
-        in_channels = 1
+    in_channels = train_parameters['in_channels']
 
     if target_type=='binary':
         loss = smp.losses.DiceLoss(mode='binary')
@@ -125,20 +121,26 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     print(f'Device is : {device}')
     print(f'Torch Cuda version is : {torch.version.cuda}')    
 
-    nept_run['encoder'] = encoder
-    nept_run['encoder_pre_train'] = encoder_weights
+
     nept_run['Architecture'] = train_parameters['architecture']
     nept_run['Loss'] = train_parameters['loss']
     nept_run['output_type'] = output_type
     nept_run['lr'] = train_parameters['lr']
     
-    model = smp.UnetPlusPlus(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = in_channels,
-            classes = n_classes,
+    if train_parameters['architecture']=='Unet++':
+        model = smp.UnetPlusPlus(
+                encoder_name = encoder,
+                encoder_weights = encoder_weights,
+                in_channels = in_channels,
+                classes = n_classes,
+                activation = active
+                )
+    elif train_parameters['architecture']=='DUnet':
+        model = DUNet(
+            n_channels = in_channels,
+            n_classes = n_classes,
             activation = active
-            )
+        )
 
     optimizer = torch.optim.Adam([
             dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.0001)
@@ -277,6 +279,8 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                     current_img = np.concatenate((np.stack((current_img[0,:,:],)*3,axis=1),current_img[0:3,:,:]),axis=2)
                 elif in_channels==2:
                     current_img = np.concatenate((current_img[0,:,:],current_img[1,:,:]),axis=-1)
+                elif sum(in_channels)==6:
+                    current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=2)
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 

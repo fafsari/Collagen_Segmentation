@@ -157,14 +157,18 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
     if 'color_transform' in parameters:
         color_transform = parameters['color_transform']
 
-    if parameters['in_channels'] == 6:
-        img_size = (512,512,6)
-    elif parameters['in_channels'] == 4:
-        img_size = (512,512,4)
-    elif parameters['in_channels'] == 2:
-        img_size = (512,512,2)
-    else:
-        img_size = (512,512,3)
+    if type(parameters['in_channels'])==int:
+        if parameters['in_channels'] == 6:
+            img_size = (512,512,6)
+        elif parameters['in_channels'] == 4:
+            img_size = (512,512,4)
+        elif parameters['in_channels'] == 2:
+            img_size = (512,512,2)
+        else:
+            img_size = (512,512,3)
+    elif type(parameters['in_channels'])==list:
+        img_size = (512,512,sum(parameters['in_channels']))
+
 
     mask_size = (512,512,1)
     
@@ -255,18 +259,10 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
         
     elif phase == 'test':
         
-        color_transform = parameters['in_channels']
+        if 'color_transform' in parameters:
+            color_transform = parameters['color_transform']
 
-        if parameters['in_channels']==6:
-            img_size = (512,512,6)
-        elif parameters['in_channels'] == 4:
-            img_size = (512,512,4)
-        elif parameters['in_channels'] == 1:
-            img_size = (512,512,1)
-        elif parameters['in_channels'] == 2:
-            img_size = (512,512,2)
-        else:
-            img_size = (512,512,3)
+        img_size = (512,512,parameters['in_channels'])
 
         mask_size = (512,512,1)
 

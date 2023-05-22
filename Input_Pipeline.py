@@ -231,13 +231,13 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                 AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
                 AlbuSeg2d(albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.5,rotate_limit=45,interpolation=1,p=0.1)),
                 AlbuSeg2d(albumentations.VerticalFlip(p=0.5)),
-                FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                FunctionWrapperDouble(normalize_01, input = True, target = True)
+                FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0)
+                #FunctionWrapperDouble(normalize_01, input = True, target = True)
             ])
 
             transforms_validation = ComposeDouble([
-                FunctionWrapperDouble(np.moveaxis,input=True,target=True,source=-1,destination=0),
-                FunctionWrapperDouble(normalize_01, input = True, target = True)
+                FunctionWrapperDouble(np.moveaxis,input=True,target=True,source=-1,destination=0)
+                #FunctionWrapperDouble(normalize_01, input = True, target = True)
             ])
 
         

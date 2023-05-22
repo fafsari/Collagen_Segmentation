@@ -235,6 +235,29 @@ def resize_special(img,output_size,transform):
     if 'multi_input' in transform:
         if transform=='multi_input_rgb':
             img = resize(img,output_shape=(output_size))
+        elif transform =='multi_input_invbf':
+            # Inverting brightfield channels
+            img = resize(img,output_shape=(output_size))
+
+            f_img = img[:,:,0:3]
+            f_img = f_img/np.sum(f_img,axis=-1)[:,:,None]
+            b_img = 255-img[:,:,2:5]
+            b_img = b_img/np.sum(b_img,axis=-1)[:,:,None]
+
+            img = np.concatenate((f_img,b_img),axis=-1)
+        elif transform =='multi_input_green_invbf':
+            # Green channels, inverting bf
+            #img = resize(img, output_shape = (output_size))
+
+            f_img = img[:,:,1]
+            f_img = (f_img - np.min(f_img))/np.ptp(f_img)
+            
+            b_img = 255-img[:,:,4]
+            b_img = (b_img - np.min(b_img))/np.ptp(b_img)
+
+            img = np.concatenate((f_img[:,:,None],b_img[:,:,None]),axis=-1)
+            img = resize(img,output_shape = (output_size))
+
     else:
 
         if output_size[-1]==1:

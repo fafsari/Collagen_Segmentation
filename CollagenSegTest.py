@@ -30,14 +30,17 @@ import neptune.new as neptune
 
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 from CollagenSegUtils import visualize_continuous, get_metrics
+from FusionModel import DUNet
 
 #from MultiTaskModel import MultiTaskLoss, MultiTaskModel
     
         
 def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
 
-    encoder = test_parameters['encoder']
-    encoder_weights = test_parameters['encoder_weights']
+    if not test_parameters['architecture'] == 'DUnet':
+        encoder = test_parameters['encoder']
+        encoder_weights = test_parameters['encoder_weights']
+
     ann_classes = test_parameters['ann_classes']
     active = test_parameters['active']
     target_type = test_parameters['target_type']
@@ -51,7 +54,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
     elif target_type == 'nonbinary':
         n_classes = 1
 
-
+    """
     if test_parameters['in_channels'] == 3:
         in_channels = 3
     elif test_parameters['in_channels'] == 6:
@@ -62,18 +65,26 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
         in_channels = 2
     else:
         in_channels = 1
-
+    """
+    in_channels = test_parameters['in_channels']
     output_type = test_parameters['output_type']
 
     device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
-    model = smp.UnetPlusPlus(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = in_channels,
-            classes = n_classes,
+    if test_parameters['architecture']=='Unet++':
+        model = smp.UnetPlusPlus(
+                encoder_name = encoder,
+                encoder_weights = encoder_weights,
+                in_channels = in_channels,
+                classes = n_classes,
+                activation = active
+                )
+    elif test_parameters['architecture']=='DUnet':
+        model = DUNet(
+            n_channels = in_channels,
+            n_classes = n_classes,
             activation = active
-            )
+        )
 
     model.load_state_dict(torch.load(model_path))
     model.to(device)
@@ -111,7 +122,8 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
 
             # Add something here so that it calculates perforance metrics and outputs
             # raw values for 2-class segmentation(not binarized output masks)
-            pred_mask = model.predict(image.to(device))
+            #pred_mask = model.predict(image.to(device))
+            pred_mask = model(image.to(device))
 
             if target_type=='binary':        
                 target_img = target.cpu().numpy().round()
@@ -133,7 +145,10 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                 image = np.concatenate((np.stack((image[:,0,:,:],)*3,axis=1),image[:,0:3,:,:]),axis=2)
             elif in_channels == 2:
                 image = np.concatenate((image[:,0,:,:],image[:,1,:,:]),axis=-1)
-
+            elif sum(in_channels)==6:
+                current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=2)
+            elif sum(in_channels)==2:
+                current_img = np.concatenate((current_img[0,:,:][None,:,:],current_img[1,:,:][None,:,]),axis=2)
 
             img_dict = {'Image':image,'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
 

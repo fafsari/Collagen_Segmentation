@@ -258,6 +258,18 @@ def resize_special(img,output_size,transform):
             img = np.concatenate((f_img[:,:,None],b_img[:,:,None]),axis=-1)
             img = resize(img,output_shape = (output_size))
 
+        elif transform == 'multi_input_mean_invbf':
+
+            # Mean of color channels, inverting bf
+            f_img = np.mean(img[:,:,0:3],axis=-1)
+            f_img = (f_img - np.min(f_img))/np.ptp(f_img)
+
+            b_img = 255-np.mean(img[:,:,2:5],axis=-1)
+            b_img = (b_img - np.min(b_img))/np.ptp(b_img)
+
+            img = np.concatenate((f_img[:,:,None],b_img[:,:,None]),axis=-1)
+            img = resize(img, output_shape = (output_size))
+
     else:
 
         if output_size[-1]==1:

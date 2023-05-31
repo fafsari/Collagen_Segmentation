@@ -20,23 +20,50 @@ class DoubleConv(nn.Module):
         if not mid_channels:
             mid_channels = out_channels
 
-        self.double_conv = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels, kernel_size=3,padding=1,bias=False),
-            nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels,out_channels,kernel_size=3,padding=1,bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
-        )
+        dropout = None
 
-        self.double_conv_3d = nn.Sequential(
-            nn.Conv3d(in_channels,mid_channels,kernel_size=3,padding=1,bias=False),
-            nn.BatchNorm3d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv3d(mid_channels,1,kernel_size=3,padding=1,bias=False),
-            nn.BatchNorm3d(1),
-            nn.ReLU(inplace=True)
-        )
+        if dropout is not None:
+            self.dropout = dropout
+
+            self.double_conv = nn.Sequential(
+                nn.Conv2d(in_channels, mid_channels, kernel_size=3,padding=1,bias=False),
+                nn.Dropout(p=self.dropout),
+                nn.BatchNorm2d(mid_channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(mid_channels,out_channels,kernel_size=3,padding=1,bias=False),
+                nn.Dropout(p=self.dropout),
+                nn.BatchNorm2d(out_channels),
+                nn.ReLU(inplace=True)
+            )
+
+            self.double_conv_3d = nn.Sequential(
+                nn.Conv3d(in_channels,mid_channels,kernel_size=3,padding=1,bias=False),
+                nn.Dropout(p=self.dropout),
+                nn.BatchNorm3d(mid_channels),
+                nn.ReLU(inplace=True),
+                nn.Conv3d(mid_channels,1,kernel_size=3,padding=1,bias=False),
+                nn.Dropout(p=self.dropout),
+                nn.BatchNorm3d(1),
+                nn.ReLU(inplace=True)
+            )
+        else:
+            self.double_conv = nn.Sequential(
+                nn.Conv2d(in_channels, mid_channels, kernel_size=3,padding=1,bias=False),
+                nn.BatchNorm2d(mid_channels),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(mid_channels,out_channels,kernel_size=3,padding=1,bias=False),
+                nn.BatchNorm2d(out_channels),
+                nn.ReLU(inplace=True)
+            )
+
+            self.double_conv_3d = nn.Sequential(
+                nn.Conv3d(in_channels,mid_channels,kernel_size=3,padding=1,bias=False),
+                nn.BatchNorm3d(mid_channels),
+                nn.ReLU(inplace=True),
+                nn.Conv3d(mid_channels,1,kernel_size=3,padding=1,bias=False),
+                nn.BatchNorm3d(1),
+                nn.ReLU(inplace=True)
+            )
 
     def forward(self,x):
         
@@ -158,7 +185,7 @@ class DUNet(nn.Module):
         self.activation = activation
         self.bilinear = bilinear
         self.down_n = 4
-        self.up_n = 4
+        self.up_n = self.down_n
         self.in_out_channel = 64
         self.factor = 2 if self.bilinear else 1
         
@@ -174,7 +201,7 @@ class DUNet(nn.Module):
                 setattr(self,f'down{i}',(Down((2**i)*self.in_out_channel,(2**(i+1))*self.in_out_channel//self.factor)))
 
         # Up layers
-        start_dim = (2**(i+1)*64//self.factor)*2
+        start_dim = (2**(i+1)*self.in_out_channel//self.factor)*2
         for i in range(self.up_n):
             #print(f'up{i}, in: {(1/(2**i))*start_dim}, out: {(1/(2**(i+1)))*start_dim//self.factor}')
             setattr(self,f'up{i}',(Up((1/(2**i))*start_dim,(1/(2**(i+1)))*start_dim//self.factor,self.bilinear)))

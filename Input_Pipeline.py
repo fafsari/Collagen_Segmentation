@@ -71,6 +71,9 @@ class SegmentationDataSet(Dataset):
         if self.use_cache:
             self.cached_data = []
             self.cached_names = []
+
+            self.image_means = []
+            self.image_stds = []
             
             progressbar = tqdm(range(len(self.inputs)), desc = 'Caching')
 
@@ -88,6 +91,13 @@ class SegmentationDataSet(Dataset):
                         else:
                             img, tar = imread(str(img_name)), imread(str(tar_name))
                     
+                    # Calculating dataset mean and standard deviation
+                    img_channel_mean = np.mean(img,axis=(0,1))
+                    img_channel_std = np.std(img,axis=(0,1))
+
+                    self.image_means.append(img_channel_mean)
+                    self.image_stds.append(img_channel_std)
+
                     if self.pre_transform is not None:
                         img, tar = self.pre_transform(img, tar)
                         
@@ -262,8 +272,11 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
         if 'color_transform' in parameters:
             color_transform = parameters['color_transform']
 
-        img_size = (512,512,parameters['in_channels'])
-
+        if type(parameters['in_channels'])==int:
+            img_size = (512,512,parameters['in_channels'])
+        elif type(parameters['in_channels'])==list:
+            img_size = (512,512,sum(parameters['in_channels']))
+            
         mask_size = (512,512,1)
 
         if target_type=='binary':
@@ -304,7 +317,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             
             transforms_testing = ComposeDouble([
                     FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                    FunctionWrapperDouble(normalize_01, input = True, target = True)
+                    #FunctionWrapperDouble(normalize_01, input = True, target = True)
                     ])
 
         # this is 'None' because we are just testing the network

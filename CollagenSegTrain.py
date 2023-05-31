@@ -145,14 +145,14 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     optimizer = torch.optim.Adam([
             dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.0001)
             ])
-    """
+    
     scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
                                                 cycle_momentum = False,
                                                 base_lr = train_parameters['lr']/2,
                                                 max_lr = train_parameters['lr']*2,
                                                 step_size_up = 250)
 
-    """
+    lr_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience=25,verbose=True)
 
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
     model = model.to(device)
@@ -251,7 +251,8 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 else:
                     nept_run[f'validation_loss_{train_parameters["current_k_fold"]}'].log(val_loss)
 
-            #scheduler.step()
+            scheduler.step()
+            lr_plateau.step(val_loss)
 
             # Saving model if current i is a multiple of "save_step"
             # Also generating example output segmentation and uploading that to Neptune
@@ -282,7 +283,6 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                     current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=2)
                 elif sum(in_channels)==2:
                     current_img = np.concatenate((current_img[0,:,:][None,:,:],current_img[1,:,:][None,:,:]),axis=2)
-
 
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}

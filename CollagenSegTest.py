@@ -146,9 +146,9 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
             elif in_channels == 2:
                 image = np.concatenate((image[:,0,:,:],image[:,1,:,:]),axis=-1)
             elif sum(in_channels)==6:
-                current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=2)
+                image = np.concatenate((image[:,0:3,:,:],image[:,2:5,:,:]),axis=2)
             elif sum(in_channels)==2:
-                current_img = np.concatenate((current_img[0,:,:][None,:,:],current_img[1,:,:][None,:,]),axis=2)
+                image = np.concatenate((image[:,0,:,:][None,:,:],image[:,1,:,:][None,:,:]),axis=2)
 
             img_dict = {'Image':image,'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
 

@@ -139,16 +139,18 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
 
 
             image = image.cpu().numpy()
-            if in_channels==6:
-                image = np.concatenate((image[:,0:3,:,:],image[:,2:5,:,:]),axis=2)
-            elif in_channels == 4:
-                image = np.concatenate((np.stack((image[:,0,:,:],)*3,axis=1),image[:,0:3,:,:]),axis=2)
-            elif in_channels == 2:
-                image = np.concatenate((image[:,0,:,:],image[:,1,:,:]),axis=-1)
-            elif sum(in_channels)==6:
-                image = np.concatenate((image[:,0:3,:,:],image[:,2:5,:,:]),axis=2)
-            elif sum(in_channels)==2:
-                image = np.concatenate((image[:,0,:,:][None,:,:],image[:,1,:,:][None,:,:]),axis=2)
+            if type(in_channels)==int:
+                if in_channels==6:
+                    image = np.concatenate((image[:,0:3,:,:],image[:,2:5,:,:]),axis=2)
+                elif in_channels == 4:
+                    image = np.concatenate((np.stack((image[:,0,:,:],)*3,axis=1),image[:,0:3,:,:]),axis=2)
+                elif in_channels == 2:
+                    image = np.concatenate((image[:,0,:,:],image[:,1,:,:]),axis=-1)
+            elif type(in_channels)==list:
+                if sum(in_channels)==6:
+                    image = np.concatenate((image[:,0:3,:,:],image[:,2:5,:,:]),axis=2)
+                elif sum(in_channels)==2:
+                    image = np.concatenate((image[:,0,:,:][None,:,:],image[:,1,:,:][None,:,:]),axis=2)
 
             img_dict = {'Image':image,'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
 

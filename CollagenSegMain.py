@@ -127,7 +127,9 @@ if phase == 'train':
         
 
         dataset_train, dataset_valid = make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar, train_parameters)
-        
+        dataset_train.normalize_cache(np.mean(dataset_train.image_means,axis=0),np.mean(dataset_train.image_stds,axis=0))
+        dataset_valid.normalize_cache(np.mean(dataset_train.image_means,axis=0),np.mean(dataset_train.image_stds,axis=0))
+
         model = Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run)
         
         Test_Network(model, dataset_valid, nept_run, test_parameters)
@@ -204,5 +206,9 @@ elif phase == 'test':
     valid_tar = label_paths
     
     nothin, dataset_test = make_training_set(phase, None, None, valid_img_paths, valid_tar,test_parameters)
+
+    # Applying normalization if values are provided
+    if 'image_means' in test_parameters:
+        dataset_test.normalize_cache(test_parameters['image_means'],test_parameters['image_stds'])
     
     Test_Network(test_parameters['model_file'], dataset_test, nept_run, test_parameters)

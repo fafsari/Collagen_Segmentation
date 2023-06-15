@@ -91,15 +91,15 @@ class SegmentationDataSet(Dataset):
                         else:
                             img, tar = imread(str(img_name)), imread(str(tar_name))
                     
+                    if self.pre_transform is not None:
+                        img, tar = self.pre_transform(img, tar)
+
                     # Calculating dataset mean and standard deviation
                     img_channel_mean = np.mean(img,axis=(0,1))
                     img_channel_std = np.std(img,axis=(0,1))
 
                     self.image_means.append(img_channel_mean)
                     self.image_stds.append(img_channel_std)
-
-                    if self.pre_transform is not None:
-                        img, tar = self.pre_transform(img, tar)
                         
                     self.cached_data.append((img,tar))
                     self.cached_names.append(img_name)
@@ -107,7 +107,10 @@ class SegmentationDataSet(Dataset):
                     print(f'File not found: {img_name},{tar_name}')
 
             print(f'Cached Data: {len(self.cached_data)}')
-        
+            print(f'image_means mean: {np.mean(self.image_means,axis=0)}')
+            print(f'image_stds mean: {np.mean(self.image_stds,axis=0)}')
+
+
     def __len__(self):
         return len(self.cached_data)
     
@@ -132,11 +135,73 @@ class SegmentationDataSet(Dataset):
             x, y = self.transform(x, y)
             
         # Getting in the right input/target data types
-
         x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
 
         return x, y, input_ID
     
+    def add_sub_categories(self,sub_categories, sub_cat_column):
+        # Implementing sub-category weighting if provided with dataframe
+        sub_cat_counts = sub_categories[sub_cat_column].value_counts(normalize=True).to_dict()
+        print(f'Dataset composition: {sub_cat_counts}')
+
+        # Applying inverse weight to each sample (evens out sampling)
+        sub_cat_counts = {i:1.0-j for i,j in zip(list(sub_cat_counts.keys()),list(sub_cat_counts.values()))}
+
+        # Calculating sample weight
+        self.sample_weight = []
+        for s in self.cached_names:
+            sample_name = s.split('/')[-1]
+            print(sample_name)
+            if sample_name in sub_categories['Image_Names'].tolist():
+                sample_label = sub_categories[sub_categories['Image_Names'].str.match(sample_name)]['Labels'].tolist()[0]
+                print(sample_label)
+                self.sample_weight.append(sub_cat_counts[sample_label])
+            else:
+                print(f'sample not in dataframe: {sample_name}')
+                self.sample_weight.append(0)
+
+        self.sample_weight = [i/sum(self.sample_weight) for i in self.sample_weight]
+        print(f'sample_weight: {self.sample_weight}')
+    
+    def __iter__(self):
+
+        return self
+    
+    def __next__(self):
+
+        img_list = []
+        tar_list = []
+        name_list = []
+        for b in range(self.batch_size):
+            
+            s_idx = np.random.choice(list(range(len(self.cached_data))),p=self.sample_weight)
+
+            if self.use_cache:
+                img, tar = self.cached_data[s_idx]
+                input_id = self.cached_names[s_idx]
+
+                # Add cache-less later
+            
+            if self.transform is not None:
+                x, y = self.transform(img,tar)
+            
+            x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
+
+            img_list.append(x)
+            tar_list.append(y)
+            name_list.append(input_id)
+
+        return torch.stack(img_list), torch.stack(tar_list), name_list
+
+    def normalize_cache(self,means,stds):
+        # Applying normalization to a dataset according to a given set of means and standard deviations per channel
+        for img,tar in self.cached_data:
+            img = np.float64(img)
+            for j in range(img.shape[-1]):
+                img[:,:,j] -= means[j]
+                img[:,:,j] /= stds[j]
+
+
 def stupid_mask_thing(target):
     if np.shape(target)[-1] != 3:
         unique_vals = np.unique(target)
@@ -164,23 +229,30 @@ def stupid_mask_thing(target):
 
 def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,parameters):
  
+    image_dim = 512
+
     if 'color_transform' in parameters:
         color_transform = parameters['color_transform']
+    else:
+        color_transform = ''
 
     if type(parameters['in_channels'])==int:
+        """
         if parameters['in_channels'] == 6:
-            img_size = (512,512,6)
+            img_size = (image_dim,image_dim,6)
         elif parameters['in_channels'] == 4:
-            img_size = (512,512,4)
+            img_size = (image_dim,image_dim,4)
         elif parameters['in_channels'] == 2:
-            img_size = (512,512,2)
+            img_size = (image_dim,image_dim,2)
         else:
-            img_size = (512,512,3)
+            img_size = (image_dim,image_dim,3)
+        """
+        img_size = (image_dim,image_dim,parameters['in_channels'])
     elif type(parameters['in_channels'])==list:
-        img_size = (512,512,sum(parameters['in_channels']))
+        img_size = (image_dim,image_dim,sum(parameters['in_channels']))
 
 
-    mask_size = (512,512,1)
+    mask_size = (image_dim,image_dim,1)
     
     target_type = parameters['target_type']
     batch_size = parameters['batch_size']
@@ -238,7 +310,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             # Continuous target type augmentations
             transforms_training = ComposeDouble([
                 AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
-                AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
+                #AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
                 AlbuSeg2d(albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.5,rotate_limit=45,interpolation=1,p=0.1)),
                 AlbuSeg2d(albumentations.VerticalFlip(p=0.5)),
                 FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0)
@@ -273,11 +345,11 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             color_transform = parameters['color_transform']
 
         if type(parameters['in_channels'])==int:
-            img_size = (512,512,parameters['in_channels'])
+            img_size = (image_dim,image_dim,parameters['in_channels'])
         elif type(parameters['in_channels'])==list:
-            img_size = (512,512,sum(parameters['in_channels']))
+            img_size = (image_dim,image_dim,sum(parameters['in_channels']))
             
-        mask_size = (512,512,1)
+        mask_size = (image_dim,image_dim,1)
 
         if target_type=='binary':
             pre_transforms = ComposeDouble([

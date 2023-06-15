@@ -213,15 +213,11 @@ class DUNet(nn.Module):
     def forward(self, x):
 
         # For multi-modal input: 'x' is a list of two different modes (batchXchannelsXheightXwidth)
-        #print(f'input shape: {x.size()}')
         input_list = [x[:,0:self.n_channels[0],:,:],x[:,self.n_channels[0]:,:,:]]
-        #print(f'input_list: {input_list[0].size()},{input_list[1].size()}')
         input_conv = [self.input1(input_list[0]),self.input2(input_list[1])]
-        #print(f'input_conv: {input_conv[0].size()}, {input_conv[1].size()}')
         setattr(self,'d0',torch.cat(input_conv,dim=1))
 
         for d in range(1,self.down_n+1):
-            #print(f'd: {d}')
             if d==1:
                 down1 = getattr(self,f'down{d-1}')(input_conv[0])
                 down2 = getattr(self,f'down{d-1}')(input_conv[1])
@@ -229,20 +225,16 @@ class DUNet(nn.Module):
                 down1 = getattr(self,f'down{d-1}')(down1)
                 down2 = getattr(self,f'down{d-1}')(down2)
 
-            #print(f'donw1 shape: {down1.size()}')
-            #print(f'down2 shape: {down2.size()}')
 
             setattr(self,f'd{d}',torch.cat([down1,down2],dim=1))
 
         for u in range(self.up_n):
-            #print(f'u:{u}, using down{self.down_n-(u+1)}, shape: {getattr(self,f"d{self.down_n-(u+1)}").size()}')
             
             if u==0:
                 up = getattr(self,f'up{u}')(getattr(self,f'd{self.down_n}'),getattr(self,f'd{self.down_n-(u+1)}'))
             else:
                 up = getattr(self,f'up{u}')(up,getattr(self,f'd{self.down_n-(u+1)}'))
             
-            #print(f'up shape: {up.size()}')
 
         pred = self.output(up)
 

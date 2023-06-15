@@ -105,7 +105,9 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
         if train_parameters['loss']=='MSE':
             loss = torch.nn.MSELoss(reduction='mean')
         elif train_parameters['loss'] == 'L1':
-            loss = torch.nn.L1Loss()
+            loss = torch.nn.L1Loss(reduction='mean')
+        elif train_parameters['loss'] == 'BCE':
+            loss = torch.nn.BCELoss()
         elif train_parameters['loss'] == 'custom':
             loss = Custom_MSE_Loss()
         elif train_parameters['loss'] == 'custom+':
@@ -146,21 +148,31 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
             dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.0001)
             ])
     
+    """
     scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
                                                 cycle_momentum = False,
-                                                base_lr = train_parameters['lr']/2,
-                                                max_lr = train_parameters['lr']*2,
+                                                base_lr = train_parameters['lr']/3,
+                                                max_lr = train_parameters['lr']*3,
                                                 step_size_up = 250)
-
-    lr_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience=25,verbose=True)
+    """
+    lr_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience=250,verbose=True)
 
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
     model = model.to(device)
     loss = loss.to(device)
 
     batch_size = train_parameters['batch_size']
-    train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 12)
-    valid_loader = DataLoader(dataset_valid, batch_size = batch_size, shuffle = True, num_workers = 4)
+    #train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 12)
+    #valid_loader = DataLoader(dataset_valid, batch_size = batch_size, shuffle = True, num_workers = 4)
+
+    if 'sub_categories_file' in train_parameters:
+        sub_categories = pd.read_csv(train_parameters['sub_categories_file'])
+        dataset_train.add_sub_categories(sub_categories,'Labels')
+        train_loader = iter(dataset_train)
+    else:
+        train_loader = DataLoader(dataset_valid,batch_size=batch_size,shuffle=True)
+
+    valid_loader = DataLoader(dataset_valid,batch_size=batch_size,shuffle=True)
         
     # Initializing loss score
     train_loss = 0
@@ -192,7 +204,10 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
             optimizer.zero_grad()
 
             # Loading training and validation samples from dataloaders
-            train_imgs, train_masks, _ = next(iter(train_loader))
+            if 'sub_categories_file' not in train_parameters:
+                train_imgs, train_masks, _ = next(iter(train_loader))
+            else:
+                train_imgs, train_masks, _ = next(train_loader)
             # Sending to device
             train_imgs = train_imgs.to(device)
             train_masks = train_masks.to(device)
@@ -251,13 +266,13 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 else:
                     nept_run[f'validation_loss_{train_parameters["current_k_fold"]}'].log(val_loss)
 
-            scheduler.step()
+            #scheduler.step()
             lr_plateau.step(val_loss)
 
             # Saving model if current i is a multiple of "save_step"
             # Also generating example output segmentation and uploading that to Neptune
             if i%save_step == 0:
-                torch.save(model.state_dict(),model_dir+f'Collagen_Seg_Model_{i}.pth')
+                torch.save(model.state_dict(),model_dir+f'Collagen_Seg_Model_Latest.pth')
 
                 if batch_size==1:
                     current_img = val_imgs.cpu().numpy()
@@ -273,17 +288,18 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                     current_pred = current_pred.round()
                 """
                 
-                if in_channels == 6:
-                    current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=2)
-                elif in_channels==4:
-                    current_img = np.concatenate((np.stack((current_img[0,:,:],)*3,axis=1),current_img[0:3,:,:]),axis=2)
-                elif in_channels==2:
-                    current_img = np.concatenate((current_img[0,:,:],current_img[1,:,:]),axis=-1)
-                elif sum(in_channels)==6:
-                    current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=2)
-                elif sum(in_channels)==2:
-                    current_img = np.concatenate((current_img[0,:,:][None,:,:],current_img[1,:,:][None,:,:]),axis=2)
-
+                if type(in_channels)==int:
+                    if in_channels == 6:
+                        current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=2)
+                    elif in_channels==4:
+                        current_img = np.concatenate((np.stack((current_img[0,:,:],)*3,axis=1),current_img[0:3,:,:]),axis=2)
+                    elif in_channels==2:
+                        current_img = np.concatenate((current_img[0,:,:],current_img[1,:,:]),axis=-1)
+                elif type(in_channels)==list:
+                    if sum(in_channels)==6:
+                        current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=2)
+                    elif sum(in_channels)==2:
+                        current_img = np.concatenate((current_img[0,:,:][None,:,:],current_img[1,:,:][None,:,:]),axis=2)
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 
@@ -300,11 +316,11 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                     nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.tif')
 
     if not i%save_step==0:
-        torch.save(model.state_dict(),model_dir+f'Collagen_Seg_Model_{i}.pth')
+        torch.save(model.state_dict(),model_dir+f'Collagen_Seg_Model_Latest.pth')
 
     loss_df = pd.DataFrame(data = {'TrainingLoss':train_loss_list,'ValidationLoss':val_loss_list})
     loss_df.to_csv(output_dir+'Training_Validation_Loss.csv')
-    return model_dir+f'Collagen_Seg_Model_{i}.pth'
+    return model_dir+f'Collagen_Seg_Model_Latest.pth'
 
 
 

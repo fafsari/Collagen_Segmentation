@@ -270,8 +270,10 @@ def resize_special(img,output_size,transform):
             img = np.concatenate((f_img[:,:,None],b_img[:,:,None]),axis=-1)
             img = resize(img, output_shape = (output_size))
 
+
     else:
 
+        """
         if output_size[-1]==1:
             img = resize(img,output_size,preserve_range=True,order=0,anti_aliasing=False)
         elif output_size[-1] == 4:
@@ -296,61 +298,63 @@ def resize_special(img,output_size,transform):
                 b_img = b_img/np.sum(b_img,axis=-1)
 
                 img = np.concatenate((f_img,b_img),axis=-1)
+        """
+        #else:
+
+        # Setting default size to 256,256,n_channels
+        if transform=='mean':
+            img = resize(img,output_size)
+
+            img = np.mean(img,axis = -1)
+            img = img[:,:,np.newaxis]
+
+        elif transform in ['red','green','blue']:
+
+            color_list = ['red','green','blue']
+            img = img[:,:,color_list.index(transform)]
+            img = img[:,:,np.newaxis]
+            img = resize(img,output_size)
+
+        elif transform == 'rgb2gray':
+            img = resize(img,output_size)
+
+            img = rgb2gray(img)
+            img = img[:,:,np.newaxis]
+
+        elif transform == 'rgb2lab':
+            img = resize(img,output_size)
+
+            img = rgb2lab(img)
+        
+        elif type(transform)==dict:
+            # Don't use histomicstk
+            #img = reinhard(img,target_mu=transform['norm_mean'],target_sigma=transform['norm_std'])
+
+            # Determining non-tissue regions to mask out prior to scaling/conversion
+            # For BF images the non-tissue regions are closer to white whereas with fluorescence images they 
+            # are closer to black
+            img = resize(img,output_size)
+
+            lab_img = rgb2lab(img)
+            scaled_img = (lab_img-np.nanmean(lab_img))/np.nanstd(lab_img)
+
+            for i in range(3):
+                scaled_img[:,:,i] = scaled_img[:,:,i]*transform['norm_std'][i]+transform['norm_mean'][i]
+            
+            # converting back to rgb
+            img = (scaled_img-np.nanmean(scaled_img))/np.nanstd(scaled_img)
+
+        elif transform == 'invert_bf_intensity':
+            # Grabbing the green channel from both the fluorescence and brightfield images
+            f_green_img = img[:,:,1]
+            f_green_img = np.divide(f_green_img,np.sum(img[:,:,0:3],axis=-1),where=(np.sum(img[:,:,0:3],axis=-1)!=0))
+            # Inverting brightfield channels
+            b_green_inv_img = 255-img[:,:,3]
+            b_green_inv_img = np.divide(b_green_inv_img,np.sum(255-img[:,:,2:5],axis=-1),where=(np.sum(255-img[:,:,2:5],axis=-1)!=0))
+            img = np.concatenate((f_green_img[:,:,None],b_green_inv_img[:,:,None]),axis=-1)
 
         else:
-
-            # Setting default size to 256,256,n_channels
-            if transform=='mean':
-                img = resize(img,output_size)
-
-                img = np.mean(img,axis = -1)
-                img = img[:,:,np.newaxis]
-
-            elif transform in ['red','green','blue']:
-                img = resize(img,output_size)
-
-                color_list = ['red','green','blue']
-                img = img[:,:,color_list.index(transform)]
-                img = img[:,:,np.newaxis]
-
-            elif transform == 'rgb2gray':
-                img = resize(img,output_size)
-
-                img = rgb2gray(img)
-                img = img[:,:,np.newaxis]
-
-            elif transform == 'rgb2lab':
-                img = resize(img,output_size)
-
-                img = rgb2lab(img)
-            
-            elif type(transform)==dict:
-                # Don't use histomicstk
-                #img = reinhard(img,target_mu=transform['norm_mean'],target_sigma=transform['norm_std'])
-
-                # Determining non-tissue regions to mask out prior to scaling/conversion
-                # For BF images the non-tissue regions are closer to white whereas with fluorescence images they 
-                # are closer to black
-                img = resize(img,output_size)
-
-                lab_img = rgb2lab(img)
-                scaled_img = (lab_img-np.nanmean(lab_img))/np.nanstd(lab_img)
-
-                for i in range(3):
-                    scaled_img[:,:,i] = scaled_img[:,:,i]*transform['norm_std'][i]+transform['norm_mean'][i]
-                
-                # converting back to rgb
-                img = (scaled_img-np.nanmean(scaled_img))/np.nanstd(scaled_img)
-
-            elif transform == 'invert_bf_intensity':
-                # Grabbing the green channel from both the fluorescence and brightfield images
-                f_green_img = img[:,:,1]
-                f_green_img = np.divide(f_green_img,np.sum(img[:,:,0:3],axis=-1),where=(np.sum(img[:,:,0:3],axis=-1)!=0))
-                # Inverting brightfield channels
-                b_green_inv_img = 255-img[:,:,3]
-                b_green_inv_img = np.divide(b_green_inv_img,np.sum(255-img[:,:,2:5],axis=-1),where=(np.sum(255-img[:,:,2:5],axis=-1)!=0))
-                img = np.concatenate((f_green_img[:,:,None],b_green_inv_img[:,:,None]),axis=-1)
-
+            img = resize(img,output_size)
 
 
     return img

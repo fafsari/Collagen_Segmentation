@@ -64,6 +64,11 @@ class SegmentationDataSet(Dataset):
         
         self.batch_size = batch_size
 
+        if len(self.targets)==0:
+            self.testing_metrics = False
+        else:
+            self.testing_metrics = True
+
         # increasing dataset loading efficiency
         self.use_cache = use_cache
         self.pre_transform = pre_transform
@@ -77,34 +82,66 @@ class SegmentationDataSet(Dataset):
             
             progressbar = tqdm(range(len(self.inputs)), desc = 'Caching')
 
-            for i, img_name, tar_name in zip(progressbar, self.inputs, self.targets):
-                try:
-                    if 'tif' in tar_name:
-                        img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')
+            if len(self.targets)>0:
+                for i, img_name, tar_name in zip(progressbar, self.inputs, self.targets):
+                    try:
+                        if 'tif' in tar_name:
+                            img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')
 
-                    else:
-                        # For multi-channel image inputs
+                        else:
+                            # For multi-channel image inputs
+                            if type(img_name)==list:
+                                img1,img2,tar = imread(str(img_name[0])), imread(str(img_name[1])),imread(str(tar_name))
+                                img = np.concatenate((img1,img2),axis=-1)
+                                img_name = img_name[0]
+                            else:
+                                img, tar = imread(str(img_name)), imread(str(tar_name))
+                        
+                        if self.pre_transform is not None:
+                            img, tar = self.pre_transform(img, tar)
+
+                        # Calculating dataset mean and standard deviation
+                        img_channel_mean = np.mean(img,axis=(0,1))
+                        img_channel_std = np.std(img,axis=(0,1))
+
+                        self.image_means.append(img_channel_mean)
+                        self.image_stds.append(img_channel_std)
+                            
+                        self.cached_data.append((img,tar))
+                        self.cached_names.append(img_name)
+                    except FileNotFoundError:
+                        print(f'File not found: {img_name},{tar_name}')
+            else:
+                try:
+                    for i, img_name in zip(progressbar, self.inputs):
+
                         if type(img_name)==list:
-                            img1,img2,tar = imread(str(img_name[0])), imread(str(img_name[1])),imread(str(tar_name))
+                            img1,img2 = imread(str(img_name[0])), imread(str(img_name[1]))
                             img = np.concatenate((img1,img2),axis=-1)
                             img_name = img_name[0]
+
                         else:
-                            img, tar = imread(str(img_name)), imread(str(tar_name))
-                    
-                    if self.pre_transform is not None:
-                        img, tar = self.pre_transform(img, tar)
-
-                    # Calculating dataset mean and standard deviation
-                    img_channel_mean = np.mean(img,axis=(0,1))
-                    img_channel_std = np.std(img,axis=(0,1))
-
-                    self.image_means.append(img_channel_mean)
-                    self.image_stds.append(img_channel_std)
+                            img = imread(str(img_name))
                         
-                    self.cached_data.append((img,tar))
-                    self.cached_names.append(img_name)
+                        tar = np.zeros((np.shape(img)[0],np.shape(img)[1]))
+
+                        if self.pre_transform is not None:
+                            img, tar = self.pre_transform(img, tar)
+
+                        # Calculating dataset mean and standard deviation
+                        img_channel_mean = np.mean(img,axis=(0,1))
+                        img_channel_std = np.std(img,axis=(0,1))
+
+                        self.image_means.append(img_channel_mean)
+                        self.image_stds.append(img_channel_std)
+
+                        self.cached_data.append((img,tar))
+                        self.cached_names.append(img_name)
+
                 except FileNotFoundError:
-                    print(f'File not found: {img_name},{tar_name}')
+                    print(f'File not found: {img_name}')
+
+
 
             print(f'Cached Data: {len(self.cached_data)}')
             print(f'image_means mean: {np.mean(self.image_means,axis=0)}')
@@ -402,8 +439,8 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                             pre_transform = pre_transforms,
                                             target_type = target_type,
                                             batch_size = batch_size)
-        
-    
+
+
     return dataset_train, dataset_valid
     
 

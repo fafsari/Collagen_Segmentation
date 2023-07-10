@@ -54,18 +54,6 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
     elif target_type == 'nonbinary':
         n_classes = 1
 
-    """
-    if test_parameters['in_channels'] == 3:
-        in_channels = 3
-    elif test_parameters['in_channels'] == 6:
-        in_channels = 6
-    elif test_parameters['in_channels'] == 4:
-        in_channels = 4
-    elif test_parameters['in_channels'] == 2:
-        in_channels = 2
-    else:
-        in_channels = 1
-    """
     in_channels = test_parameters['in_channels']
     output_type = test_parameters['output_type']
 
@@ -99,12 +87,13 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
         if not os.path.exists(test_output_dir):
             os.makedirs(test_output_dir)
             
-        if target_type=='binary':
-            metrics_calculator = BinaryMetrics()
-            testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[],'Specificity':[]})
-        elif target_type =='nonbinary':
-            metrics_calculator = []
-            testing_metrics_df = pd.DataFrame(data = {'MSE':[],'Norm_MSE':[]})
+        if dataset_valid.testing_metrics:
+            if target_type=='binary':
+                metrics_calculator = BinaryMetrics()
+                testing_metrics_df = pd.DataFrame(data = {'Dice':[],'Accuracy':[],'Recall':[],'Precision':[],'Specificity':[]})
+            elif target_type =='nonbinary':
+                metrics_calculator = []
+                testing_metrics_df = pd.DataFrame(data = {'MSE':[],'Norm_MSE':[]})
 
         # Setting up iterator to generate images from the validation dataset
         data_iterator = iter(test_dataloader)
@@ -128,14 +117,17 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
             if target_type=='binary':        
                 target_img = target.cpu().numpy().round()
                 pred_mask_img = pred_mask.detach().cpu().numpy()
-                testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
+
+                if dataset_valid.testing_metrics:
+                    testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
                 # Outputting the prediction as a continuous mask even though running binary metrics
 
             elif target_type=='nonbinary':
                 pred_mask_img = pred_mask.detach().cpu().numpy()
                 target_img = target.cpu().numpy()
 
-                testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
+                if dataset_valid.testing_metrics:
+                    testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
 
 
             image = image.cpu().numpy()
@@ -166,26 +158,27 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                 im.save(test_output_dir+'Test_Example_'+input_name.replace('.jpg','.tif'))
                 
         # Used during hyperparameter optimization to compute objective value
-        testing_metrics_df.to_csv(test_output_dir+'Test_Metrics.csv')
+        if dataset_valid.testing_metrics:
+            testing_metrics_df.to_csv(test_output_dir+'Test_Metrics.csv')
         
-        if not 'current_k_fold' in test_parameters:
-            nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))
+            if not 'current_k_fold' in test_parameters:
+                nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))
 
-            for met in testing_metrics_df.columns.values.tolist():
-                try:
-                    print(f'{met} value: {testing_metrics_df[met].mean()}')
-                    nept_run[met] = testing_metrics_df[met].mean()
-                except TypeError:
-                    print(f'Number of samples: {testing_metrics_df.shape[0]}')
-        else:
-            current_k_fold = test_parameters['current_k_fold']
-            nept_run[f'Test_Image_metrics_{current_k_fold}'].upload(neptune.types.File.as_html(testing_metrics_df))
+                for met in testing_metrics_df.columns.values.tolist():
+                    try:
+                        print(f'{met} value: {testing_metrics_df[met].mean()}')
+                        nept_run[met] = testing_metrics_df[met].mean()
+                    except TypeError:
+                        print(f'Number of samples: {testing_metrics_df.shape[0]}')
+            else:
+                current_k_fold = test_parameters['current_k_fold']
+                nept_run[f'Test_Image_metrics_{current_k_fold}'].upload(neptune.types.File.as_html(testing_metrics_df))
 
-            for met in testing_metrics_df.columns.values.tolist():
-                try:
-                    print(f'{met}: value: {testing_metrics_df[met].mean()}')
-                    nept_run[met+f'_{current_k_fold}'] = testing_metrics_df[met].mean()
-                except TypeError:
-                    print(f'Number of samples: {testing_metrics_df.shape[0]}')
+                for met in testing_metrics_df.columns.values.tolist():
+                    try:
+                        print(f'{met}: value: {testing_metrics_df[met].mean()}')
+                        nept_run[met+f'_{current_k_fold}'] = testing_metrics_df[met].mean()
+                    except TypeError:
+                        print(f'Number of samples: {testing_metrics_df.shape[0]}')
 
 

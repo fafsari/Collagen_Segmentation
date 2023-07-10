@@ -179,15 +179,21 @@ elif phase == 'test':
         image_paths = glob(test_parameters['image_dir']+'*')
         if 'label_dir' in test_parameters:
             label_paths = glob(test_parameters['label_dir']+'*')
+        else:
+            label_paths = []
     else:
         f_image_paths_base = glob(test_parameters['f_image_dir']+'*')
         b_image_paths_base = glob(test_parameters['b_image_dir']+'*')
 
-        label_paths_base = glob(test_parameters['label_dir']+'*')
+        if 'label_dir' in test_parameters:
+            label_paths_base = glob(test_parameters['label_dir']+'*')
+            label_names = [i.split('/')[-1] for i in label_paths_base]
+
+        else:
+            label_paths_base = []
 
         f_img_names = [i.split('/')[-1] for i in f_image_paths_base]
         b_img_names = [i.split('/')[-1] for i in b_image_paths_base]
-        label_names = [i.split('/')[-1] for i in label_paths_base]
 
         # Sorting by f image names (arbitrarily)
         image_paths = []
@@ -197,8 +203,10 @@ elif phase == 'test':
                 b_path = b_image_paths_base[b_img_names.index(f)]
 
                 image_paths.append([f_image_paths_base[idx],b_path])
-                l_path = label_paths_base[label_names.index(f)]
-                label_paths.append(l_path)
+
+                if len(label_paths_base)>0:
+                    l_path = label_paths_base[label_names.index(f)]
+                    label_paths.append(l_path)
             except ValueError:
                 print(f'{f} not found')
 

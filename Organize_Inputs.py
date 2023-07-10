@@ -64,7 +64,8 @@ def organize_parameters(parameters,nept_run):
         else:
             test_parameters['color_transform'] = []
 
-        test_parameters['label_dir'] = input_parameters['label_dir']+'/'
+        if 'label_dir' in input_parameters:
+            test_parameters['label_dir'] = input_parameters['label_dir']+'/'
 
 
         if 'image_dir' in input_parameters:

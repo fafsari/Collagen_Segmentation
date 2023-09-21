@@ -142,7 +142,6 @@ class SegmentationDataSet(Dataset):
                     print(f'File not found: {img_name}')
 
 
-
             print(f'Cached Data: {len(self.cached_data)}')
             print(f'image_means mean: {np.mean(self.image_means,axis=0)}')
             print(f'image_stds mean: {np.mean(self.image_stds,axis=0)}')

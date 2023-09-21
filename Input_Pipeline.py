@@ -13,7 +13,7 @@ from: https://towardsdatascience.com/creating-and-training-a-u-net-model-with-py
 import os
 import pandas as pd
 import numpy as np
-from math import floor
+from math import floor, ceil
 
 from tqdm import tqdm
 import matplotlib.pyplot as plt
@@ -47,7 +47,10 @@ class SegmentationDataSet(Dataset):
                  use_cache = False,
                  pre_transform = None,
                  target_type = None,
-                 batch_size = None):
+                 batch_size = None,
+                 parameters = {}):
+        
+
         self.inputs = inputs
         self.targets = targets
         self.transform = transform
@@ -63,6 +66,15 @@ class SegmentationDataSet(Dataset):
                 self.targets_dtype = torch.float32
         
         self.batch_size = batch_size
+
+        # Adding for predicting on large (but not that large) images
+        if 'patch_batch' in parameters:
+            self.patch_batch = parameters['patch_batch']
+            self.cached_item_names = []
+        else:
+            self.patch_batch = False
+
+        print(f'patch_batch: {self.patch_batch}')
 
         if len(self.targets)==0:
             self.testing_metrics = False
@@ -123,24 +135,60 @@ class SegmentationDataSet(Dataset):
                         else:
                             img = imread(str(img_name))
                         
-                        tar = np.zeros((np.shape(img)[0],np.shape(img)[1]))
+                        tar = np.zeros((np.shape(img)[0],np.shape(img)[1],1))
 
-                        if self.pre_transform is not None:
-                            img, tar = self.pre_transform(img, tar)
+                        if not self.patch_batch:
+                            if self.pre_transform is not None:
+                                img, tar = self.pre_transform(img, tar)
 
-                        # Calculating dataset mean and standard deviation
-                        img_channel_mean = np.mean(img,axis=(0,1))
-                        img_channel_std = np.std(img,axis=(0,1))
+                            # Calculating dataset mean and standard deviation
+                            img_channel_mean = np.mean(img,axis=(0,1))
+                            img_channel_std = np.std(img,axis=(0,1))
 
-                        self.image_means.append(img_channel_mean)
-                        self.image_stds.append(img_channel_std)
+                            self.image_means.append(img_channel_mean)
+                            self.image_stds.append(img_channel_std)
 
-                        self.cached_data.append((img,tar))
-                        self.cached_names.append(img_name)
+                            self.cached_data.append((img,tar))
+                            self.cached_names.append(img_name)
+                        
+                        else:
+
+                            # Overlap percentage defined in self.patch_batch, hardcoded patch size
+                            patch_size = [512,512]
+                            start_coords = [0,0]
+                            stride = [int(patch_size[0]*(1-self.patch_batch)), int(patch_size[1]*(1-self.patch_batch))]
+                            n_patches = [1+floor((np.shape(img)[0]-patch_size[0])/stride[0]), 1+floor((np.shape(img)[1]-patch_size[1])/stride[1])]
+
+                            row_starts = [int(start_coords[0]+(i*stride[0])) for i in range(0,n_patches[0])]
+                            col_starts = [int(start_coords[1]+(i*stride[1])) for i in range(0,n_patches[1])]
+                            row_starts.append(int(np.shape(img)[0]-patch_size[0]))
+                            col_starts.append(int(np.shape(img)[1]-patch_size[1]))
+                            
+                            self.original_image_size = list(np.shape(img))
+                            self.patch_size = patch_size
+
+                            #self.cached_data.append((img,tar))
+                            self.cached_item_names.append(img_name)
+
+                            for r_s in row_starts:
+                                for c_s in col_starts:
+                                    new_img = img[r_s:r_s+patch_size[0], c_s:c_s+patch_size[1],:]
+                                    new_tar = np.zeros((np.shape(new_img)[0],np.shape(new_img)[1]))
+
+                                    if self.pre_transform is not None:
+                                        new_img, new_tar = self.pre_transform(new_img, new_tar)
+
+                                    img_channel_mean = np.mean(new_img,axis=(0,1))
+                                    img_channel_std = np.std(img,axis=(0,1))
+                                    self.image_means.append(img_channel_mean)
+                                    self.image_stds.append(img_channel_std)
+
+                                    self.cached_data.append((new_img,new_tar))
+                                    self.cached_names.append(img_name.replace(f'.{img_name.split(".")[-1]}',f'_{r_s}_{c_s}.{img_name.split(".")[-1]}'))
+                            
 
                 except FileNotFoundError:
                     print(f'File not found: {img_name}')
-
 
             print(f'Cached Data: {len(self.cached_data)}')
             print(f'image_means mean: {np.mean(self.image_means,axis=0)}')
@@ -148,7 +196,10 @@ class SegmentationDataSet(Dataset):
 
 
     def __len__(self):
-        return len(self.cached_data)
+        if not self.patch_batch:
+            return len(self.cached_data)
+        else:
+            return len(self.cached_names)
     
     # Getting matching input and target(label)
     def __getitem__(self,
@@ -365,7 +416,8 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                              use_cache = True,
                                              pre_transform = pre_transforms,
                                              target_type = target_type,
-                                             batch_size = batch_size)
+                                             batch_size = batch_size,
+                                             parameters = parameters)
         
         dataset_valid = SegmentationDataSet(inputs = valid_img_paths,
                                              targets = valid_tar,
@@ -373,7 +425,8 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                              use_cache = True,
                                              pre_transform = pre_transforms,
                                              target_type = target_type,
-                                             batch_size = batch_size)
+                                             batch_size = batch_size,
+                                             parameters = parameters)
         
     elif phase == 'test':
         
@@ -437,7 +490,8 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                             use_cache = True,
                                             pre_transform = pre_transforms,
                                             target_type = target_type,
-                                            batch_size = batch_size)
+                                            batch_size = batch_size,
+                                            parameters = parameters)
 
 
     return dataset_train, dataset_valid

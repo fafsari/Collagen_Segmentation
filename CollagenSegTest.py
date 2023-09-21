@@ -23,7 +23,7 @@ import numpy as np
 from glob import glob
 
 import matplotlib.pyplot as plt
-from PIL import Image
+from PIL import Image, ImageFilter
 import pandas as pd
 
 import neptune.new as neptune
@@ -83,6 +83,16 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
         # Evaluating model on test set
         test_dataloader = DataLoader(dataset_valid)
 
+        # Initializing combined mask from patched predictions
+        if 'patch_batch' in test_parameters:
+
+            # Getting original image dimensions from test_dataloader
+            final_pred_mask = np.zeros((dataset_valid.original_image_size[0],dataset_valid.original_image_size[1]))
+            overlap_mask = np.zeros_like(final_pred_mask)
+
+            patch_size = dataset_valid.patch_size
+
+
         test_output_dir = output_dir+'Testing_Output/'
         if not os.path.exists(test_output_dir):
             os.makedirs(test_output_dir)
@@ -129,7 +139,6 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                 if dataset_valid.testing_metrics:
                     testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
 
-
             image = image.cpu().numpy()
             if type(in_channels)==int:
                 if in_channels==6:
@@ -156,7 +165,18 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
 
                 im = Image.fromarray((fig*255).astype(np.uint8))
                 im.save(test_output_dir+'Test_Example_'+input_name.replace('.jpg','.tif'))
+
+            # Combining patch predictions into one image
+            if 'patch_batch' in test_parameters:
+
+                # Getting patch locations from input_name
+                row_start = int(input_name.split('_')[-2])
+                col_start = int(input_name.split('_')[-1].split('.')[0])
                 
+                # Adding to final_pred_mask and overlap_mask
+                final_pred_mask[row_start:row_start+patch_size[0],col_start:col_start+patch_size[1]] += (fig*255).astype(np.uint8)
+                overlap_mask[row_start:row_start+patch_size[0],col_start:col_start+patch_size[1]] += np.ones((patch_size[0],patch_size[1]))
+
         # Used during hyperparameter optimization to compute objective value
         if dataset_valid.testing_metrics:
             testing_metrics_df.to_csv(test_output_dir+'Test_Metrics.csv')
@@ -181,4 +201,17 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                     except TypeError:
                         print(f'Number of samples: {testing_metrics_df.shape[0]}')
 
+        if 'patch_batch' in test_parameters:
+            
+            # Scaling predictions by overlap (mean pixel prediction where there is overlap)
+            final_pred_mask = np.multiply(final_pred_mask,1/overlap_mask)
 
+            im = Image.fromarray((final_pred_mask).astype(np.uint8))
+            # Smoothing image to get rid of grid lines
+            im = im.filter(ImageFilter.SMOOTH_MORE)
+            im.save(test_output_dir+'Combined_Patches.tif')
+
+            # Saving overlap mask
+            overlap_mask = (overlap_mask-np.min(overlap_mask))/(np.max(overlap_mask))
+            overlap_im = Image.fromarray((overlap_mask*255).astype(np.uint8))
+            overlap_im.save(test_output_dir+'Overlap_Mask.tif')

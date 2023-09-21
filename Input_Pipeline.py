@@ -5,7 +5,7 @@ Created on Wed Jul 21 16:35:06 2021
 @author: spborder
 
 
-Data input pipeline for Deep Glomerular Compartment Segmentation
+Data input pipeline for Deep-DUET
 
 from: https://towardsdatascience.com/creating-and-training-a-u-net-model-with-pytorch-for-2d-3d-semantic-segmentation-dataset-fb1f7f80fe55
 """
@@ -55,15 +55,11 @@ class SegmentationDataSet(Dataset):
         self.targets = targets
         self.transform = transform
         self.inputs_dtype = torch.float32
-        if type(target_type)==list:
+
+        if target_type == 'binary':
+            self.targets_dtype = torch.long
+        elif target_type == 'nonbinary':
             self.targets_dtype = torch.float32
-            self.multi_task = True
-        else:
-            self.multi_task = False
-            if target_type == 'binary':
-                self.targets_dtype = torch.long
-            elif target_type == 'nonbinary':
-                self.targets_dtype = torch.float32
         
         self.batch_size = batch_size
 
@@ -289,125 +285,34 @@ class SegmentationDataSet(Dataset):
                 img[:,:,j] /= stds[j]
 
 
-def stupid_mask_thing(target):
-    if np.shape(target)[-1] != 3:
-        unique_vals = np.unique(target)
-        final = np.zeros((np.shape(target)[0],np.shape(target)[1],len(unique_vals)))
-        for idx,value in enumerate(unique_vals):
-            
-            dummy = np.zeros_like(target)
-            mask = np.where(target==value)
-            dummy[mask] = 1
-            
-            final[:,:,idx] += dummy
-    else:
-        
-        # Fix for binary labels
-        new_target = np.zeros((512,512,2))
-        mask = np.where(target.sum(axis=-1)==0)
-        new_target[:,:,0][mask] = 1
-        mask = np.where(target.sum(axis=-1)>0)
-        new_target[:,:,1][mask] = 1
-        
-        final = new_target
-        
-        
-    return final
-
 def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,parameters):
- 
-    image_dim = 512
-
-    if 'color_transform' in parameters:
-        color_transform = parameters['color_transform']
-    else:
-        color_transform = ''
-
-    if type(parameters['in_channels'])==int:
-        """
-        if parameters['in_channels'] == 6:
-            img_size = (image_dim,image_dim,6)
-        elif parameters['in_channels'] == 4:
-            img_size = (image_dim,image_dim,4)
-        elif parameters['in_channels'] == 2:
-            img_size = (image_dim,image_dim,2)
-        else:
-            img_size = (image_dim,image_dim,3)
-        """
-        img_size = (image_dim,image_dim,parameters['in_channels'])
-    elif type(parameters['in_channels'])==list:
-        img_size = (image_dim,image_dim,sum(parameters['in_channels']))
-
-
-    mask_size = (image_dim,image_dim,1)
     
-    target_type = parameters['target_type']
-    batch_size = parameters['batch_size']
+    if phase == 'train':
 
-    if phase == 'train' or phase == 'optimize':
+        pre_transforms = ComposeDouble([
+                FunctionWrapperDouble(resize_special,
+                                    input = True,
+                                    target = False,
+                                    output_size = img_size,
+                                    transform = color_transform),
+                FunctionWrapperDouble(resize,
+                                    input = False,
+                                    target = True,
+                                    output_shape = mask_size)
+        ])        
 
-        if target_type=='binary':
-            pre_transforms = ComposeDouble([
-                    FunctionWrapperDouble(resize_special,
-                                        input = True,
-                                        target = False,
-                                        output_size = img_size,
-                                        transform = color_transform),
-                    FunctionWrapperDouble(resize,
-                                        input = False,
-                                        target = True,
-                                        output_shape = img_size),
-                    FunctionWrapperDouble(stupid_mask_thing,
-                                        input = False,
-                                        target = True)
-            ])
-        elif target_type=='nonbinary':
-            pre_transforms = ComposeDouble([
-                    FunctionWrapperDouble(resize_special,
-                                        input = True,
-                                        target = False,
-                                        output_size = img_size,
-                                        transform = color_transform),
-                    FunctionWrapperDouble(resize,
-                                        input = False,
-                                        target = True,
-                                        output_shape = mask_size)
-            ])        
+        # Continuous target type augmentations
+        transforms_training = ComposeDouble([
+            AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
+            #AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
+            AlbuSeg2d(albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.5,rotate_limit=45,interpolation=1,p=0.1)),
+            AlbuSeg2d(albumentations.VerticalFlip(p=0.5)),
+            FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0)
+        ])
 
-        if target_type=='binary':
-            # Training transformations + augmentations
-            transforms_training = ComposeDouble([
-                    AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
-                    AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
-                    AlbuSeg2d(albumentations.VerticalFlip(p=0.5)),
-                    AlbuSeg2d(albumentations.IAAPiecewiseAffine(p=0.2)),
-                    FunctionWrapperDouble(create_dense_target, input = False, target = True),
-                    FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                    FunctionWrapperDouble(normalize_01, input = True, target = True)
-                    ])
-                
-            # Validation transformations 
-            transforms_validation = ComposeDouble([
-                    FunctionWrapperDouble(create_dense_target, input = False, target = True),
-                    FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                    FunctionWrapperDouble(normalize_01, input = True, target = True)
-                    ])
-            
-        elif target_type=='nonbinary':
-            # Continuous target type augmentations
-            transforms_training = ComposeDouble([
-                AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
-                #AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
-                AlbuSeg2d(albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.5,rotate_limit=45,interpolation=1,p=0.1)),
-                AlbuSeg2d(albumentations.VerticalFlip(p=0.5)),
-                FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0)
-                #FunctionWrapperDouble(normalize_01, input = True, target = True)
-            ])
-
-            transforms_validation = ComposeDouble([
-                FunctionWrapperDouble(np.moveaxis,input=True,target=True,source=-1,destination=0)
-                #FunctionWrapperDouble(normalize_01, input = True, target = True)
-            ])
+        transforms_validation = ComposeDouble([
+            FunctionWrapperDouble(np.moveaxis,input=True,target=True,source=-1,destination=0)
+        ])
 
         
         dataset_train = SegmentationDataSet(inputs = train_img_paths,
@@ -415,8 +320,6 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                              transform = transforms_training,
                                              use_cache = True,
                                              pre_transform = pre_transforms,
-                                             target_type = target_type,
-                                             batch_size = batch_size,
                                              parameters = parameters)
         
         dataset_valid = SegmentationDataSet(inputs = valid_img_paths,
@@ -424,62 +327,26 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                              transform = transforms_validation,
                                              use_cache = True,
                                              pre_transform = pre_transforms,
-                                             target_type = target_type,
-                                             batch_size = batch_size,
                                              parameters = parameters)
         
     elif phase == 'test':
+
+        pre_transforms = ComposeDouble([
+        FunctionWrapperDouble(resize_special,
+                            input = True,
+                            target = False,
+                            output_size = img_size,
+                            transform = color_transform),
+        FunctionWrapperDouble(resize,
+                            input = False,
+                            target = True,
+                            output_shape = mask_size)
+        ])
         
-        if 'color_transform' in parameters:
-            color_transform = parameters['color_transform']
-
-        if type(parameters['in_channels'])==int:
-            img_size = (image_dim,image_dim,parameters['in_channels'])
-        elif type(parameters['in_channels'])==list:
-            img_size = (image_dim,image_dim,sum(parameters['in_channels']))
-            
-        mask_size = (image_dim,image_dim,1)
-
-        if target_type=='binary':
-            pre_transforms = ComposeDouble([
-            FunctionWrapperDouble(resize_special,
-                                input = True,
-                                target = False,
-                                output_size = img_size,
-                                transform = color_transform),
-            FunctionWrapperDouble(resize,
-                                input = False,
-                                target = True,
-                                output_shape = img_size),
-            FunctionWrapperDouble(stupid_mask_thing,
-                                input = False,
-                                target = True)
-            ])
-            
-            transforms_testing = ComposeDouble([
-                    FunctionWrapperDouble(create_dense_target, input = False, target = True),
-                    FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                    FunctionWrapperDouble(normalize_01, input = True, target = True)
-                    ])
-        
-        elif target_type=='nonbinary':
-
-            pre_transforms = ComposeDouble([
-            FunctionWrapperDouble(resize_special,
-                                input = True,
-                                target = False,
-                                output_size = img_size,
-                                transform = color_transform),
-            FunctionWrapperDouble(resize,
-                                input = False,
-                                target = True,
-                                output_shape = mask_size)
-            ])
-            
-            transforms_testing = ComposeDouble([
-                    FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                    #FunctionWrapperDouble(normalize_01, input = True, target = True)
-                    ])
+        transforms_testing = ComposeDouble([
+                FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
+                #FunctionWrapperDouble(normalize_01, input = True, target = True)
+                ])
 
         # this is 'None' because we are just testing the network
         dataset_train = None
@@ -489,8 +356,6 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                             transform = transforms_testing,
                                             use_cache = True,
                                             pre_transform = pre_transforms,
-                                            target_type = target_type,
-                                            batch_size = batch_size,
                                             parameters = parameters)
 
 

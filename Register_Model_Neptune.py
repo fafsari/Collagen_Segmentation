@@ -19,14 +19,14 @@ model_version = neptune.init_model_version(
     model = 'DEDU-BFG',
     project = 'samborder/Deep-DUET',
     mode = 'async',
-    api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJjNzllZGRmMC0yMzg2LTRhMzktOTk1MC1hNDc2MDlkNjVkYTMifQ=="
+    api_token=neptune_api_token
 )
 """
 model_version = neptune.init_model(
     project = 'samborder/Deep-DUET',
     with_id = 'DEDU-BFG',
     mode='async',
-    api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJjNzllZGRmMC0yMzg2LTRhMzktOTk1MC1hNDc2MDlkNjVkYTMifQ=="
+    api_token=neptune_api_token
 )
 
 model_name = 'Brightfield_G'

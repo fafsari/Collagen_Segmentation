@@ -4,7 +4,6 @@ Created on Wed Jul 21 16:35:06 2021
 
 @author: spborder
 
-
 Data input pipeline for Deep-DUET
 
 from: https://towardsdatascience.com/creating-and-training-a-u-net-model-with-pytorch-for-2d-3d-semantic-segmentation-dataset-fb1f7f80fe55
@@ -44,7 +43,6 @@ class SegmentationDataSet(Dataset):
                  inputs: list,
                  targets: list,
                  transform = None,
-                 use_cache = False,
                  pre_transform = None,
                  target_type = None,
                  batch_size = None,
@@ -62,157 +60,146 @@ class SegmentationDataSet(Dataset):
             self.targets_dtype = torch.float32
         
         self.batch_size = batch_size
+        self.patch_batch = False
+        self.sample_weight = False
 
-        # Adding for predicting on large (but not that large) images
-        if 'patch_batch' in parameters:
-            self.patch_batch = parameters['patch_batch']
-            self.cached_item_names = []
-        else:
-            self.patch_batch = False
-
-        print(f'patch_batch: {self.patch_batch}')
-
-        if len(self.targets)==0:
-            self.testing_metrics = False
-        else:
-            self.testing_metrics = True
+        self.testing_metrics = False if len(self.targets)==0 else True
 
         # increasing dataset loading efficiency
-        self.use_cache = use_cache
         self.pre_transform = pre_transform
         
-        if self.use_cache:
-            self.cached_data = []
-            self.cached_names = []
+        self.cached_data = []
+        self.cached_names = []
+        self.image_means = []
+        self.image_stds = []
+        
+        progressbar = tqdm(range(len(self.inputs)), desc = 'Caching')
 
-            self.image_means = []
-            self.image_stds = []
-            
-            progressbar = tqdm(range(len(self.inputs)), desc = 'Caching')
-
-            if len(self.targets)>0:
-                for i, img_name, tar_name in zip(progressbar, self.inputs, self.targets):
-                    try:
-                        if 'tif' in tar_name:
-                            img, tar = imread(str(img_name)), imread(str(tar_name),plugin='pil')
-
-                        else:
-                            # For multi-channel image inputs
-                            if type(img_name)==list:
-                                img1,img2,tar = imread(str(img_name[0])), imread(str(img_name[1])),imread(str(tar_name))
-                                img = np.concatenate((img1,img2),axis=-1)
-                                img_name = img_name[0]
-                            else:
-                                img, tar = imread(str(img_name)), imread(str(tar_name))
-                        
-                        if self.pre_transform is not None:
-                            img, tar = self.pre_transform(img, tar)
-
-                        # Calculating dataset mean and standard deviation
-                        img_channel_mean = np.mean(img,axis=(0,1))
-                        img_channel_std = np.std(img,axis=(0,1))
-
-                        self.image_means.append(img_channel_mean)
-                        self.image_stds.append(img_channel_std)
-                            
-                        self.cached_data.append((img,tar))
-                        self.cached_names.append(img_name)
-                    except FileNotFoundError:
-                        print(f'File not found: {img_name},{tar_name}')
-            else:
+        if len(self.targets)>0:
+            # For a training round or testing round with ground truth labels available
+            for i, img_name, tar_name in zip(progressbar, self.inputs, self.targets):
                 try:
-                    for i, img_name in zip(progressbar, self.inputs):
+                    # For multi-channel image inputs
+                    if type(img_name)==list:
+                        img1,img2,tar = imread(str(img_name[0])), imread(str(img_name[1])),imread(str(tar_name))
+                        img = np.concatenate((img1,img2),axis=-1)
+                        img_name = img_name[0]
+                    else:
+                        img, tar = imread(str(img_name)), imread(str(tar_name))
 
-                        if type(img_name)==list:
-                            img1,img2 = imread(str(img_name[0])), imread(str(img_name[1]))
-                            img = np.concatenate((img1,img2),axis=-1)
-                            img_name = img_name[0]
+                    self.images.append((img,tar))
+                    self.cached_item_names.append(img_name)
+                except FileNotFoundError:
+                    print(f'File not found: {img_name}, {tar_name}')
+        
+        else:
+            # For just predicting on images with no ground truth provided
+            for i, img_name in zip(progressbar,self.inputs):
+                try:
+                    if type(img_name)==list:
+                        img1,img2 = imread(str(img_name[0])),imread(str(img_name[1]))
+                        img = np.concatenate((img1,img2),axis=-1)
+                        img_name = img_name[0]
+                    else:
+                        img = imread(str(img_name))
+                    
+                    tar = np.zeros((np.shape(img)[0],np.shape(img)[1],1))
 
-                        else:
-                            img = imread(str(img_name))
-                        
-                        tar = np.zeros((np.shape(img)[0],np.shape(img)[1],1))
-
-                        if not self.patch_batch:
-                            if self.pre_transform is not None:
-                                img, tar = self.pre_transform(img, tar)
-
-                            # Calculating dataset mean and standard deviation
-                            img_channel_mean = np.mean(img,axis=(0,1))
-                            img_channel_std = np.std(img,axis=(0,1))
-
-                            self.image_means.append(img_channel_mean)
-                            self.image_stds.append(img_channel_std)
-
-                            self.cached_data.append((img,tar))
-                            self.cached_names.append(img_name)
-                        
-                        else:
-
-                            # Overlap percentage defined in self.patch_batch, hardcoded patch size
-                            patch_size = [512,512]
-                            start_coords = [0,0]
-                            stride = [int(patch_size[0]*(1-self.patch_batch)), int(patch_size[1]*(1-self.patch_batch))]
-                            n_patches = [1+floor((np.shape(img)[0]-patch_size[0])/stride[0]), 1+floor((np.shape(img)[1]-patch_size[1])/stride[1])]
-
-                            row_starts = [int(start_coords[0]+(i*stride[0])) for i in range(0,n_patches[0])]
-                            col_starts = [int(start_coords[1]+(i*stride[1])) for i in range(0,n_patches[1])]
-                            row_starts.append(int(np.shape(img)[0]-patch_size[0]))
-                            col_starts.append(int(np.shape(img)[1]-patch_size[1]))
-                            
-                            self.original_image_size = list(np.shape(img))
-                            self.patch_size = patch_size
-
-                            #self.cached_data.append((img,tar))
-                            self.cached_item_names.append(img_name)
-
-                            for r_s in row_starts:
-                                for c_s in col_starts:
-                                    new_img = img[r_s:r_s+patch_size[0], c_s:c_s+patch_size[1],:]
-                                    new_tar = np.zeros((np.shape(new_img)[0],np.shape(new_img)[1]))
-
-                                    if self.pre_transform is not None:
-                                        new_img, new_tar = self.pre_transform(new_img, new_tar)
-
-                                    img_channel_mean = np.mean(new_img,axis=(0,1))
-                                    img_channel_std = np.std(img,axis=(0,1))
-                                    self.image_means.append(img_channel_mean)
-                                    self.image_stds.append(img_channel_std)
-
-                                    self.cached_data.append((new_img,new_tar))
-                                    self.cached_names.append(img_name.replace(f'.{img_name.split(".")[-1]}',f'_{r_s}_{c_s}.{img_name.split(".")[-1]}'))
-                            
+                    self.images.append((img,tar))
+                    self.cached_item_names.append(img_name)
 
                 except FileNotFoundError:
                     print(f'File not found: {img_name}')
+        
+        if np.shape(img)[0]<=self.parameters['patch_size'] and np.shape(img)[1]<=self.parameters['patch_size']:
+            # For images that are smaller/same size as the model's patch size then just resize as normal   
+            for (img, tar),name in zip(self.images,self.cached_item_names):                
+                if self.pre_transform is not None:
+                    img, tar = self.pre_transform(img, tar)
 
-            print(f'Cached Data: {len(self.cached_data)}')
-            print(f'image_means mean: {np.mean(self.image_means,axis=0)}')
-            print(f'image_stds mean: {np.mean(self.image_stds,axis=0)}')
+                # Calculating dataset mean and standard deviation
+                img_channel_mean = np.mean(img,axis=(0,1))
+                img_channel_std = np.std(img,axis=(0,1))
+
+                self.image_means.append(img_channel_mean)
+                self.image_stds.append(img_channel_std)
+                
+                # Data used for training and testing
+                self.cached_data.append((img,tar))
+                self.cached_names.append(name)
+        else:
+
+            # Overlap percentage, hardcoded patch size
+            self.patch_size = self.parameters['patch_size']
+            self.patch_batch = 0.75
+            stride = [int(self.patch_size[0]*(1-self.patch_batch)), int(self.patch_size[1]*(1-self.patch_batch))]
+
+            # Calculating and storing patch coordinates for each image and reading those regions at training time :/
+            for img,tar in self.images:
+                n_patches = [1+floor((np.shape(img)[0]-self.patch_size[0])/stride[0]), 1+floor((np.shape(img)[1]-self.patch_size[1])/stride[1])]
+
+                start_coords = [0,0]
+
+                row_starts = [int(start_coords[0]+(i*stride[0])) for i in range(0,n_patches[0])]
+                col_starts = [int(start_coords[1]+(i*stride[1])) for i in range(0,n_patches[1])]
+                row_starts.append(int(np.shape(img)[0]-self.patch_size[0]))
+                col_starts.append(int(np.shape(img)[1]-self.patch_size[1]))
+                
+                self.original_image_size = list(np.shape(img))
+
+                # Iterating through the row_starts and col_starts lists and applying pre_transforms to the image
+                item_patches = []
+                patch_names = []
+                for r_s in row_starts:
+                    for c_s in col_starts:
+                        new_img = img[r_s:r_s+self.patch_size[0], c_s:c_s+self.patch_size[1],:]
+                        new_tar = np.zeros((np.shape(new_img)[0],np.shape(new_img)[1]))
+
+                        if self.pre_transform is not None:
+                            new_img, new_tar = self.pre_transform(new_img, new_tar)
+
+                        img_channel_mean = np.mean(new_img,axis=(0,1))
+                        img_channel_std = np.std(img,axis=(0,1))
+                        self.image_means.append(img_channel_mean)
+                        self.image_stds.append(img_channel_std)
+
+                        item_patches.append((new_img,new_tar))
+                        patch_names.append(img_name.replace(f'.{img_name.split(".")[-1]}',f'_{r_s}_{c_s}.{img_name.split(".")[-1]}'))
+
+                self.cached_data.append(item_patches)
+                self.cached_names.append(patch_names)
+            
+            self.cached_item_patches = [len(i) for i in self.cached_data]
+            self.cached_item_index = 0
+
+
+        print(f'Cached Data: {len(self.cached_data)}')
+        print(f'image_means mean: {np.mean(self.image_means,axis=0)}')
+        print(f'image_stds mean: {np.mean(self.image_stds,axis=0)}')
 
 
     def __len__(self):
         if not self.patch_batch:
             return len(self.cached_data)
         else:
-            return len(self.cached_names)
+            return sum([len(i) for i in self.cached_data])
     
     # Getting matching input and target(label)
     def __getitem__(self,
                     index: int):
-        if self.use_cache:
+        
+        if not self.patch_batch:
             x, y = self.cached_data[index]
             input_ID = self.cached_names[index]
         else:
-            input_ID = self.inputs[index]
-            target_ID = self.targets[index]
-        
-            # Reading x(input) and y(target) images using skimage.io.imread
-            if 'tif' in target_ID:
-                x, y = imread(input_ID),imread(target_ID,plugin='pil')
-            else:
-                x, y = imread(input_ID),imread(target_ID)
-    
+            # Getting the adjusted index to use
+            if index>=len(self.cached_data[self.cached_item_index]):
+                self.cached_item_index+=1
+                index -= sum(self.cached_item_patches[0:self.cached_item_index])
+            
+            x, y = self.cached_data[self.cached_item_index][index]
+            input_ID = self.cached_names[self.cached_item_index][index]
+
         # Preprocessing steps (if there are any)
         if self.transform is not None:
             x, y = self.transform(x, y)
@@ -252,18 +239,17 @@ class SegmentationDataSet(Dataset):
     
     def __next__(self):
 
+        # Used during training when there is a sample_weight
         img_list = []
         tar_list = []
         name_list = []
         for b in range(self.batch_size):
             
-            s_idx = np.random.choice(list(range(len(self.cached_data))),p=self.sample_weight)
+            if self.sample_weight:
+                s_idx = np.random.choice(list(range(len(self.cached_data))),p=self.sample_weight)
 
-            if self.use_cache:
-                img, tar = self.cached_data[s_idx]
-                input_id = self.cached_names[s_idx]
-
-                # Add cache-less later
+            img, tar = self.cached_data[s_idx]
+            input_id = self.cached_names[s_idx]
             
             if self.transform is not None:
                 x, y = self.transform(img,tar)
@@ -318,14 +304,12 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
         dataset_train = SegmentationDataSet(inputs = train_img_paths,
                                              targets = train_tar,
                                              transform = transforms_training,
-                                             use_cache = True,
                                              pre_transform = pre_transforms,
                                              parameters = parameters)
         
         dataset_valid = SegmentationDataSet(inputs = valid_img_paths,
                                              targets = valid_tar,
                                              transform = transforms_validation,
-                                             use_cache = True,
                                              pre_transform = pre_transforms,
                                              parameters = parameters)
         
@@ -354,7 +338,6 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
         dataset_valid = SegmentationDataSet(inputs = valid_img_paths,
                                             targets = valid_tar,
                                             transform = transforms_testing,
-                                            use_cache = True,
                                             pre_transform = pre_transforms,
                                             parameters = parameters)
 

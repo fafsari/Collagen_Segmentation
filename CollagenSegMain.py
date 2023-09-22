@@ -4,14 +4,9 @@ Created on Fri Jul 23 08:39:49 2021
 
 @author: spborder
 
-1) Input pipeline
-    1a) Splitting up training/validation/testing
-    1b) Option for 5-fold CV
-2) Initializing training loop
-    2a) Hyperparameter tuning?
-    2b) Performance on validation set
-3) Performance on test set
-4) Visualizations
+Organizing inputs (JSON file) and running either training or testing
+
+Currently works for image patches (training) and either image patches or larger (not WSI) testing
 
 """
 
@@ -26,7 +21,7 @@ from Organize_Inputs import organize_parameters
 
 from sklearn.model_selection import KFold
 
-import neptune.new as neptune
+import neptune
 
 from Input_Pipeline import *
 from CollagenSegTrain import Training_Loop
@@ -54,7 +49,7 @@ input_parameters = parameters['input_parameters']
 if 'neptune' in input_parameters:
     nept_params = input_parameters['neptune']
 
-    nept_run = neptune.init(
+    nept_run = neptune.init_run(
         project = nept_params['project'],
         source_files = nept_params['source_files'],
         api_token = nept_params['api_token'],

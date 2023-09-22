@@ -14,9 +14,6 @@ from typing import List, Callable, Tuple
 
 import numpy as np
 import albumentations as A
-#from sklearn.externals._pilutil import bytescale
-from skimage.util import crop
-from sklearn.model_selection import train_test_split
 
 
 # Gets the input image into 0-1 range as opposed to 0-255
@@ -32,53 +29,6 @@ def normalize(inp: np.ndarray, mean: float, std: float):
     inp_out = (inp-mean)/std
     
     return inp_out
-
-# Getting target array into right format
-def create_dense_target(tar: np.ndarray):
-    classes = np.unique(tar)
-    dummy = np.zeros_like(tar)
-    
-    # For each class, replace region in target (labeled image) with a unique integer
-    # from 0 to the number of classes
-    for idx, value in enumerate(classes):
-        mask = np.where(tar==value)
-        dummy[mask] = idx
-
-    return dummy
-
-# Center cropping array (alternative to resizing?)
-# '->' is a function annotation in Python which is accessible through function_name.__annotations__
-# pretty cool feature
-def center_crop_to_size(x: np.ndarray,
-                        size: Tuple,
-                        copy: bool = False) -> np.ndarray:
-    
-    x_shape = np.array(x.shape)
-    size = np.array(size)
-    params_list = ((x_shape-size)/2).astype(np.int).tolist()
-    params_tuple = tuple([(i,i) for i in params_list])
-    cropped_image = crop(x, crop_width=params_tuple, copy=copy)
-    return cropped_image
-
-# Re-normalizing image to between 0 and 255
-def re_normalize(inp: np.ndarray,
-                 low: int = 0,
-                 high: int = 255):
-    inp_out = bytescale(inp, low=low, high=high)
-    return inp_out
-
-# Randomly flipping input and target according to a set ratio
-def random_flip(inp:np.ndarray, tar: np.ndarray, ndim_spatial: int):
-    flip_dims = [np.random.randint(low=0, high = 2) for dim in range(ndim_spatial)]
-    
-    # input has extra dimension compared to target
-    flip_dims_inp = tuple([i+1 for i, element in enumerate(flip_dims) if element == 1])
-    flip_dims_tar = tuple([i for i, element in enumerate(flip_dims) if element == 1])
-
-    inp_flipped = np.flip(inp, axis = flip_dims_inp)
-    tar_flipped = np.flip(tar, axis = flip_dims_tar)
-    
-    return inp_flipped, tar_flipped
 
 # Extra class thing to work with string representations of objects
 class Repr:
@@ -173,32 +123,6 @@ class AlbuSeg2d(Repr):
         return input_out, target_out
     
 # Skipping AlbuSeg3d because this is only with 2D
-    
-# Randomly flipping inputs and targets    
-# expected input : (channels, spatial dimensions)
-# expected targets : (spatial dimensions)
-
-# Arguments: ndim_spatial: Number of spatial dimensions in input
-# ndim_spatial = 2 for input shape (channels, height, width)
-# ndim_spatial = 3 for input shape (channels, dimensions, height, width)
-class RandomFlip(Repr):
-    
-    def __init__(self, ndim_spatial):
-        self.ndim_spatial = ndim_spatial
-        
-    def __call__(self, inp, target):
-        
-        flip_dims = [np.random.randint(low=0, high = 2) for dim in range(self.ndim_spatial)]
-        
-        flip_dims_inp = tuple([i+1 for i, element in enumerate(flip_dims) if element == 1])
-        flip_dims_target = tuple([i for i, element in enumerate(flip_dims) if element == 1])
-        
-        inp_flip - np.flip(inp, axis = flip_dims_inp)
-        target_flip = np.flip(target, axis = flip_dims_target)
-        
-        return np.copy(inp_flip), np.copy(target_flip)
-    
-    
 
 
 

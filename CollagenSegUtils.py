@@ -23,9 +23,6 @@ from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 from skimage.transform import resize
 from skimage.color import rgb2gray, rgb2lab, lab2rgb
 
-from histomicstk.saliency.tissue_detection import get_tissue_mask
-from histomicstk.preprocessing.color_normalization import reinhard
-
 def back_to_reality(tar):
     
     # Getting target array into right format
@@ -49,7 +46,6 @@ def apply_colormap(img):
             image = np.concatenate((image, img[:,:,cl]),axis = 1)
 
     return image
-
 
 def visualize_multi_task(images,output_type):
     
@@ -114,7 +110,6 @@ def visualize_multi_task(images,output_type):
 
     return fig
 
-
 def visualize_continuous(images,output_type):
 
     if output_type=='comparison':
@@ -160,7 +155,6 @@ def visualize_continuous(images,output_type):
 
 
     return output_fig
-
 
 def get_metrics(pred_mask,ground_truth,img_name,calculator,target_type):
 
@@ -227,7 +221,6 @@ def get_metrics(pred_mask,ground_truth,img_name,calculator,target_type):
 
     return metrics_row
 
-
 # Function to resize and apply any condensing transform like grayscale conversion
 def resize_special(img,output_size,transform):
 
@@ -257,7 +250,6 @@ def resize_special(img,output_size,transform):
 
             img = np.concatenate((f_img[:,:,None],b_img[:,:,None]),axis=-1)
             img = resize(img,output_shape = (output_size))
-
         elif transform == 'multi_input_mean_invbf':
 
             # Mean of color channels, inverting bf
@@ -269,39 +261,7 @@ def resize_special(img,output_size,transform):
 
             img = np.concatenate((f_img[:,:,None],b_img[:,:,None]),axis=-1)
             img = resize(img, output_shape = (output_size))
-
-
     else:
-
-        """
-        if output_size[-1]==1:
-            img = resize(img,output_size,preserve_range=True,order=0,anti_aliasing=False)
-        elif output_size[-1] == 4:
-            # This is for when the normalized fluorescence comprises the first 3 channels
-            img = np.concatenate((np.expand_dims(np.mean(img[:,:,0:3],axis=-1),axis=-1),img[:,:,2:5]),axis = -1)
-            img = resize(img,output_size)
-
-        elif output_size[-1] == 6:
-            # Special normalization procedures for 6-channel images
-            if transform == 'invert_bf_norm01':
-                img = resize(img,output_size)
-
-                # Normalizing fluorescence channels between 0 and 1
-                f_img = img[:,:,0:3]
-                #f_img = (f_img - np.min(f_img))/np.ptp(f_img)
-                f_img = f_img/np.sum(f_img,axis=-1)
-
-                # Inverting and normalizing brightfield channels
-                b_img = img[:,:,2:5]
-                b_img = 255-b_img
-                #b_img = (b_img - np.min(b_img))/np.ptp(b_img)
-                b_img = b_img/np.sum(b_img,axis=-1)
-
-                img = np.concatenate((f_img,b_img),axis=-1)
-        """
-        #else:
-
-        # Setting default size to 256,256,n_channels
         if transform=='mean':
             img = resize(img,output_size)
 
@@ -327,8 +287,6 @@ def resize_special(img,output_size,transform):
             img = rgb2lab(img)
         
         elif type(transform)==dict:
-            # Don't use histomicstk
-            #img = reinhard(img,target_mu=transform['norm_mean'],target_sigma=transform['norm_std'])
 
             # Determining non-tissue regions to mask out prior to scaling/conversion
             # For BF images the non-tissue regions are closer to white whereas with fluorescence images they 
@@ -353,9 +311,16 @@ def resize_special(img,output_size,transform):
             b_green_inv_img = np.divide(b_green_inv_img,np.sum(255-img[:,:,2:5],axis=-1),where=(np.sum(255-img[:,:,2:5],axis=-1)!=0))
             img = np.concatenate((f_green_img[:,:,None],b_green_inv_img[:,:,None]),axis=-1)
 
-        else:
-            img = resize(img,output_size)
+        elif transform == 'invert_bf_01norm':
 
+            inv_bf = 255-img[:,:,2:5]
+            inv_bf_norm = np.divide(inv_bf,np.sum(inv_bf,axis=-1),where=(np.sum(inv_bf,axis=-1)!=0))
+            f_img = img[:,:,0:3]
+            f_norm = np.divide(f_img,np.sum(f_img,axis=-1),where=(np.sum(f_img,axis=-1)!=0))
+
+            img = np.concatenate((f_norm,inv_bf_norm),axis=-1)
+
+    img = resize(img,output_size)
 
     return img
 

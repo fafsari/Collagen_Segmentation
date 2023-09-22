@@ -17,7 +17,6 @@ import numpy as np
 from glob import glob
 from math import floor
 import json
-from Organize_Inputs import organize_parameters
 
 from sklearn.model_selection import KFold
 
@@ -216,6 +215,38 @@ elif input_parameters['phase']=='test':
 
         image_paths = sorted(glob(input_parameters['image_dir'][input_image_type[0]]+'*'))
 
+    # Loading model and data
+    if 'neptune' in input_parameters:
+        model_version = neptune.init_model(
+            project = nept_params['project'],
+            with_id = input_parameters['model'],
+            mode = 'async',
+            api_token = nept_params['api_token']
+        )
+
+        if 'model_file' not in input_parameters:
+            # Download the model from the model version
+            if not os.path.exists(input_parameters['output_dir']+'/model/'):
+                os.makedirs(input_parameters['output_dir']+'/model/')
+
+            model_version['model_file'].download(input_parameters['output_dir']+'/model')
+            model_file = os.listdir(input_parameters['output_dir']+'/model/')[0]
+        else:
+            model_file = input_parameters['model_file']
+
+        all_model_metadata = model_version.get_structure()
+        preprocessing = all_model_metadata['color_transform']
+        model_details = all_model_metadata['model_details']
+
+    else:
+
+        model_file = input_parameters['model_file']
+        preprocessing = input_parameters['preprocessing']
+        model_details = input_parameters['model_details']
+
+    input_parameters['model_details'] = model_details
+    input_parameters['preprocessing'] = preprocessing
+
     nothin, dataset_test = make_training_set(
         'test',
         None,
@@ -225,6 +256,6 @@ elif input_parameters['phase']=='test':
         input_parameters
     )
 
-    Test_Network(input_parameters['model'], dataset_test, nept_run, input_parameters)
+    Test_Network(model_file, dataset_test, nept_run, input_parameters)
 
 

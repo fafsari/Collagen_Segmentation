@@ -53,6 +53,7 @@ class SegmentationDataSet(Dataset):
         self.targets = targets
         self.transform = transform
         self.inputs_dtype = torch.float32
+        self.parameters = parameters
 
         if target_type == 'binary':
             self.targets_dtype = torch.long
@@ -111,7 +112,7 @@ class SegmentationDataSet(Dataset):
                 except FileNotFoundError:
                     print(f'File not found: {img_name}')
         
-        if np.shape(img)[0]<=self.parameters['patch_size'] and np.shape(img)[1]<=self.parameters['patch_size']:
+        if np.shape(img)[0]<=self.parameters['image_size'][0] and np.shape(img)[1]<=self.parameters['image_size'][1]:
             # For images that are smaller/same size as the model's patch size then just resize as normal   
             for (img, tar),name in zip(self.images,self.cached_item_names):                
                 if self.pre_transform is not None:
@@ -130,7 +131,7 @@ class SegmentationDataSet(Dataset):
         else:
 
             # Overlap percentage, hardcoded patch size
-            self.patch_size = self.parameters['patch_size']
+            self.patch_size = [self.parameters['image_size'][0],self.parameters['image_size'][1]]
             self.patch_batch = 0.75
             stride = [int(self.patch_size[0]*(1-self.patch_batch)), int(self.patch_size[1]*(1-self.patch_batch))]
 
@@ -273,6 +274,10 @@ class SegmentationDataSet(Dataset):
 
 def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_tar,parameters):
     
+    img_size = parameters['image_size']
+    mask_size = parameters['mask_size']
+    color_transform = parameters['color_transform']
+
     if phase == 'train':
 
         pre_transforms = ComposeDouble([
@@ -300,7 +305,6 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             FunctionWrapperDouble(np.moveaxis,input=True,target=True,source=-1,destination=0)
         ])
 
-        
         dataset_train = SegmentationDataSet(inputs = train_img_paths,
                                              targets = train_tar,
                                              transform = transforms_training,
@@ -329,7 +333,6 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
         
         transforms_testing = ComposeDouble([
                 FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                #FunctionWrapperDouble(normalize_01, input = True, target = True)
                 ])
 
         # this is 'None' because we are just testing the network

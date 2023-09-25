@@ -94,7 +94,8 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
             if 'patch_batch' in dir(dataset_valid):
 
                 # Getting original image dimensions from test_dataloader
-                original_image_size = np.shape(dataset_valid.images[i])
+                original_image, _ = dataset_valid.images[i]
+                original_image_size = np.shape(original_image)
                 final_pred_mask = np.zeros((original_image_size[0],original_image_size[1]))
                 overlap_mask = np.zeros_like(final_pred_mask)
 
@@ -103,7 +104,6 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                 # Now getting the number of patches needed for the current image
                 n_patches = len(dataset_valid.cached_data[i])
                 image_name = dataset_valid.cached_item_names[i]
-                print(f'{n_patches} for image: {image_name}')
 
                 for n in range(0,n_patches):
 
@@ -113,26 +113,17 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                     pred_mask = model(image.to(device))
 
                     if target_type=='binary':        
-                        target_img = target.cpu().numpy().round()
                         pred_mask_img = pred_mask.detach().cpu().numpy()
-
-                        if dataset_valid.testing_metrics:
-                            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
-                        # Outputting the prediction as a continuous mask even though running binary metrics
 
                     elif target_type=='nonbinary':
                         pred_mask_img = pred_mask.detach().cpu().numpy()
-                        target_img = target.cpu().numpy()
-
-                        if dataset_valid.testing_metrics:
-                            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
 
                     # Getting patch locations from input_name
                     row_start = int(input_name.split('_')[-2])
                     col_start = int(input_name.split('_')[-1].split('.')[0])
 
                     fig = visualize_continuous(
-                        image_dict = {'Pred_Mask':pred_mask_img},
+                        images = {'Pred_Mask':pred_mask_img},
                         output_type = 'prediction'
                     )
                     

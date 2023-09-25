@@ -26,8 +26,9 @@ def normalize_01(inp: np.ndarray):
 # Normalize input array based on mean and standard deviation
 def normalize(inp: np.ndarray, mean: list, std: list):
     
+    inp_out = np.zeros_like(inp)
     for i in range(np.shape(inp)[-1]):
-        inp_out = (inp[:,:,i]-mean[i])/std[i]
+        inp_out[:,:,i] += (inp[:,:,i]-mean[i])/std[i]
     
     return inp_out
 

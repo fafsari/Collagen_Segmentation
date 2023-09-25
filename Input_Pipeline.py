@@ -59,6 +59,8 @@ class SegmentationDataSet(Dataset):
             self.targets_dtype = torch.long
         elif target_type == 'nonbinary':
             self.targets_dtype = torch.float32
+        elif target_type is None:
+            self.targets_dtype = torch.float32
         
         self.batch_size = batch_size
         self.patch_batch = False
@@ -170,7 +172,6 @@ class SegmentationDataSet(Dataset):
                         #self.image_means.append(img_channel_mean)
                         #self.image_stds.append(img_channel_std)
                         #print(f'patch:{len(item_patches)+1} created')
-
                         item_patches.append((new_img,new_tar))
                         patch_names.append(img_name.replace(f'.{img_name.split(".")[-1]}',f'_{r_s}_{c_s}.{img_name.split(".")[-1]}'))
 
@@ -186,10 +187,13 @@ class SegmentationDataSet(Dataset):
 
 
     def __len__(self):
+        """
         if not self.patch_batch:
             return len(self.cached_data)
         else:
             return sum([len(i) for i in self.cached_data])
+        """
+        return len(self.cached_data)
     
     # Getting matching input and target(label)
     def __getitem__(self,
@@ -210,10 +214,9 @@ class SegmentationDataSet(Dataset):
         # Preprocessing steps (if there are any)
         if self.transform is not None:
             x, y = self.transform(x, y)
-            
+        
         # Getting in the right input/target data types
         x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
-
         return x, y, input_ID
     
     def add_sub_categories(self,sub_categories, sub_cat_column):

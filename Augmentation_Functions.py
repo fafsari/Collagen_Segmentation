@@ -24,9 +24,10 @@ def normalize_01(inp: np.ndarray):
     return inp_out
 
 # Normalize input array based on mean and standard deviation
-def normalize(inp: np.ndarray, mean: float, std: float):
+def normalize(inp: np.ndarray, mean: list, std: list):
     
-    inp_out = (inp-mean)/std
+    for i in range(np.shape(inp)[-1]):
+        inp_out = (inp[:,:,i]-mean[i])/std[i]
     
     return inp_out
 

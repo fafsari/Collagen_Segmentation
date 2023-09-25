@@ -117,7 +117,7 @@ class SegmentationDataSet(Dataset):
                     print(f'File not found: {img_name}')
         
         # For images that are smaller/same size as the model's patch size then just resize as normal   
-        for (img, tar),name in zip(self.images,self.cached_item_names):     
+        for (img, tar),name in tqdm(zip(self.images,self.cached_item_names),total=len(self.images),desc = 'Preprocessing Images'):     
 
             if np.shape(img)[0]<=image_size[0] and np.shape(img)[1]<=image_size[1]:
            
@@ -143,46 +143,46 @@ class SegmentationDataSet(Dataset):
                 stride = [int(self.patch_size[0]*(1-self.patch_batch)), int(self.patch_size[1]*(1-self.patch_batch))]
 
                 # Calculating and storing patch coordinates for each image and reading those regions at training time :/
-                for img,tar in self.images:
-                    n_patches = [1+floor((np.shape(img)[0]-self.patch_size[0])/stride[0]), 1+floor((np.shape(img)[1]-self.patch_size[1])/stride[1])]
+                n_patches = [1+floor((np.shape(img)[0]-self.patch_size[0])/stride[0]), 1+floor((np.shape(img)[1]-self.patch_size[1])/stride[1])]
+                print(f'{n_patches} Patches')
+                start_coords = [0,0]
 
-                    start_coords = [0,0]
+                row_starts = [int(start_coords[0]+(i*stride[0])) for i in range(0,n_patches[0])]
+                col_starts = [int(start_coords[1]+(i*stride[1])) for i in range(0,n_patches[1])]
+                row_starts.append(int(np.shape(img)[0]-self.patch_size[0]))
+                col_starts.append(int(np.shape(img)[1]-self.patch_size[1]))
+                
+                self.original_image_size = list(np.shape(img))
 
-                    row_starts = [int(start_coords[0]+(i*stride[0])) for i in range(0,n_patches[0])]
-                    col_starts = [int(start_coords[1]+(i*stride[1])) for i in range(0,n_patches[1])]
-                    row_starts.append(int(np.shape(img)[0]-self.patch_size[0]))
-                    col_starts.append(int(np.shape(img)[1]-self.patch_size[1]))
-                    
-                    self.original_image_size = list(np.shape(img))
+                # Iterating through the row_starts and col_starts lists and applying pre_transforms to the image
+                item_patches = []
+                patch_names = []
+                for r_s in row_starts:
+                    for c_s in col_starts:
+                        new_img = img[r_s:r_s+self.patch_size[0], c_s:c_s+self.patch_size[1],:]
+                        new_tar = np.zeros((np.shape(new_img)[0],np.shape(new_img)[1]))
 
-                    # Iterating through the row_starts and col_starts lists and applying pre_transforms to the image
-                    item_patches = []
-                    patch_names = []
-                    for r_s in row_starts:
-                        for c_s in col_starts:
-                            new_img = img[r_s:r_s+self.patch_size[0], c_s:c_s+self.patch_size[1],:]
-                            new_tar = np.zeros((np.shape(new_img)[0],np.shape(new_img)[1]))
+                        if self.pre_transform is not None:
+                            new_img, new_tar = self.pre_transform(new_img, new_tar)
 
-                            if self.pre_transform is not None:
-                                new_img, new_tar = self.pre_transform(new_img, new_tar)
+                        #img_channel_mean = np.mean(new_img,axis=(0,1))
+                        #img_channel_std = np.std(img,axis=(0,1))
+                        #self.image_means.append(img_channel_mean)
+                        #self.image_stds.append(img_channel_std)
+                        #print(f'patch:{len(item_patches)+1} created')
 
-                            img_channel_mean = np.mean(new_img,axis=(0,1))
-                            img_channel_std = np.std(img,axis=(0,1))
-                            self.image_means.append(img_channel_mean)
-                            self.image_stds.append(img_channel_std)
+                        item_patches.append((new_img,new_tar))
+                        patch_names.append(img_name.replace(f'.{img_name.split(".")[-1]}',f'_{r_s}_{c_s}.{img_name.split(".")[-1]}'))
 
-                            item_patches.append((new_img,new_tar))
-                            patch_names.append(img_name.replace(f'.{img_name.split(".")[-1]}',f'_{r_s}_{c_s}.{img_name.split(".")[-1]}'))
-
-                    self.cached_data.append(item_patches)
-                    self.cached_names.append(patch_names)
+                self.cached_data.append(item_patches)
+                self.cached_names.append(patch_names)
                 
                 self.cached_item_patches = [len(i) for i in self.cached_data]
                 self.cached_item_index = 0
 
         print(f'Cached Data: {len(self.cached_data)}')
-        print(f'image_means mean: {np.mean(self.image_means,axis=0)}')
-        print(f'image_stds mean: {np.mean(self.image_stds,axis=0)}')
+        #print(f'image_means mean: {np.mean(self.image_means,axis=0)}')
+        #print(f'image_stds mean: {np.mean(self.image_stds,axis=0)}')
 
 
     def __len__(self):
@@ -284,6 +284,9 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
     mask_size = [int(i) for i in parameters['preprocessing']['mask_size'].split(',')]
     color_transform = parameters['preprocessing']['color_transform']
 
+    image_means = [float(i) for i in parameters['preprocessing']['image_means'].split(',')]
+    image_stds = [float(i) for i in parameters['preprocessing']['image_stds'].split(',')]
+
     if phase == 'train':
 
         pre_transforms = ComposeDouble([
@@ -295,7 +298,12 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                 FunctionWrapperDouble(resize,
                                     input = False,
                                     target = True,
-                                    output_shape = mask_size)
+                                    output_shape = mask_size),
+                FunctionWrapperDouble(normalize,
+                                      input = True,
+                                      target = False,
+                                      mean = image_means,
+                                      std = image_stds)
         ])        
 
         # Continuous target type augmentations
@@ -326,16 +334,21 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
     elif phase == 'test':
 
         pre_transforms = ComposeDouble([
-        FunctionWrapperDouble(resize_special,
-                            input = True,
-                            target = False,
-                            output_size = img_size,
-                            transform = color_transform),
-        FunctionWrapperDouble(resize,
-                            input = False,
-                            target = True,
-                            output_shape = mask_size)
-        ])
+                FunctionWrapperDouble(resize_special,
+                                    input = True,
+                                    target = False,
+                                    output_size = img_size,
+                                    transform = color_transform),
+                FunctionWrapperDouble(resize,
+                                    input = False,
+                                    target = True,
+                                    output_shape = mask_size),
+                FunctionWrapperDouble(normalize,
+                                        input = True,
+                                        target = False,
+                                        mean = image_means,
+                                        std = image_stds)
+            ])
         
         transforms_testing = ComposeDouble([
                 FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),

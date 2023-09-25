@@ -314,9 +314,9 @@ def resize_special(img,output_size,transform):
         elif transform == 'invert_bf_01norm':
 
             inv_bf = 255-img[:,:,2:5]
-            inv_bf_norm = np.divide(inv_bf,np.sum(inv_bf,axis=-1),where=(np.sum(inv_bf,axis=-1)!=0))
+            inv_bf_norm = np.divide(inv_bf,np.sum(inv_bf,axis=-1)[:,:,None],where=(np.sum(inv_bf,axis=-1)[:,:,None]!=0))
             f_img = img[:,:,0:3]
-            f_norm = np.divide(f_img,np.sum(f_img,axis=-1),where=(np.sum(f_img,axis=-1)!=0))
+            f_norm = np.divide(f_img,np.sum(f_img,axis=-1)[:,:,None],where=(np.sum(f_img,axis=-1)[:,:,None]!=0))
 
             img = np.concatenate((f_norm,inv_bf_norm),axis=-1)
 

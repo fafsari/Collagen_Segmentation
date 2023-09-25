@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 from PIL import Image, ImageFilter
 import pandas as pd
 
-import neptune.new as neptune
+import neptune
 
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 from CollagenSegUtils import visualize_continuous, get_metrics

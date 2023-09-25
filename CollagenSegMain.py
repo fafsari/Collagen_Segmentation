@@ -48,10 +48,11 @@ input_parameters = parameters['input_parameters']
 if 'neptune' in input_parameters:
     nept_params = input_parameters['neptune']
 
+    nept_api_token = os.environ.get('NEPTUNE_API_TOKEN')
     nept_run = neptune.init_run(
         project = nept_params['project'],
         source_files = nept_params['source_files'],
-        api_token = nept_params['api_token'],
+        api_token = nept_api_token,
         tags = nept_params['tags']
         )
 else:
@@ -221,7 +222,7 @@ elif input_parameters['phase']=='test':
             project = nept_params['project'],
             with_id = input_parameters['model'],
             mode = 'async',
-            api_token = nept_params['api_token']
+            api_token = nept_api_token
         )
 
         if 'model_file' not in input_parameters:
@@ -235,8 +236,15 @@ elif input_parameters['phase']=='test':
             model_file = input_parameters['model_file']
 
         all_model_metadata = model_version.get_structure()
-        preprocessing = all_model_metadata['color_transform']
-        model_details = all_model_metadata['model_details']
+        prep_keys = all_model_metadata['preprocessing'].keys()
+        preprocessing = {}
+        for p in prep_keys:
+            preprocessing[p] = model_version[f'preprocessing/{p}'].fetch()
+
+        model_deets_keys = all_model_metadata['model_details'].keys()
+        model_details = {}
+        for m in model_deets_keys:
+            model_details[m] = model_version[f'model_details/{m}'].fetch()
 
     else:
 

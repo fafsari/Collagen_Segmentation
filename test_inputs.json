@@ -3,15 +3,16 @@
         "phase":"test",
         "type":"multi",
         "image_dir":{
-            "DUET":"",
-            "Brightfield":""
+            "DUET":"D:\\Collagen_Segmentation\\DUET Pig Kidney\\10 SET\\JHU\\Fluorescence\\",
+            "Brightfield":"D:\\Collagen_Segmentation\\DUET Pig Kidney\\10 SET\\JHU\\Brightfield\\"
         },
-        "output_dir":"",
-        "model":"",
+        "output_dir":"D:\\Collagen_Segmentation\\DUET Pig Kidney\\10 SET\\JHU\\Results\\",
+        "model":"DEDU-MCRGB",
+        "model_file":"C:\\Users\\Sam\\Desktop\\Collagen_Segmentation\\Results\\MultiChannel_RGB\\models\\Collagen_Seg_Model_Latest.pth",
         "neptune":{
-            "project":"",
-            "source_files":"",
-            "tags":""
+            "project":"samborder/Deep-DUET",
+            "source_files":["*.py","**/.py"],
+            "tags":["MultiChannel_RGB Predictions 10 Set JHU"]
         }
     }
 }

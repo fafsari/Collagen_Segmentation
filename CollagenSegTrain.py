@@ -26,10 +26,6 @@ import sys
 
 from CollagenSegUtils import visualize_continuous
 
-from FusionModel import DUNet
-
-#from MultiTaskModel import MultiTaskLoss, MultiTaskModel
-
 
 class Custom_MSE_Loss(torch.nn.Module):
     def __init__(self):

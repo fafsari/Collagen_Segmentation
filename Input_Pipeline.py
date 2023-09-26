@@ -146,7 +146,7 @@ class SegmentationDataSet(Dataset):
 
                 # Calculating and storing patch coordinates for each image and reading those regions at training time :/
                 n_patches = [1+floor((np.shape(img)[0]-self.patch_size[0])/stride[0]), 1+floor((np.shape(img)[1]-self.patch_size[1])/stride[1])]
-                print(f'{n_patches} Patches')
+                #print(f'{n_patches} Patches')
                 start_coords = [0,0]
 
                 row_starts = [int(start_coords[0]+(i*stride[0])) for i in range(0,n_patches[0])]
@@ -187,13 +187,12 @@ class SegmentationDataSet(Dataset):
 
 
     def __len__(self):
-        """
+        
         if not self.patch_batch:
             return len(self.cached_data)
         else:
             return sum([len(i) for i in self.cached_data])
-        """
-        return len(self.cached_data)
+        
     
     # Getting matching input and target(label)
     def __getitem__(self,
@@ -204,12 +203,18 @@ class SegmentationDataSet(Dataset):
             input_ID = self.cached_names[index]
         else:
             # Getting the adjusted index to use
-            if index>=len(self.cached_data[self.cached_item_index]):
+            if index>=len(self.cached_data[self.cached_item_index])-1:
                 self.cached_item_index+=1
                 index -= sum(self.cached_item_patches[0:self.cached_item_index])
-            
-            x, y = self.cached_data[self.cached_item_index][index]
-            input_ID = self.cached_names[self.cached_item_index][index]
+            try:
+                x, y = self.cached_data[self.cached_item_index][index]
+                input_ID = self.cached_names[self.cached_item_index][index]
+            except IndexError:
+                print(f'index: {index}')
+                print(f'len of self.cached_data: {len(self.cached_data)}')
+                print(f'self.cached_item_index: {self.cached_item_index}')
+                print(f'sum(self.cached_item_patches[0:self.cached_item_index]): {sum(self.cached_item_patches[0:self.cached_item_index])}')
+                print(f'self.cached_item_patches: {self.cached_item_patches}')
 
         # Preprocessing steps (if there are any)
         if self.transform is not None:

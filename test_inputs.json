@@ -5,7 +5,7 @@
         "image_dir":{
             "DUET":"D:\\Collagen_Segmentation\\DUET Pig Kidney\\10 SET\\Local_Test\\Fluorescence\\"
         },
-        "output_dir":"D:\\Collagen_Segmentation\\DUET Pig Kidney\\10 SET\\Local_Test\\Results\\",
+        "output_dir":"D:\\Collagen_Segmentation\\DUET Pig Kidney\\10 SET\\Local_Test\\Results\\Fluorescence_Grayscale\\",
         "model":"DEDU-FG",
         "model_file":"C:\\Users\\Sam\\Desktop\\Collagen_Segmentation\\Results\\Fluorescence_Grayscale\\models\\Collagen_Seg_Model_Latest.pth",
         "neptune":{

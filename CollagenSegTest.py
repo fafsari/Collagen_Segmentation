@@ -88,141 +88,146 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
 
         # Setting up iterator to generate images from the validation dataset
         data_iterator = iter(test_dataloader)
-        for i in tqdm(range(0,len(dataset_valid)),desc = 'Testing'):
-            
-            # Initializing combined mask from patched predictions
-            if 'patch_batch' in dir(dataset_valid):
-
-                # Getting original image dimensions from test_dataloader
-                original_image, _ = dataset_valid.images[i]
-                original_image_size = np.shape(original_image)
-                final_pred_mask = np.zeros((original_image_size[0],original_image_size[1]))
-                overlap_mask = np.zeros_like(final_pred_mask)
-
-                patch_size = [int(i) for i in test_parameters['preprocessing']['image_size'].split(',')[0:-1]]
+        with tqdm(range(len(dataset_valid)),desc='Testing') as pbar:
+            for i in range(0,len(dataset_valid)):
                 
-                # Now getting the number of patches needed for the current image
-                n_patches = len(dataset_valid.cached_data[i])
-                image_name = dataset_valid.cached_item_names[i]
+                # Initializing combined mask from patched predictions
+                if 'patch_batch' in dir(dataset_valid):
 
-                for n in range(0,n_patches):
+                    # Getting original image dimensions from test_dataloader
+                    original_image, _ = dataset_valid.images[i]
+                    original_image_size = np.shape(original_image)
+                    final_pred_mask = np.zeros((original_image_size[0],original_image_size[1]))
+                    overlap_mask = np.zeros_like(final_pred_mask)
 
-                    image, _, input_name = next(data_iterator)
-                    input_name = ''.join(input_name).split(os.sep)[-1]
+                    patch_size = [int(i) for i in test_parameters['preprocessing']['image_size'].split(',')[0:-1]]
+                    
+                    # Now getting the number of patches needed for the current image
+                    n_patches = len(dataset_valid.cached_data[i])
+                    image_name = dataset_valid.cached_item_names[i]
 
+                    for n in range(0,n_patches):
+
+                        image, _, input_name = next(data_iterator)
+                        input_name = ''.join(input_name).split(os.sep)[-1]
+
+                        pred_mask = model(image.to(device))
+
+                        if target_type=='binary':        
+                            pred_mask_img = pred_mask.detach().cpu().numpy()
+
+                        elif target_type=='nonbinary':
+                            pred_mask_img = pred_mask.detach().cpu().numpy()
+
+                        # Getting patch locations from input_name
+                        row_start = int(input_name.split('_')[-2])
+                        col_start = int(input_name.split('_')[-1].split('.')[0])
+
+                        fig = visualize_continuous(
+                            images = {'Pred_Mask':pred_mask_img},
+                            output_type = 'prediction'
+                        )
+                        
+                        # Adding to final_pred_mask and overlap_mask
+                        final_pred_mask[row_start:row_start+patch_size[0],col_start:col_start+patch_size[1]] += (fig*255).astype(np.uint8)
+                        overlap_mask[row_start:row_start+patch_size[0],col_start:col_start+patch_size[1]] += np.ones((patch_size[0],patch_size[1]))
+
+                        pbar.update(1)
+
+                    # Scaling predictions by overlap (mean pixel prediction where there is overlap)
+                    final_pred_mask = np.multiply(final_pred_mask,1/overlap_mask)
+
+                    im = Image.fromarray((final_pred_mask).astype(np.uint8))
+                    # Smoothing image to get rid of grid lines
+                    im = im.filter(ImageFilter.SMOOTH_MORE)
+                    im.save(test_output_dir+f'{dataset_valid.cached_item_names[dataset_valid.cached_item_index].split(os.sep)[-1].replace(".tif","_prediction.tif")}')
+
+                    # Saving overlap mask
+                    overlap_mask = (overlap_mask-np.min(overlap_mask))/(np.max(overlap_mask))
+                    overlap_im = Image.fromarray((overlap_mask*255).astype(np.uint8))
+                    overlap_im.save(test_output_dir+'Overlap_Mask.tif')
+
+                else:
+
+                    try:
+                        image, target, input_name = next(data_iterator)
+                        input_name = ''.join(input_name)
+                    except StopIteration:
+                        data_iterator = iter(test_dataloader)
+                        image, target, input_name = next(data_iterator)
+                        input_name = ''.join(input_name)
+
+                    input_name = input_name.split('/')[-1]
+
+                    # Add something here so that it calculates perforance metrics and outputs
+                    # raw values for 2-class segmentation(not binarized output masks)
+                    #pred_mask = model.predict(image.to(device))
                     pred_mask = model(image.to(device))
 
                     if target_type=='binary':        
+                        target_img = target.cpu().numpy().round()
                         pred_mask_img = pred_mask.detach().cpu().numpy()
+
+                        if dataset_valid.testing_metrics:
+                            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
+                        # Outputting the prediction as a continuous mask even though running binary metrics
 
                     elif target_type=='nonbinary':
                         pred_mask_img = pred_mask.detach().cpu().numpy()
+                        target_img = target.cpu().numpy()
 
-                    # Getting patch locations from input_name
-                    row_start = int(input_name.split('_')[-2])
-                    col_start = int(input_name.split('_')[-1].split('.')[0])
+                        if dataset_valid.testing_metrics:
+                            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
 
-                    fig = visualize_continuous(
-                        images = {'Pred_Mask':pred_mask_img},
-                        output_type = 'prediction'
-                    )
-                    
-                    # Adding to final_pred_mask and overlap_mask
-                    final_pred_mask[row_start:row_start+patch_size[0],col_start:col_start+patch_size[1]] += (fig*255).astype(np.uint8)
-                    overlap_mask[row_start:row_start+patch_size[0],col_start:col_start+patch_size[1]] += np.ones((patch_size[0],patch_size[1]))
+                    image = image.cpu().numpy()
+                    if type(in_channels)==int:
+                        if in_channels==6:
+                            image = np.concatenate((image[:,0:3,:,:],image[:,2:5,:,:]),axis=2)
+                        elif in_channels == 4:
+                            image = np.concatenate((np.stack((image[:,0,:,:],)*3,axis=1),image[:,0:3,:,:]),axis=2)
+                        elif in_channels == 2:
+                            image = np.concatenate((image[:,0,:,:],image[:,1,:,:]),axis=-1)
+                    elif type(in_channels)==list:
+                        if sum(in_channels)==6:
+                            image = np.concatenate((image[:,0:3,:,:],image[:,2:5,:,:]),axis=2)
+                        elif sum(in_channels)==2:
+                            image = np.concatenate((image[:,0,:,:][None,:,:],image[:,1,:,:][None,:,:]),axis=2)
 
-                # Scaling predictions by overlap (mean pixel prediction where there is overlap)
-                final_pred_mask = np.multiply(final_pred_mask,1/overlap_mask)
+                    img_dict = {'Image':image,'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
 
-                im = Image.fromarray((final_pred_mask).astype(np.uint8))
-                # Smoothing image to get rid of grid lines
-                im = im.filter(ImageFilter.SMOOTH_MORE)
-                im.save(test_output_dir+'Combined_Patches.tif')
+                    fig = visualize_continuous(img_dict,output_type)
 
-                # Saving overlap mask
-                overlap_mask = (overlap_mask-np.min(overlap_mask))/(np.max(overlap_mask))
-                overlap_im = Image.fromarray((overlap_mask*255).astype(np.uint8))
-                overlap_im.save(test_output_dir+'Overlap_Mask.tif')
+                    pbar.update(1)
 
-            else:
+                    # Different process for saving comparison figures vs. only predictions
+                    if output_type=='comparison':
+                        fig.savefig(test_output_dir+'Test_Example_'+input_name)
+                        #nept_run['testing/Testing_Output_'+input_name].upload(test_output_dir+'Test_Example_'+input_name)
+                    elif output_type=='prediction':
 
-                try:
-                    image, target, input_name = next(data_iterator)
-                    input_name = ''.join(input_name)
-                except StopIteration:
-                    data_iterator = iter(test_dataloader)
-                    image, target, input_name = next(data_iterator)
-                    input_name = ''.join(input_name)
+                        im = Image.fromarray((fig*255).astype(np.uint8))
+                        im.save(test_output_dir+'Test_Example_'+input_name.replace('.jpg','.tif'))
 
-                input_name = input_name.split('/')[-1]
+                # Used during hyperparameter optimization to compute objective value
+                if dataset_valid.testing_metrics:
+                    testing_metrics_df.to_csv(test_output_dir+'Test_Metrics.csv')
+                
+                    if not 'current_k_fold' in test_parameters:
+                        nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))
 
-                # Add something here so that it calculates perforance metrics and outputs
-                # raw values for 2-class segmentation(not binarized output masks)
-                #pred_mask = model.predict(image.to(device))
-                pred_mask = model(image.to(device))
+                        for met in testing_metrics_df.columns.values.tolist():
+                            try:
+                                print(f'{met} value: {testing_metrics_df[met].mean()}')
+                                nept_run[met] = testing_metrics_df[met].mean()
+                            except TypeError:
+                                print(f'Number of samples: {testing_metrics_df.shape[0]}')
+                    else:
+                        current_k_fold = test_parameters['current_k_fold']
+                        nept_run[f'Test_Image_metrics_{current_k_fold}'].upload(neptune.types.File.as_html(testing_metrics_df))
 
-                if target_type=='binary':        
-                    target_img = target.cpu().numpy().round()
-                    pred_mask_img = pred_mask.detach().cpu().numpy()
-
-                    if dataset_valid.testing_metrics:
-                        testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
-                    # Outputting the prediction as a continuous mask even though running binary metrics
-
-                elif target_type=='nonbinary':
-                    pred_mask_img = pred_mask.detach().cpu().numpy()
-                    target_img = target.cpu().numpy()
-
-                    if dataset_valid.testing_metrics:
-                        testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
-
-                image = image.cpu().numpy()
-                if type(in_channels)==int:
-                    if in_channels==6:
-                        image = np.concatenate((image[:,0:3,:,:],image[:,2:5,:,:]),axis=2)
-                    elif in_channels == 4:
-                        image = np.concatenate((np.stack((image[:,0,:,:],)*3,axis=1),image[:,0:3,:,:]),axis=2)
-                    elif in_channels == 2:
-                        image = np.concatenate((image[:,0,:,:],image[:,1,:,:]),axis=-1)
-                elif type(in_channels)==list:
-                    if sum(in_channels)==6:
-                        image = np.concatenate((image[:,0:3,:,:],image[:,2:5,:,:]),axis=2)
-                    elif sum(in_channels)==2:
-                        image = np.concatenate((image[:,0,:,:][None,:,:],image[:,1,:,:][None,:,:]),axis=2)
-
-                img_dict = {'Image':image,'Pred_Mask':pred_mask_img,'Ground_Truth':target_img}
-
-                fig = visualize_continuous(img_dict,output_type)
-
-                # Different process for saving comparison figures vs. only predictions
-                if output_type=='comparison':
-                    fig.savefig(test_output_dir+'Test_Example_'+input_name)
-                    #nept_run['testing/Testing_Output_'+input_name].upload(test_output_dir+'Test_Example_'+input_name)
-                elif output_type=='prediction':
-
-                    im = Image.fromarray((fig*255).astype(np.uint8))
-                    im.save(test_output_dir+'Test_Example_'+input_name.replace('.jpg','.tif'))
-
-            # Used during hyperparameter optimization to compute objective value
-            if dataset_valid.testing_metrics:
-                testing_metrics_df.to_csv(test_output_dir+'Test_Metrics.csv')
-            
-                if not 'current_k_fold' in test_parameters:
-                    nept_run['Test_Image_metrics'].upload(neptune.types.File.as_html(testing_metrics_df))
-
-                    for met in testing_metrics_df.columns.values.tolist():
-                        try:
-                            print(f'{met} value: {testing_metrics_df[met].mean()}')
-                            nept_run[met] = testing_metrics_df[met].mean()
-                        except TypeError:
-                            print(f'Number of samples: {testing_metrics_df.shape[0]}')
-                else:
-                    current_k_fold = test_parameters['current_k_fold']
-                    nept_run[f'Test_Image_metrics_{current_k_fold}'].upload(neptune.types.File.as_html(testing_metrics_df))
-
-                    for met in testing_metrics_df.columns.values.tolist():
-                        try:
-                            print(f'{met}: value: {testing_metrics_df[met].mean()}')
-                            nept_run[met+f'_{current_k_fold}'] = testing_metrics_df[met].mean()
-                        except TypeError:
-                            print(f'Number of samples: {testing_metrics_df.shape[0]}')
+                        for met in testing_metrics_df.columns.values.tolist():
+                            try:
+                                print(f'{met}: value: {testing_metrics_df[met].mean()}')
+                                nept_run[met+f'_{current_k_fold}'] = testing_metrics_df[met].mean()
+                            except TypeError:
+                                print(f'Number of samples: {testing_metrics_df.shape[0]}')

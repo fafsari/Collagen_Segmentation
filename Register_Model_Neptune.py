@@ -38,6 +38,7 @@ for m_key,m_name in zip(models_list,model_names):
     model_name = m_name
     path_to_model = f'C:\\Users\\Sam\\Desktop\\Collagen_Segmentation\\Results\\{model_name}\\models\\Collagen_Seg_Model_Latest.pth'
 
+    """
     #model_version['model_file'].upload(path_to_model)
 
     #model_color_transform = 'green'
@@ -87,7 +88,7 @@ for m_key,m_name in zip(models_list,model_names):
         model_version[file_name].upload(neptune.types.File.as_html(data))
         #except:
         #    model_version[file_name].upload(m_csv)
-    """
+    
 
 
 

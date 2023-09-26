@@ -203,9 +203,26 @@ class SegmentationDataSet(Dataset):
             input_ID = self.cached_names[index]
         else:
             # Getting the adjusted index to use
-            if index>=len(self.cached_data[self.cached_item_index])-1:
+            if index >= sum(self.cached_item_patches[0:self.cached_item_index+1])-1:
                 self.cached_item_index+=1
+                print(f'index:{index}')
+                print(f'self.cached_item_index: {self.cached_item_index}')
                 index -= sum(self.cached_item_patches[0:self.cached_item_index])
+
+            if self.cached_item_index == 0:
+                # if the index is equal to the number of patches - 1 then it will still work
+                if index > self.cached_item_patches[self.cached_item_index]-1:
+                    # Move to the first patch for the next item
+                    self.cached_item_index += 1
+                    # Now index = 0 again
+                    index -= self.cached_item_patches[self.cached_item_index-1]
+            else:
+
+                index -= sum(self.cached_item_patches[0:self.cached_item_index])
+                if index > self.cached_item_patches[self.cached_item_index]-1:
+                    self.cached_item_index += 1
+                    # Sending index back to zero
+                    index -= self.cached_item_patches[self.cached_item_index-1]
             try:
                 x, y = self.cached_data[self.cached_item_index][index]
                 input_ID = self.cached_names[self.cached_item_index][index]
@@ -213,7 +230,7 @@ class SegmentationDataSet(Dataset):
                 print(f'index: {index}')
                 print(f'len of self.cached_data: {len(self.cached_data)}')
                 print(f'self.cached_item_index: {self.cached_item_index}')
-                print(f'sum(self.cached_item_patches[0:self.cached_item_index]): {sum(self.cached_item_patches[0:self.cached_item_index])}')
+                print(f'sum(self.cached_item_patches[0:self.cached_item_index]): {sum(self.cached_item_patches[0:self.cached_item_index+1])}')
                 print(f'self.cached_item_patches: {self.cached_item_patches}')
 
         # Preprocessing steps (if there are any)

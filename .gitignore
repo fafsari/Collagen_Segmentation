@@ -1,2 +1,5 @@
 /.neptune
 /Old_Scripts
+reproduce_neptune_error.py
+file.csv
+error_traceback.txt

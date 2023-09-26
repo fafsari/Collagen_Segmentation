@@ -89,7 +89,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
         # Setting up iterator to generate images from the validation dataset
         data_iterator = iter(test_dataloader)
         with tqdm(range(len(dataset_valid)),desc='Testing') as pbar:
-            for i in range(0,len(dataset_valid)):
+            for i in range(0,len(dataset_valid.images)):
                 
                 # Initializing combined mask from patched predictions
                 if 'patch_batch' in dir(dataset_valid):
@@ -143,9 +143,9 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                     im.save(test_output_dir+f'{dataset_valid.cached_item_names[dataset_valid.cached_item_index].split(os.sep)[-1].replace(".tif","_prediction.tif")}')
 
                     # Saving overlap mask
-                    overlap_mask = (overlap_mask-np.min(overlap_mask))/(np.max(overlap_mask))
-                    overlap_im = Image.fromarray((overlap_mask*255).astype(np.uint8))
-                    overlap_im.save(test_output_dir+'Overlap_Mask.tif')
+                    #overlap_mask = (overlap_mask-np.min(overlap_mask))/(np.max(overlap_mask))
+                    #overlap_im = Image.fromarray((overlap_mask*255).astype(np.uint8))
+                    #overlap_im.save(test_output_dir+'Overlap_Mask.tif')
 
                 else:
 

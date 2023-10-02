@@ -7,8 +7,9 @@ Batch prediction with all datasets and all models
 import json
 import os
 from time import sleep
+import subprocess
 
-base_model_dir = '/blue/pinaki.sarder/samuelborder/Same_Training_set/'
+base_model_dir = '/blue/pinaki.sarder/samuelborder/Same_Training_Set/'
 model_dict_list = [
     {
         'model': 'DEDU-MCRGB',
@@ -20,7 +21,7 @@ model_dict_list = [
         'model':'DEDU-MCG',
         'type':'multi',
         'tags':['MultiChannel_G Predictions'],
-        'model_file': f'{base_model_dir}MultiChannel_Grayscale/models/Collagen_Seg_Model_Latest.pth'
+        'model_file': f'{base_model_dir}MultiChannel_Green/models/Collagen_Seg_Model_Latest.pth'
     },
     {
         'model':'DEDU-FRGB',
@@ -32,7 +33,7 @@ model_dict_list = [
         'model':'DEDU-FG',
         'type':'single',
         'tags':['Fluorescence_G Predictions'],
-        'model_file':f'{base_model_dir}Fluorescence_Grayscale/models/Collagen_Seg_Model_Latest.pth'
+        'model_file':f'{base_model_dir}Fluorescence_G/models/Collagen_Seg_Model_Latest.pth'
     },
     {
         'model':'DEDU-BFRGB',
@@ -48,10 +49,10 @@ model_dict_list = [
     }
 ]
 
-dataset_list = ['Vetpath','CGPL','JHU']
+dataset_list = os.listdir('/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Human_Biopsy_Images/')
 
 print(f'Iterating through {len(model_dict_list)} models on {len(dataset_list)} datasets')
-base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/10 SET/'
+base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Human_Biopsy_Images/'
 
 test_inputs = {
     "input_parameters":{
@@ -63,16 +64,16 @@ test_inputs = {
         "model_file":"",
         "neptune":{
             "project":"samborder/Deep-DUET",
-            "source_files":["*.py","**/.py"],
+            "source_files":["*.py","**/*.py"],
             "tags":[]
         }
     }
 }
 
-inputs_file_path = './test_inputs.json'
+inputs_file_path = './batch_inputs/test_inputs.json'
 
-dataset_list = [dataset_list[0]]
-model_dict_list = [model_dict_list[0]]
+if not os.path.exists('./batch_inputs/'):
+    os.makedirs('./batch_inputs/')
 
 count = 0
 
@@ -83,22 +84,23 @@ for dataset in dataset_list:
         test_inputs['input_parameters']['type'] = model['type']
         if model['type']=='multi':
             test_inputs['input_parameters']['image_dir'] = {
-                "DUET":f'{base_data_dir}{dataset}/Fluorescence/',
-                'Brightfield':f'{base_data_dir}{dataset}/Brightfield/'
+                "DUET":f'{base_data_dir}{dataset}/F/',
+                'Brightfield':f'{base_data_dir}{dataset}/B/'
             }
         elif model['type']=='single':
             if 'B' in model['model']:
                 test_inputs['input_parameters']['image_dir'] = {
-                    'Brightfield':f'{base_data_dir}{dataset}/Brightfield/'
+                    'Brightfield':f'{base_data_dir}{dataset}/B/'
                 }
             else:
                 test_inputs['input_parameters']['image_dir'] = {
-                    'DUET':f'{base_data_dir}{dataset}/Fluorescence/'
+                    'DUET':f'{base_data_dir}{dataset}/F/'
                 }
         
-        test_inputs['output_dir'] = f'{base_data_dir}{dataset}/Results/{model["tags"][0].split(" ")[0]}/'
-        test_inputs['model'] = model['model']
-        test_inputs['model_file'] = model['model_file']
+        output_dir = f'{base_data_dir}{dataset}/Results/{model["tags"][0].split(" ")[0]}/'
+        test_inputs['input_parameters']['output_dir'] = output_dir
+        test_inputs['input_parameters']['model'] = model['model']
+        test_inputs['input_parameters']['model_file'] = model['model_file']
         test_inputs['input_parameters']['neptune']['tags'] = model['tags'][0].replace(' ',f' {dataset} ')
 
         print(test_inputs)
@@ -106,9 +108,15 @@ for dataset in dataset_list:
             json.dump(test_inputs,f,ensure_ascii=False)
             f.close()
         
-        # The only time this usage is acceptable
-        os.system(f'python3 Collagen_Segmentation/CollagenSegMain.py test_inputs{count}.json')
-        sleep(50)
+        if not os.path.exists(output_dir):
+            process = subprocess.Popen(['python3', 'Collagen_Segmentation/CollagenSegMain.py', f'./batch_inputs/test_inputs{count}.json'])
+            process.wait()
+
+            exit_code = process.returncode
+            print(f'Return code of process was: {exit_code}')
+        else:
+            print('Already run, skipping')
+
         count+=1
 
 

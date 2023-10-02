@@ -56,6 +56,8 @@ def main():
             api_token = nept_api_token,
             tags = nept_params['tags']
             )
+
+        nept_run['input_parameters'] = input_parameters
     else:
         nept_run = None
 
@@ -266,6 +268,79 @@ def main():
         )
 
         Test_Network(model_file, dataset_test, nept_run, input_parameters)
+
+    elif input_parameters['phase']=='cluster':
+
+        # Inputs are the same as testing but instead of predicting, just generating some clustering/relative clustering of latent features
+        
+        input_image_type = list(input_parameters['image_dir'].keys())
+
+        if 'label_dir' in input_parameters:
+            label_paths = glob(input_parameters['label_dir']+'*')
+        else:
+            label_paths = []
+        
+        if input_parameters['type']=='multi':
+
+            image_paths_base = []
+            for inp_type in input_image_type:
+                image_paths_base.append(sorted(glob(input_parameters['image_dir'][inp_type]+'*')))
+
+            image_paths = [list(i) for i in zip(*image_paths_base)]
+        elif input_parameters['type']=='single':
+
+            image_paths = sorted(glob(input_parameters['image_dir'][input_image_type[0]]+'*'))
+
+        # Loading model and data
+        if 'neptune' in input_parameters:
+            model_version = neptune.init_model(
+                project = nept_params['project'],
+                with_id = input_parameters['model'],
+                mode = 'async',
+                api_token = nept_api_token
+            )
+
+            if 'model_file' not in input_parameters:
+                # Download the model from the model version
+                if not os.path.exists(input_parameters['output_dir']+'/model/'):
+                    os.makedirs(input_parameters['output_dir']+'/model/')
+
+                model_version['model_file'].download(input_parameters['output_dir']+'/model')
+                model_file = os.listdir(input_parameters['output_dir']+'/model/')[0]
+            else:
+                model_file = input_parameters['model_file']
+
+            all_model_metadata = model_version.get_structure()
+            prep_keys = all_model_metadata['preprocessing'].keys()
+            preprocessing = {}
+            for p in prep_keys:
+                preprocessing[p] = model_version[f'preprocessing/{p}'].fetch()
+
+            model_deets_keys = all_model_metadata['model_details'].keys()
+            model_details = {}
+            for m in model_deets_keys:
+                model_details[m] = model_version[f'model_details/{m}'].fetch()
+
+        else:
+
+            model_file = input_parameters['model_file']
+            preprocessing = input_parameters['preprocessing']
+            model_details = input_parameters['model_details']
+
+        input_parameters['model_details'] = model_details
+        input_parameters['preprocessing'] = preprocessing
+
+        nothin, dataset_test = make_training_set(
+            'test',
+            None,
+            None,
+            image_paths,
+            label_paths,
+            input_parameters
+        )
+
+
+
 
 if __name__=='__main__':
     main()

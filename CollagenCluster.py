@@ -29,15 +29,14 @@ class Clusterer:
                  dataset,
                  model_file,
                  parameters,
-                 output_folder,
                  plot_labels = None):
         
         self.dataset = dataset
         self.model_file = model_file
-        self.output_folder = output_folder
         self.plot_labels = plot_labels
 
         self.parameters = parameters
+        self.output_folder = self.parameters['output_dir']
 
         self.device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
@@ -172,14 +171,4 @@ class Clusterer:
     def save_plot(self,plot):
 
         plot.write_image(self.output_folder+'/Output_UMAP_Plot.png')
-
-
-
-
-
-
-
-
-
-
 

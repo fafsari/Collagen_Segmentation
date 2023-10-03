@@ -25,6 +25,7 @@ import neptune
 from Input_Pipeline import *
 from CollagenSegTrain import Training_Loop
 from CollagenSegTest import Test_Network
+from CollagenCluster import Clusterer
 
 # Class to use if no neptune information is provided without having to add logic every time nept_run is called
 class FakeNeptune:
@@ -272,7 +273,7 @@ def main():
     elif input_parameters['phase']=='cluster':
 
         # Inputs are the same as testing but instead of predicting, just generating some clustering/relative clustering of latent features
-        
+
         input_image_type = list(input_parameters['image_dir'].keys())
 
         if 'label_dir' in input_parameters:
@@ -339,7 +340,7 @@ def main():
             input_parameters
         )
 
-
+        Clusterer(dataset_test,model_file,input_parameters,)
 
 
 if __name__=='__main__':

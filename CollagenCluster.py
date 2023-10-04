@@ -204,3 +204,4 @@ class Clusterer:
 
         plot.write_image(self.output_folder+'/Output_UMAP_Plot.png')
 
+        

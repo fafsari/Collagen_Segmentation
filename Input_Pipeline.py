@@ -189,7 +189,7 @@ class SegmentationDataSet(Dataset):
     def __len__(self):
         
         if not self.patch_batch:
-            return len(self.cached_data)
+            return len(self.images)
         else:
             return sum([len(i) for i in self.cached_data])
         

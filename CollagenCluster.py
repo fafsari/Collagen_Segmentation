@@ -29,7 +29,10 @@ class Clusterer:
                  dataset,
                  model_file,
                  parameters,
-                 plot_labels = None):
+                 plot_labels = None,
+                 save_scaler_properties = True,
+                 save_latent_features = False,
+                 save_umap_coordinates = True):
         
         self.dataset = dataset
         self.model_file = model_file
@@ -44,22 +47,37 @@ class Clusterer:
 
         # Post-processing features (spatial averaging and flattening)
         self.feature_post_extract = nn.Sequential(
-            nn.AvgPool2d(),
+            nn.AvgPool2d(kernel_size=15),
             nn.Flatten(start_dim=1)
         )
         self.feature_post_extract.to(self.device)
 
+        self.save_latent_features = save_latent_features
+        self.save_umap_coordinates = save_umap_coordinates
+        self.save_scaler_properties = save_scaler_properties
+
         # extracting features and labels
         extracted_features, labels = self.extract_feature_loop()
+        print('Done extracting Features!')
 
-        self.save_features(extracted_features,labels)
+        if self.save_latent_features:
+            self.save_features(extracted_features,labels,file_name = 'Extracted_Latent_Features.csv')
+            print('Done Saving Features!')
         
         # UMAP reduction
         reduced_features = self.reduce_features(extracted_features)
+        print('Done Reducing Features')
+
+        if self.save_umap_coordinates:
+            self.save_features(reduced_features,labels, file_name = 'Extracted_UMAP_Coordinates.csv')
+            print('Done saving UMAP coordinates')
 
         # Make some plot from the reduced features and labels
         plot = self.gen_plot(reduced_features)
+        print('Done Generating Plot!')
+        
         self.save_plot(plot)
+        print('Plot saved!')
 
     def load_model(self):
 
@@ -84,7 +102,7 @@ class Clusterer:
                 encoder_weights = encoder_weights,
                 in_channels = in_channels,
                 classes = n_classes,
-                active = active
+                activation = active
             )
 
         self.model.load_state_dict(torch.load(self.model_file))
@@ -100,7 +118,7 @@ class Clusterer:
             all_features = None
 
             data_iterator = iter(test_dataloader)
-            with tqdm(range(len(self.dataset)),desc='Testing') as pbar:
+            with tqdm(range(len(self.dataset)),desc='Extracting Features') as pbar:
                 for i in range(0,len(self.dataset.images)):
                     
                     if 'patch_batch' in dir(self.dataset):
@@ -113,13 +131,13 @@ class Clusterer:
                             image, _, input_name = next(data_iterator)
                             input_name = ''.join(input_name).split(os.sep)[-1]
 
-                            feature_maps = self.model.encoder(image)[-1]
+                            feature_maps = self.model.encoder(image.to(self.device))[-1]
                             features = torch.squeeze(self.feature_post_extract(feature_maps))
 
                             if all_features is None:
-                                all_features = features.cpu().numpy()
+                                all_features = features.cpu().numpy()[:,None]
                             else:
-                                features = features.cpu().numpy()
+                                features = features.cpu().numpy()[:,None]
                                 all_features = np.concatenate((all_features,features),axis=-1)
 
                             labels.append(input_name)
@@ -142,14 +160,28 @@ class Clusterer:
                             
         return all_features, labels
 
-    def save_features(self,features,labels):
+    def save_features(self,features,labels,file_name):
 
         features_df = pd.DataFrame(data = features, columns = labels)
-        features_df.to_csv(self.output_folder+'/Extracted_Features.csv')
+        features_df.to_csv(self.output_folder+file_name)
 
     def reduce_features(self,features):
 
-        scaled_data = StandardScaler().fit_transform(features)
+        scaler = StandardScaler().fit(features)
+        # Saving the scaler information to the output directory
+        scaler_means = scaler.mean_
+        scaler_vars = scaler.var_
+
+        if self.save_scaler_properties:
+            output_mean_file = self.output_folder+'/scaler_means.npy'
+            with open(output_mean_file, 'wb') as f:
+                np.save(f, scaler_means)
+            
+            output_var_file = self.output_folder+'/scaler_var.npy'
+            with open(output_var_file,'wb') as f:
+                np.save(f, scaler_vars)
+
+        scaled_data = scaler.transform(features)
 
         umap_reducer = umap.UMAP()
         embedding = umap_reducer.fit_transform(scaled_data)

@@ -18,5 +18,5 @@ nvidia-smi
 
 export NEPTUNE_API_TOKEN="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJjNzllZGRmMC0yMzg2LTRhMzktOTk1MC1hNDc2MDlkNjVkYTMifQ=="
 
-singularity exec --nv collagen_segmentation_latest.sif python3 ./Collagen_Segmentation/Collagen_Main.py cluster_inputs_server.json
+singularity exec --nv collagen_segmentation_latest.sif python3 ./Collagen_Segmentation/CollagenSegMain.py cluster_inputs_server.json
 date

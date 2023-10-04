@@ -3,7 +3,7 @@
         "phase":"cluster",
         "type":"single",
         "image_dir":{
-            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET Pig Kidney/10 SET/JHU/Fluorescence/"
+            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/10 SET/JHU/Fluorescence/"
         },
         "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET Pig Kidney/10 SET/JHU/Results/Fluorescence_Grayscale/",
         "model":"DEDU-FG",

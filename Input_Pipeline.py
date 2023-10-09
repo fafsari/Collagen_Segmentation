@@ -104,6 +104,7 @@ class SegmentationDataSet(Dataset):
             for i, img_name in zip(progressbar,self.inputs):
                 try:
                     if type(img_name)==list:
+                        print(f'image name: {img_name}')
                         img1,img2 = imread(str(img_name[0])),imread(str(img_name[1]))
                         img = np.concatenate((img1,img2),axis=-1)
                         img_name = img_name[0]
@@ -146,7 +147,6 @@ class SegmentationDataSet(Dataset):
 
                 # Calculating and storing patch coordinates for each image and reading those regions at training time :/
                 n_patches = [1+floor((np.shape(img)[0]-self.patch_size[0])/stride[0]), 1+floor((np.shape(img)[1]-self.patch_size[1])/stride[1])]
-                #print(f'{n_patches} Patches')
                 start_coords = [0,0]
 
                 row_starts = [int(start_coords[0]+(i*stride[0])) for i in range(0,n_patches[0])]
@@ -167,11 +167,6 @@ class SegmentationDataSet(Dataset):
                         if self.pre_transform is not None:
                             new_img, new_tar = self.pre_transform(new_img, new_tar)
 
-                        #img_channel_mean = np.mean(new_img,axis=(0,1))
-                        #img_channel_std = np.std(img,axis=(0,1))
-                        #self.image_means.append(img_channel_mean)
-                        #self.image_stds.append(img_channel_std)
-                        #print(f'patch:{len(item_patches)+1} created')
                         item_patches.append((new_img,new_tar))
                         patch_names.append(img_name.replace(f'.{img_name.split(".")[-1]}',f'_{r_s}_{c_s}.{img_name.split(".")[-1]}'))
 
@@ -182,18 +177,14 @@ class SegmentationDataSet(Dataset):
                 self.cached_item_index = 0
 
         print(f'Cached Data: {len(self.cached_data)}')
-        #print(f'image_means mean: {np.mean(self.image_means,axis=0)}')
-        #print(f'image_stds mean: {np.mean(self.image_stds,axis=0)}')
-
 
     def __len__(self):
         
         if not self.patch_batch:
-            return len(self.images)
+            return len(self.cached_data)
         else:
             return sum([len(i) for i in self.cached_data])
         
-    
     # Getting matching input and target(label)
     def __getitem__(self,
                     index: int):

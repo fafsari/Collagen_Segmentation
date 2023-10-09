@@ -104,7 +104,6 @@ for model in model_dict_list:
     cluster_inputs['input_parameters']['model'] = model['model']
     cluster_inputs['input_parameters']['model_file'] = model['model_file']
 
-    print(cluster_inputs)
     with open(inputs_file_path.replace('.json',f'{count}.json'),'w') as f:
         json.dump(cluster_inputs,f,ensure_ascii=False)
         f.close()

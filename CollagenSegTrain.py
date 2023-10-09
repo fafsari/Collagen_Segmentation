@@ -119,7 +119,6 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     print(f'Device is : {device}')
     print(f'Torch Cuda version is : {torch.version.cuda}')    
 
-
     nept_run['Architecture'] = train_parameters['architecture']
     nept_run['Loss'] = train_parameters['loss']
     nept_run['output_type'] = output_type
@@ -133,24 +132,10 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 classes = n_classes,
                 activation = active
                 )
-    elif train_parameters['architecture']=='DUnet':
-        model = DUNet(
-            n_channels = in_channels,
-            n_classes = n_classes,
-            activation = active
-        )
-
     optimizer = torch.optim.Adam([
             dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.0001)
             ])
     
-    """
-    scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer,
-                                                cycle_momentum = False,
-                                                base_lr = train_parameters['lr']/3,
-                                                max_lr = train_parameters['lr']*3,
-                                                step_size_up = 250)
-    """
     lr_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience=250,verbose=True)
 
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')

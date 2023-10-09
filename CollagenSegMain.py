@@ -367,6 +367,7 @@ def main():
 
         input_image_type = list(input_parameters['image_dir'].keys())
 
+        # Whether to test with labels (calculate metrics) or not
         if 'label_dir' in input_parameters:
             if os.path.isdir(input_parameters['label_dir']):
                 label_paths = glob(input_parameters['label_dir']+'*')
@@ -454,14 +455,14 @@ def main():
                 if os.path.isdir(input_parameters['image_dir'][inp_type]):
                     image_paths_base.append(sorted(glob(input_parameters['image_dir'][inp_type]+'*')))
                 elif os.path.isfile(input_parameters['image_dir'][inp_type]):
-                    image_paths_base = pd.read_csv(input_parameters['image_dir'][inp_type])['Paths'].tolist()
-
+                    image_paths_base = sorted(pd.read_csv(input_parameters['image_dir'][inp_type])['Paths'].tolist())
+            print(image_paths)
             image_paths = [list(i) for i in zip(*image_paths_base)]
         elif input_parameters['type']=='single':
             if os.path.isdir(input_parameters['image_dir'][input_image_type[0]]):
                 image_paths = sorted(glob(input_parameters['image_dir'][input_image_type[0]]+'*'))
             elif os.path.isfile(input_parameters['image_dir'][input_image_type[0]]):
-                image_paths = pd.read_csv(input_parameters['image_dir'][input_image_type[0]])['Paths'].tolist()
+                image_paths = sorted(pd.read_csv(input_parameters['image_dir'][input_image_type[0]])['Paths'].tolist())
 
 
         # Loading model and data
@@ -513,6 +514,7 @@ def main():
         )
 
         cluster_object = Clusterer(dataset_test,model_file,input_parameters)
+        cluster_object.run_clustering_iterator()
 
         # Uploading data to model_version metadata (if specified)
         upload_to_model_version = True

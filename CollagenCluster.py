@@ -43,8 +43,6 @@ class Clusterer:
 
         self.device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
-        self.load_model()
-
         # Post-processing features (spatial averaging and flattening)
         self.feature_post_extract = nn.Sequential(
             nn.AvgPool2d(kernel_size=15),
@@ -55,6 +53,10 @@ class Clusterer:
         self.save_latent_features = save_latent_features
         self.save_umap_coordinates = save_umap_coordinates
         self.save_scaler_properties = save_scaler_properties
+
+
+    def run_clustering_iterator(self):
+        self.load_model()
 
         # extracting features and labels
         extracted_features, labels = self.extract_feature_loop()
@@ -114,11 +116,12 @@ class Clusterer:
         with torch.no_grad():
 
             test_dataloader = DataLoader(self.dataset)
+            print(f'length of dataset: {len(self.dataset)}')
             labels = []
             all_features = None
 
             data_iterator = iter(test_dataloader)
-            with tqdm(range(len(self.dataset)),desc='Extracting Features') as pbar:
+            with tqdm(range(len(self.dataset.images)),desc='Extracting Features') as pbar:
                 for i in range(0,len(self.dataset.images)):
                     
                     if 'patch_batch' in dir(self.dataset):
@@ -127,7 +130,7 @@ class Clusterer:
                         image_name = self.dataset.cached_item_names[i]
 
                         for n in range(0,n_patches):
-
+                            
                             image, _, input_name = next(data_iterator)
                             input_name = ''.join(input_name).split(os.sep)[-1]
 
@@ -144,10 +147,15 @@ class Clusterer:
                             pbar.update(1)
                     else:
 
-                        image, _, input_name = next(data_iterator)
+                        try:
+                            image, _, input_name = next(data_iterator)
+                        except StopIteration:
+                            data_iterator = iter(data_iterator)
+                            image, _, input_name = next(data_iterator)
+                            
                         input_name = ''.join(input_name).split(os.sep)[-1]
                         
-                        feature_maps = self.model.encoder(image)[-1]
+                        feature_maps = self.model.encoder(image.to(self.device))[-1]
                         features = torch.squeeze(self.feature_post_extract(feature_maps))
 
                         if all_features is None:
@@ -204,4 +212,22 @@ class Clusterer:
 
         plot.write_image(self.output_folder+'/Output_UMAP_Plot.png')
 
-        
+    def cluster_in_loop(self,model,image):
+
+        # Extract latent features given an image, return latent features
+        feature_maps = model.encoder(image.to(self.device))[-1]
+        features = torch.squeeze(self.feature_post_extract(feature_maps))
+
+        return features
+    
+
+
+
+
+
+
+
+
+
+
+

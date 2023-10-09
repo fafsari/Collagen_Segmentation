@@ -26,20 +26,15 @@ import segmentation_models_pytorch as smp
 
 class Clusterer:
     def __init__(self,
-                 dataset,
-                 model_file,
-                 parameters,
+                 output_dir,
                  plot_labels = None,
                  save_scaler_properties = True,
                  save_latent_features = False,
                  save_umap_coordinates = True):
         
-        self.dataset = dataset
-        self.model_file = model_file
         self.plot_labels = plot_labels
 
-        self.parameters = parameters
-        self.output_folder = self.parameters['output_dir']
+        self.output_folder = output_dir
 
         self.device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
@@ -54,11 +49,12 @@ class Clusterer:
         self.save_umap_coordinates = save_umap_coordinates
         self.save_scaler_properties = save_scaler_properties
 
-    def run_clustering_iterator(self):
-        self.load_model()
+    def run_clustering_iterator(self,model_file,dataset):
+        
+        self.load_model(model_file)
 
         # extracting features and labels
-        extracted_features, labels = self.extract_feature_loop()
+        extracted_features, labels = self.extract_feature_loop(dataset)
         print('Done extracting Features!')
 
         if self.save_latent_features:
@@ -81,8 +77,7 @@ class Clusterer:
         else:
             plot = self.gen_plot(reduced_features,labels)
 
-
-    def load_model(self):
+    def load_model(self,model_file):
 
         model_details = self.parameters['model_details']
         encoder = model_details['encoder']
@@ -108,27 +103,27 @@ class Clusterer:
                 activation = active
             )
 
-        self.model.load_state_dict(torch.load(self.model_file))
+        self.model.load_state_dict(torch.load(model_file))
         self.model.to(self.device)
         self.model.eval()
 
-    def extract_feature_loop(self):
+    def extract_feature_loop(self,dataset):
 
         with torch.no_grad():
 
-            test_dataloader = DataLoader(self.dataset)
-            print(f'length of dataset: {len(self.dataset)}')
+            test_dataloader = DataLoader(dataset)
+            print(f'length of dataset: {len(dataset)}')
             labels = []
             all_features = None
 
             data_iterator = iter(test_dataloader)
-            with tqdm(range(len(self.dataset.images)),desc='Extracting Features') as pbar:
-                for i in range(0,len(self.dataset.images)):
+            with tqdm(range(len(dataset.images)),desc='Extracting Features') as pbar:
+                for i in range(0,len(dataset.images)):
                     
-                    if self.dataset.patch_batch:
+                    if dataset.patch_batch:
 
-                        n_patches = len(self.dataset.cached_data[i])
-                        image_name = self.dataset.cached_item_names[i]
+                        n_patches = len(dataset.cached_data[i])
+                        image_name = dataset.cached_item_names[i]
 
                         for n in range(0,n_patches):
                             
@@ -252,7 +247,7 @@ class Clusterer:
 
         # Extract latent features given an image, return latent features
         feature_maps = model.encoder(image.to(self.device))[-1]
-        features = torch.squeeze(self.feature_post_extract(feature_maps))
+        features = self.feature_post_extract(feature_maps)
 
         return features
     

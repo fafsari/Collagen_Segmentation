@@ -27,9 +27,13 @@ from PIL import Image, ImageFilter
 import pandas as pd
 
 import neptune
+import umap
+
+import plotly.express as px
 
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 from CollagenSegUtils import visualize_continuous, get_metrics
+from CollagenCluster import Clusterer
     
         
 def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
@@ -37,6 +41,9 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
     model_details = test_parameters['model_details']
     encoder = model_details['encoder']
     encoder_weights = model_details['encoder_weights']
+
+    # Loading clusterer to cluster latent features
+    clusterer = Clusterer(test_parameters['output_dir'])
 
     ann_classes = model_details['ann_classes']
     active = model_details['active']
@@ -88,11 +95,14 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
 
         # Setting up iterator to generate images from the validation dataset
         data_iterator = iter(test_dataloader)
+        all_latent_features = None
+        clustering_labels = []
+
         with tqdm(range(len(dataset_valid)),desc='Testing') as pbar:
             for i in range(0,len(dataset_valid.images)):
                 
                 # Initializing combined mask from patched predictions
-                if 'patch_batch' in dir(dataset_valid):
+                if dataset_valid.patch_batch:
 
                     # Getting original image dimensions from test_dataloader
                     original_image, _ = dataset_valid.images[i]
@@ -112,6 +122,16 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                         input_name = ''.join(input_name).split(os.sep)[-1]
 
                         pred_mask = model(image.to(device))
+                        if not test_parameters['model_details']['scaler_means'] is None:
+                            pred_latent_features = clusterer.cluster_in_loop(model,image.to(device))
+
+                            if all_latent_features is None:
+                                all_latent_features = pred_latent_features.cpu().numpy()
+                                clustering_labels.append({'Full_Image_Name':image_name,'Patch_Name':input_name})
+                            else:
+                                pred_latent_features = pred_latent_features.cpu().numpy()
+                                all_latent_features = np.concatenate((all_latent_features,pred_latent_features),axis=0)
+                                clustering_labels.append({'Full_Image_Name':image_name,'Patch_Name':input_name})
 
                         if target_type=='binary':        
                             pred_mask_img = pred_mask.detach().cpu().numpy()
@@ -163,6 +183,16 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                     # raw values for 2-class segmentation(not binarized output masks)
                     #pred_mask = model.predict(image.to(device))
                     pred_mask = model(image.to(device))
+
+                    if not test_parameters['model_details']['scaler_means'] is None:
+                        pred_latent_features = clusterer.cluster_in_loop(model,image.to(device))
+                        if all_latent_features is None:
+                            all_latent_features = pred_latent_features.cpu().numpy()
+                            clustering_labels.append({'Patch_Name':input_name})
+                        else:
+                            pred_latent_features = pred_latent_features.cpu().numpy()
+                            all_latent_features = np.concatenate((all_latent_features,pred_latent_features),axis=0)
+                            clustering_labels.append({'Patch_Name':input_name})
 
                     if target_type=='binary':        
                         target_img = target.cpu().numpy().round()
@@ -231,3 +261,36 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                                 nept_run[met+f'_{current_k_fold}'] = testing_metrics_df[met].mean()
                             except TypeError:
                                 print(f'Number of samples: {testing_metrics_df.shape[0]}')
+
+
+        # Scaling according to reference training set scaler values
+        if not test_parameters['model_details']['scaler_means'] is None:
+            
+            # Rows are samples, columns are "features"
+            print(np.shape(test_parameters['model_details']['scaler_means']))
+            print(np.shape(all_latent_features))
+            all_latent_features = all_latent_features - test_parameters['model_details']['scaler_means'][None,:]
+            all_latent_features = all_latent_features / test_parameters['model_details']['scaler_var'][None,:]
+
+            umap_reducer = umap.UMAP()
+            embeddings = umap_reducer.fit_transform(all_latent_features)
+
+            cluster_df = pd.DataFrame.from_records(clustering_labels)
+
+            cluster_df['umap1'] = embeddings[:,0]
+            cluster_df['umap2'] = embeddings[:,1]
+            
+            if dataset_valid.patch_batch:
+
+                # UMAP with the full image name as the label
+                umap_scatter = px.scatter(
+                    data_frame = cluster_df,
+                    x='umap1',
+                    y='umap2',
+                    color='Full_Image_Name',
+                    title = 'UMAP of latent features, Testing Only'
+                )
+
+
+
+

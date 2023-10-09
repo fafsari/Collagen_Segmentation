@@ -422,11 +422,21 @@ def main():
             for m in model_deets_keys:
                 model_details[m] = model_version[f'model_details/{m}'].fetch()
 
+            # Grabbing clustering scaler and training set coordinates
+            model_version['UMAP_Scaler/scaler_means'].download(input_parameters['output_dir']+'/scaler_means.npy')
+            model_version['UMAP_Scaler/scaler_var'].download(input_parameters['output_dir']+'/scaler_var.npy')
+
+            model_details['scaler_means'] = np.load(input_parameters['output_dir']+'/scaler_means.npy')
+            model_details['scaler_var'] = np.load(input_parameters['output_dir']+'/scaler_var.npy')
+
         else:
 
             model_file = input_parameters['model_file']
             preprocessing = input_parameters['preprocessing']
             model_details = input_parameters['model_details']
+
+            model_details['scaler_means'] = None
+            model_details['scaler_var'] = None
 
         input_parameters['model_details'] = model_details
         input_parameters['preprocessing'] = preprocessing
@@ -522,10 +532,9 @@ def main():
         # Getting labels from model_version
         model_version['Merged_Results_Table'].download(input_parameters['output_dir']+'/Merged_Results_Table.csv')
         plot_labels = pd.read_csv(input_parameters['output_dir']+'Merged_Results_Table.csv',header = 0)
-        print(plot_labels)
 
-        cluster_object = Clusterer(dataset_test,model_file,input_parameters,plot_labels = plot_labels)
-        cluster_object.run_clustering_iterator()
+        cluster_object = Clusterer(input_parameters['output_dir'],plot_labels = plot_labels)
+        cluster_object.run_clustering_iterator(dataset_test,model_file)
 
         # Uploading data to model_version metadata (if specified)
         upload_to_model_version = True
@@ -536,6 +545,8 @@ def main():
             for u in umap_plots:
                 model_version[f'UMAP_Plots/{u}'].upload(input_parameters['output_dir']+f'UMAP_Plots/{u}')
 
+        model_version['UMAP_Scaler/scaler_means'].upload(input_parameters['output_dir']+f'scaler_means.npy')
+        model_version['UMAP_Scaler/scaler_var'].upload(input_parameters['output_dir']+f'scaler_var.npy')
 
 if __name__=='__main__':
     main()

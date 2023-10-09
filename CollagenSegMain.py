@@ -60,7 +60,7 @@ def main():
 
         nept_run['input_parameters'] = input_parameters
     else:
-        nept_run = None
+        nept_run = FakeNeptune()
 
     if input_parameters['phase']=='train':
 
@@ -383,7 +383,7 @@ def main():
                 if os.path.isdir(input_parameters['image_dir'][inp_type]):
                     image_paths_base.append(sorted(glob(input_parameters['image_dir'][inp_type]+'*')))
                 elif os.path.isfile(input_parameters['image_dir'][inp_type]):
-                    image_paths_base = sorted(pd.read_csv(input_parameters['image_dir'][inp_type])['Paths'].tolist())
+                    image_paths_base.append(sorted(pd.read_csv(input_parameters['image_dir'][inp_type])['Paths'].tolist()))
 
             image_paths = [list(i) for i in zip(*image_paths_base)]
         elif input_parameters['type']=='single':
@@ -455,16 +455,22 @@ def main():
                 if os.path.isdir(input_parameters['image_dir'][inp_type]):
                     image_paths_base.append(sorted(glob(input_parameters['image_dir'][inp_type]+'*')))
                 elif os.path.isfile(input_parameters['image_dir'][inp_type]):
-                    image_paths_base = sorted(pd.read_csv(input_parameters['image_dir'][inp_type])['Paths'].tolist())
-            print(image_paths)
+                    image_paths_base.append(sorted(pd.read_csv(input_parameters['image_dir'][inp_type])['Paths'].tolist()))
+                else:
+                    print(input_parameters['image_dir'][inp_type])
+                    image_paths_base = []
+
             image_paths = [list(i) for i in zip(*image_paths_base)]
+
         elif input_parameters['type']=='single':
             if os.path.isdir(input_parameters['image_dir'][input_image_type[0]]):
                 image_paths = sorted(glob(input_parameters['image_dir'][input_image_type[0]]+'*'))
             elif os.path.isfile(input_parameters['image_dir'][input_image_type[0]]):
                 image_paths = sorted(pd.read_csv(input_parameters['image_dir'][input_image_type[0]])['Paths'].tolist())
-
-
+            else:
+                print(input_parameters['image_dir'][input_image_type[0]])
+                image_paths = []
+        
         # Loading model and data
         if 'neptune' in input_parameters:
             model_version = neptune.init_model(
@@ -513,14 +519,22 @@ def main():
             input_parameters
         )
 
-        cluster_object = Clusterer(dataset_test,model_file,input_parameters)
+        # Getting labels from model_version
+        model_version['Merged_Results_Table'].download(input_parameters['output_dir']+'/Merged_Results_Table.csv')
+        plot_labels = pd.read_csv(input_parameters['output_dir']+'Merged_Results_Table.csv',header = 0)
+        print(plot_labels)
+
+        cluster_object = Clusterer(dataset_test,model_file,input_parameters,plot_labels = plot_labels)
         cluster_object.run_clustering_iterator()
 
         # Uploading data to model_version metadata (if specified)
         upload_to_model_version = True
         if upload_to_model_version:
             model_version['UMAP_coordinates'].upload(input_parameters['output_dir']+'Extracted_UMAP_Coordinates.csv')
-            model_version['UMAP_Plot'].upload(input_parameters['output_dir']+'Output_UMAP_Plot.png')
+            
+            umap_plots = os.listdir(input_parameters['output_dir']+'UMAP_Plots/')
+            for u in umap_plots:
+                model_version[f'UMAP_Plots/{u}'].upload(input_parameters['output_dir']+f'UMAP_Plots/{u}')
 
 
 if __name__=='__main__':

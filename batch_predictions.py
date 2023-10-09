@@ -49,10 +49,10 @@ model_dict_list = [
     }
 ]
 
-dataset_list = os.listdir('/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/')
+base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/'
+dataset_list = os.listdir(base_data_dir)
 
 print(f'Iterating through {len(model_dict_list)} models on {len(dataset_list)} datasets')
-base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Human_Biopsy_Images/'
 
 test_inputs = {
     "input_parameters":{

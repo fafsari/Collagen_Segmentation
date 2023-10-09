@@ -104,7 +104,6 @@ class SegmentationDataSet(Dataset):
             for i, img_name in zip(progressbar,self.inputs):
                 try:
                     if type(img_name)==list:
-                        print(f'image name: {img_name}')
                         img1,img2 = imread(str(img_name[0])),imread(str(img_name[1]))
                         img = np.concatenate((img1,img2),axis=-1)
                         img_name = img_name[0]

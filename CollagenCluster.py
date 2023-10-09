@@ -54,7 +54,6 @@ class Clusterer:
         self.save_umap_coordinates = save_umap_coordinates
         self.save_scaler_properties = save_scaler_properties
 
-
     def run_clustering_iterator(self):
         self.load_model()
 
@@ -63,7 +62,7 @@ class Clusterer:
         print('Done extracting Features!')
 
         if self.save_latent_features:
-            self.save_features(extracted_features,labels,file_name = 'Extracted_Latent_Features.csv')
+            self.save_features(extracted_features,labels,None,file_name = 'Extracted_Latent_Features.csv')
             print('Done Saving Features!')
         
         # UMAP reduction
@@ -71,15 +70,17 @@ class Clusterer:
         print('Done Reducing Features')
 
         if self.save_umap_coordinates:
-            self.save_features(reduced_features,labels, file_name = 'Extracted_UMAP_Coordinates.csv')
+            self.save_features(reduced_features,['UMAP1','UMAP2'], labels, file_name = 'Extracted_UMAP_Coordinates.csv')
             print('Done saving UMAP coordinates')
 
         # Make some plot from the reduced features and labels
-        plot = self.gen_plot(reduced_features)
-        print('Done Generating Plot!')
-        
-        self.save_plot(plot)
-        print('Plot saved!')
+        if self.plot_labels is None:
+            plot = self.gen_plot(reduced_features)
+            print('Done Generating Plot!')
+
+        else:
+            plot = self.gen_plot(reduced_features,labels)
+
 
     def load_model(self):
 
@@ -124,7 +125,7 @@ class Clusterer:
             with tqdm(range(len(self.dataset.images)),desc='Extracting Features') as pbar:
                 for i in range(0,len(self.dataset.images)):
                     
-                    if 'patch_batch' in dir(self.dataset):
+                    if self.dataset.patch_batch:
 
                         n_patches = len(self.dataset.cached_data[i])
                         image_name = self.dataset.cached_item_names[i]
@@ -135,13 +136,13 @@ class Clusterer:
                             input_name = ''.join(input_name).split(os.sep)[-1]
 
                             feature_maps = self.model.encoder(image.to(self.device))[-1]
-                            features = torch.squeeze(self.feature_post_extract(feature_maps))
+                            features = self.feature_post_extract(feature_maps)
 
                             if all_features is None:
-                                all_features = features.cpu().numpy()[:,None]
+                                all_features = features.cpu().numpy()
                             else:
-                                features = features.cpu().numpy()[:,None]
-                                all_features = np.concatenate((all_features,features),axis=-1)
+                                features = features.cpu().numpy()
+                                all_features = np.concatenate((all_features,features),axis=0)
 
                             labels.append(input_name)
                             pbar.update(1)
@@ -156,21 +157,24 @@ class Clusterer:
                         input_name = ''.join(input_name).split(os.sep)[-1]
                         
                         feature_maps = self.model.encoder(image.to(self.device))[-1]
-                        features = torch.squeeze(self.feature_post_extract(feature_maps))
+                        features = self.feature_post_extract(feature_maps)
 
                         if all_features is None:
                             all_features = features.cpu().numpy()
                         else:
                             features = features.cpu().numpy()
-                            all_features = np.concatenate((all_features,features),axis=-1)
+                            all_features = np.concatenate((all_features,features),axis=0)
 
                         labels.append(input_name)
+                        pbar.update(1)
+            
+            print(f'shape of features: {np.shape(all_features)}')
                             
         return all_features, labels
 
-    def save_features(self,features,labels,file_name):
+    def save_features(self,features,col_labels,row_labels,file_name):
 
-        features_df = pd.DataFrame(data = features, columns = labels)
+        features_df = pd.DataFrame(data = features, columns = col_labels, index = row_labels)
         features_df.to_csv(self.output_folder+file_name)
 
     def reduce_features(self,features):
@@ -198,19 +202,51 @@ class Clusterer:
 
     def gen_plot(self,umap_features,labels = None):
 
-        scatter_plot = px.scatter(
-            data_frame = pd.DataFrame(data=umap_features,columns = ['umap1','umap2']),
-            x = 'umap1',
-            y='umap2',
-            color = labels,
-            title = "UMAP of latent features"
-        )
+        if self.plot_labels is None:
+            scatter_plot = px.scatter(
+                data_frame = pd.DataFrame(data=umap_features,columns = ['umap1','umap2'],index=labels),
+                x = 'umap1',
+                y='umap2',
+                title = "UMAP of latent features"
+            )
+
+            output_umap_plots = self.output_folder+'UMAP_Plots/'
+            if not os.path.exists(output_umap_plots):
+                os.makedirs(output_umap_plots)
+
+            self.save_plot(scatter_plot,'UMAP_Plots/UMAP_Plot.png')
+            
+        else:
+            # self.plot_labels is a pandas DataFrame containing an "Image_Names" column that aligns with the "labels" passed to this function
+            column_labels = [i for i in self.plot_labels.columns.tolist() if not i=='Image_Names']
+            umap_df = pd.DataFrame(data=umap_features,columns=['umap1','umap2'])
+            umap_df['Image_Names'] = labels
+
+            merged_df = pd.merge(umap_df,self.plot_labels,on='Image_Names')
+            print(f'shape of merged: {merged_df.shape}')
+
+            # Making output directory
+            output_umap_plots = self.output_folder+'UMAP_Plots/'
+            if not os.path.exists(output_umap_plots):
+                os.makedirs(output_umap_plots)
+
+            for f in column_labels:
+                
+                scatter_plot = px.scatter(
+                    data_frame = merged_df,
+                    x='umap1',
+                    y='umap2',
+                    color=f,
+                    title = f'UMAP of latent features labeled with: {f}'
+                )
+
+                self.save_plot(scatter_plot,f'UMAP_Plots/UMAP_Plot_{f}.png')
 
         return scatter_plot
 
-    def save_plot(self,plot):
+    def save_plot(self,plot,filename):
 
-        plot.write_image(self.output_folder+'/Output_UMAP_Plot.png')
+        plot.write_image(self.output_folder+'/'+filename)
 
     def cluster_in_loop(self,model,image):
 

@@ -13,7 +13,7 @@ import neptune
 from glob import glob
 import pandas as pd
 
-neptune_api_token = os.environ.get('NEPTUNE_API_TOKEN')
+#neptune_api_token = os.environ.get('NEPTUNE_API_TOKEN')
 """
 model_version = neptune.init_model_version(
     model = 'DEDU-BFG',
@@ -31,13 +31,11 @@ for m_key,m_name in zip(models_list,model_names):
     model_version = neptune.init_model(
         project = 'samborder/Deep-DUET',
         with_id = 'DEDU-'+m_key,
-        mode='async',
-        api_token=neptune_api_token
+        mode='async'
     )
 
     model_name = m_name
     path_to_model = f'C:\\Users\\Sam\\Desktop\\Collagen_Segmentation\\Results\\{model_name}\\models\\Collagen_Seg_Model_Latest.pth'
-
     """
     #model_version['model_file'].upload(path_to_model)
 
@@ -76,18 +74,15 @@ for m_key,m_name in zip(models_list,model_names):
 
     for m_p in model_dict:
         model_version[f'model_details/{m_p}'] = model_dict[m_p]
-
     """
+    
     path_to_csvs = f'C:\\Users\\Sam\\Desktop\\Collagen_Segmentation\\Results\\{model_name}\\Testing_Output\\'
     model_csv_files = glob(path_to_csvs+'*.csv')
 
     for m_csv in model_csv_files:
         file_name = m_csv.split('\\')[-1].split('.')[0]
-        data = pd.read_csv(m_csv,header=0)
-        #try:
-        model_version[file_name].upload(neptune.types.File.as_html(data))
-        #except:
-        #    model_version[file_name].upload(m_csv)
+        #data = pd.read_csv(m_csv,header=0)
+        model_version[file_name].upload(m_csv)
     
 
 

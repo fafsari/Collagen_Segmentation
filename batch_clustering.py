@@ -99,7 +99,7 @@ for model in model_dict_list:
                 'DUET':du_train_data_df
             }
     
-    output_dir = model['model_file'].replace('/model/Collagen_Seg_Model_Latest.pth','')
+    output_dir = model['model_file'].replace('/models/Collagen_Seg_Model_Latest.pth','/')
     cluster_inputs['input_parameters']['output_dir'] = output_dir
     cluster_inputs['input_parameters']['model'] = model['model']
     cluster_inputs['input_parameters']['model_file'] = model['model_file']

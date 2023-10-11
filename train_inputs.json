@@ -3,16 +3,15 @@
         "phase":"train",
         "type":"multi",
         "image_dir":{
-            "DUET":"",
-            "Brightfield":""
+            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/NF 0/",
+            "Brightfield":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/B_2nd/"
         },
-        "target_dir":"",
-        "output_dir":"",
-        "model":"",
+        "target_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/C/",
+        "output_dir":"/blue",
         "neptune":{
-            "project":"",
-            "source_files":"",
-            "tags":""
+            "project":"samborder/Deep-DUET",
+            "source_files":["*.py","**/.py"],
+            "tags":["Rerunning MultiChannel RGB training with color transform"]
         }
     },
     "train_parameters":{

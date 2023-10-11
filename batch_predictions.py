@@ -49,8 +49,9 @@ model_dict_list = [
     }
 ]
 
-base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/'
-dataset_list = os.listdir(base_data_dir)
+base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/'
+#dataset_list = os.listdir(base_data_dir)
+dataset_list = ['Same_Training_Set_Data']
 
 print(f'Iterating through {len(model_dict_list)} models on {len(dataset_list)} datasets')
 
@@ -108,14 +109,14 @@ for dataset in dataset_list:
             json.dump(test_inputs,f,ensure_ascii=False)
             f.close()
         
-        if not os.path.exists(output_dir):
-            process = subprocess.Popen(['python3', 'Collagen_Segmentation/CollagenSegMain.py', f'./batch_inputs/test_inputs{count}.json'])
-            process.wait()
+        #if not os.path.exists(output_dir):
+        process = subprocess.Popen(['python3', 'Collagen_Segmentation/CollagenSegMain.py', f'./batch_inputs/test_inputs{count}.json'])
+        process.wait()
 
-            exit_code = process.returncode
-            print(f'Return code of process was: {exit_code}')
-        else:
-            print('Already run, skipping')
+        exit_code = process.returncode
+        print(f'Return code of process was: {exit_code}')
+        #else:
+        #    print('Already run, skipping')
 
         count+=1
 

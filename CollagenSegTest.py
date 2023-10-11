@@ -43,7 +43,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
     encoder_weights = model_details['encoder_weights']
 
     # Loading clusterer to cluster latent features
-    clusterer = Clusterer(test_parameters['output_dir'])
+    clusterer = Clusterer(test_parameters)
 
     ann_classes = model_details['ann_classes']
     active = model_details['active']
@@ -59,7 +59,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
         n_classes = 1
 
     in_channels = int(test_parameters['preprocessing']['image_size'].split(',')[-1])
-    output_type = model_details['target_type']
+    output_type = 'prediction'
 
     device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
@@ -267,12 +267,14 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
         if not test_parameters['model_details']['scaler_means'] is None:
             
             # Rows are samples, columns are "features"
-            print(np.shape(test_parameters['model_details']['scaler_means']))
-            print(np.shape(all_latent_features))
             all_latent_features = all_latent_features - test_parameters['model_details']['scaler_means'][None,:]
             all_latent_features = all_latent_features / test_parameters['model_details']['scaler_var'][None,:]
+            print(np.shape(all_latent_features))
+            
+            # Removing NaN's, if present
+            all_latent_features = all_latent_features[~np.isnan(all_latent_features).any(axis=1)]
 
-            umap_reducer = umap.UMAP()
+            umap_reducer = test_parameters['model_details']['umap_reducer']
             embeddings = umap_reducer.fit_transform(all_latent_features)
 
             cluster_df = pd.DataFrame.from_records(clustering_labels)
@@ -290,7 +292,21 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                     color='Full_Image_Name',
                     title = 'UMAP of latent features, Testing Only'
                 )
+            else:
 
+                # UMAP scatter plot
+                umap_scatter = px.scatter(
+                    data_frame = cluster_df,
+                    x='umap1',
+                    y='umap2',
+                    title = 'UMAP of latent features, Testing Only'
+                )
+            
+            # Saving UMAP coordinates and plots
+            umap_scatter.write_image(test_parameters['output_dir']+'Test_UMAP.png')
+            umap_scatter.write_html(test_parameters['output_dir']+'Test_UMAP.html')
+
+            cluster_df.to_csv(test_parameters['output_dir']+'Test_UMAP_Coordinates.csv')
 
 
 

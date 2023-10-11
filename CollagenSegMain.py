@@ -17,6 +17,7 @@ import numpy as np
 from glob import glob
 from math import floor
 import json
+import joblib
 
 from sklearn.model_selection import KFold
 
@@ -72,6 +73,9 @@ def main():
             label_paths = sorted(pd.read_csv(input_parameters['label_dir'])['Paths'].tolist())
 
         input_image_type = list(input_parameters['image_dir'].keys())
+
+        if not os.path.exists(input_parameters['output_dir']):
+            os.makedirs(input_parameters['output_dir'])
 
         if input_parameters['type']=='multi':
             
@@ -224,6 +228,9 @@ def main():
 
         input_image_type = list(input_parameters['image_dir'].keys())
 
+        if not os.path.exists(input_parameters['output_dir']):
+            os.makedirs(input_parameters['output_dir'])
+
         if input_parameters['type']=='multi':
             
             # Getting multi-input image paths
@@ -367,6 +374,9 @@ def main():
 
         input_image_type = list(input_parameters['image_dir'].keys())
 
+        if not os.path.exists(input_parameters['output_dir']):
+            os.makedirs(input_parameters['output_dir'])
+
         # Whether to test with labels (calculate metrics) or not
         if 'label_dir' in input_parameters:
             if os.path.isdir(input_parameters['label_dir']):
@@ -425,9 +435,11 @@ def main():
             # Grabbing clustering scaler and training set coordinates
             model_version['UMAP_Scaler/scaler_means'].download(input_parameters['output_dir']+'/scaler_means.npy')
             model_version['UMAP_Scaler/scaler_var'].download(input_parameters['output_dir']+'/scaler_var.npy')
+            model_version['UMAP_Scaler/umap_reducer'].download(input_parameters['output_dir']+'/umap_reducer.sav')
 
             model_details['scaler_means'] = np.load(input_parameters['output_dir']+'/scaler_means.npy')
             model_details['scaler_var'] = np.load(input_parameters['output_dir']+'/scaler_var.npy')
+            model_details['umap_reducer'] = joblib.load(input_parameters['output_dir']+'/umap_reducer.sav')
 
         else:
 
@@ -457,6 +469,10 @@ def main():
         # Inputs are the same as testing but instead of predicting, just generating some clustering/relative clustering of latent features
         input_image_type = list(input_parameters['image_dir'].keys())
         label_paths = []
+
+        if not os.path.exists(input_parameters['output_dir']):
+            os.makedirs(input_parameters['output_dir'])
+
         
         if input_parameters['type']=='multi':
 
@@ -533,8 +549,8 @@ def main():
         model_version['Merged_Results_Table'].download(input_parameters['output_dir']+'/Merged_Results_Table.csv')
         plot_labels = pd.read_csv(input_parameters['output_dir']+'Merged_Results_Table.csv',header = 0)
 
-        cluster_object = Clusterer(input_parameters['output_dir'],plot_labels = plot_labels)
-        cluster_object.run_clustering_iterator(dataset_test,model_file)
+        cluster_object = Clusterer(input_parameters,plot_labels = plot_labels)
+        cluster_object.run_clustering_iterator(model_file,dataset_test)
 
         # Uploading data to model_version metadata (if specified)
         upload_to_model_version = True
@@ -547,6 +563,7 @@ def main():
 
         model_version['UMAP_Scaler/scaler_means'].upload(input_parameters['output_dir']+f'scaler_means.npy')
         model_version['UMAP_Scaler/scaler_var'].upload(input_parameters['output_dir']+f'scaler_var.npy')
+        model_version['UMAP_Scaler/umap_reducer'].upload(input_parameters['output_dir']+f'umap_reducer.sav')
 
 if __name__=='__main__':
     main()

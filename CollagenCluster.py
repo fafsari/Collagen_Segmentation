@@ -11,6 +11,7 @@ import sys
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import joblib
 
 import torch
 from torch.utils.data import DataLoader
@@ -26,7 +27,7 @@ import segmentation_models_pytorch as smp
 
 class Clusterer:
     def __init__(self,
-                 output_dir,
+                 parameters,
                  plot_labels = None,
                  save_scaler_properties = True,
                  save_latent_features = False,
@@ -34,7 +35,8 @@ class Clusterer:
         
         self.plot_labels = plot_labels
 
-        self.output_folder = output_dir
+        self.output_folder = parameters['output_dir']
+        self.parameters = parameters
 
         self.device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
 
@@ -192,6 +194,11 @@ class Clusterer:
 
         umap_reducer = umap.UMAP()
         embedding = umap_reducer.fit_transform(scaled_data)
+
+        # Saving umap_reducer to be used later
+        if self.save_scaler_properties:
+            output_reducer_file = self.output_folder+'/umap_reducer.sav'
+            joblib.dump(umap_reducer,output_reducer_file)
 
         return embedding
 

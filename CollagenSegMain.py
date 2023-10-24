@@ -69,8 +69,15 @@ def main():
         # Path to folder containing ground truth images
         if os.path.isdir(input_parameters['label_dir']):
             label_paths = sorted(glob(input_parameters['label_dir']+'*'))
+            training_parameters['supervision'] = 'full'
+
         elif os.path.isfile(input_parameters['label_dir']):
             label_paths = sorted(pd.read_csv(input_parameters['label_dir'])['Paths'].tolist())
+            training_parameters['supervision'] = 'full'
+        
+        else:
+            print('Initial training of a model requires labeled targets')
+
 
         input_image_type = list(input_parameters['image_dir'].keys())
 
@@ -99,9 +106,9 @@ def main():
                 image_paths = sorted(pd.read_csv(input_parameters['image_dir'][input_image_type[0]])['Paths'].tolist())
 
         # Now determining which images are used for training and which are used for testing
-        if 'k_folds' in training_parameters['train_test_set']:
+        if 'k_folds' in training_parameters['train_test_split']:
 
-            kf = KFold(n_splits = int(training_parameters['train_test_set']['k_folds']),shuffle=True)
+            kf = KFold(n_splits = int(training_parameters['train_test_split']['k_folds']),shuffle=True)
             k_count = 1
 
             # Iteratively training and validating model using k-fold CV
@@ -223,8 +230,15 @@ def main():
         # Path to folder containing ground truth images
         if os.path.isdir(input_parameters['label_dir']):
             label_paths = sorted(glob(input_parameters['label_dir']+'*'))
+            training_parameters['supervision'] = 'full'
+
         elif os.path.isfile(input_parameters['label_dir']):
             label_paths = sorted(pd.read_csv(input_parameters['label_dir'])['Paths'].tolist())
+            training_parameters['supervision'] = 'full'
+
+        else:
+            label_paths = []
+            training_parameters['supervision'] = 'semi'
 
         input_image_type = list(input_parameters['image_dir'].keys())
 
@@ -255,9 +269,9 @@ def main():
                 image_paths = sorted(pd.read_csv(image_path_in_type)['Paths'].tolist())
 
         # Now determining which images are used for training and which are used for testing
-        if 'k_folds' in training_parameters['train_test_set']:
+        if 'k_folds' in training_parameters['train_test_split']:
 
-            kf = KFold(n_splits = int(training_parameters['train_test_set']['k_folds']),shuffle=True)
+            kf = KFold(n_splits = int(training_parameters['train_test_split']['k_folds']),shuffle=True)
             k_count = 1
 
             # Iteratively training and validating model using k-fold CV

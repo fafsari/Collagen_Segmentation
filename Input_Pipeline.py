@@ -318,6 +318,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
         transforms_training = ComposeDouble([
             AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
             #AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
+            AlbuSeg2d(albumentations.RandomBrightnessContrast(p=0.2)),
             AlbuSeg2d(albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.5,rotate_limit=45,interpolation=1,p=0.1)),
             AlbuSeg2d(albumentations.VerticalFlip(p=0.5)),
             FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0)

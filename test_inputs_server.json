@@ -3,15 +3,15 @@
         "phase":"test",
         "type":"single",
         "image_dir":{
-            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET Pig Kidney/10 SET/JHU/Fluorescence/"
+            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/NF 0/"
         },
-        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET Pig Kidney/10 SET/JHU/Results/Fluorescence_Grayscale/",
-        "model":"DEDU-FG",
-        "model_file":"/blue/pinaki.sarder/samuelborder/Same_Training_Set/Fluorescence_G/models/Collagen_Seg_Model_Latest.pth",
+        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/Fluorescence_RGB/",
+        "model":"DEDU-FRGB",
+        "model_file":"/blue/pinaki.sarder/samuelborder/Same_Training_Set/Fluorescence_RGB/models/Collagen_Seg_Model_Latest.pth",
         "neptune":{
             "project":"samborder/Deep-DUET",
             "source_files":["*.py","**/.py"],
-            "tags":["Fluorescence_Grayscale Predictions 10 Set JHU"]
+            "tags":["Fluorescence_RGB Predictions without resizing step in resize_special"]
         }
     }
 }

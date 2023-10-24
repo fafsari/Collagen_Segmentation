@@ -263,7 +263,6 @@ def resize_special(img,output_size,transform):
             img = resize(img, output_shape = (output_size))
     else:
         if transform=='mean':
-            img = resize(img,output_size)
 
             img = np.mean(img,axis = -1)
             img = img[:,:,np.newaxis]
@@ -273,16 +272,13 @@ def resize_special(img,output_size,transform):
             color_list = ['red','green','blue']
             img = img[:,:,color_list.index(transform)]
             img = img[:,:,np.newaxis]
-            img = resize(img,output_size)
 
         elif transform == 'rgb2gray':
-            img = resize(img,output_size)
 
             img = rgb2gray(img)
             img = img[:,:,np.newaxis]
 
         elif transform == 'rgb2lab':
-            img = resize(img,output_size)
 
             img = rgb2lab(img)
         
@@ -291,7 +287,6 @@ def resize_special(img,output_size,transform):
             # Determining non-tissue regions to mask out prior to scaling/conversion
             # For BF images the non-tissue regions are closer to white whereas with fluorescence images they 
             # are closer to black
-            img = resize(img,output_size)
 
             lab_img = rgb2lab(img)
             scaled_img = (lab_img-np.nanmean(lab_img))/np.nanstd(lab_img)
@@ -319,8 +314,10 @@ def resize_special(img,output_size,transform):
             f_norm = np.divide(f_img,np.sum(f_img,axis=-1)[:,:,None],where=(np.sum(f_img,axis=-1)[:,:,None]!=0))
 
             img = np.concatenate((f_norm,inv_bf_norm),axis=-1)
-
+            
+    
     img = resize(img,output_size)
+
     return img
 
 

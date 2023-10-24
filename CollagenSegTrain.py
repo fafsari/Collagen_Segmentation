@@ -154,10 +154,6 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
         train_loader = DataLoader(dataset_valid,batch_size=batch_size,shuffle=True)
 
     valid_loader = DataLoader(dataset_valid,batch_size=batch_size,shuffle=True)
-        
-    # Initializing loss score
-    train_loss = 0
-    val_loss = 0
     
     # Maximum number of epochs defined here as well as how many steps between model saves and example outputs
     epoch_num = train_parameters['epoch_num']

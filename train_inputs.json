@@ -7,35 +7,35 @@
             "Brightfield":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/B_2nd/"
         },
         "label_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/C/",
-        "output_dir":"/blue",
+        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/MultiChannel_RGB_nonorm",
         "neptune":{
             "project":"samborder/Deep-DUET",
             "source_files":["*.py","**/.py"],
-            "tags":["Rerunning MultiChannel RGB training with color transform and color/contrast augmentation"]
+            "tags":["Rerunning MultiChannel RGB training without color normalization"]
         }
     },
     "train_parameters":{
-        "model_parameters":{
-            "archirecture":"Unet++",
+        "model_details":{
+            "architecture":"Unet++",
             "encoder":"resnet34",
             "encoder_weights":"imagenet",
-            "active":"sigmoid"
+            "active":"sigmoid",
+            "target_type":"nonbinary",
+            "in_channels":6,
+            "ann_classes":"background,collagen"
         },
         "train_test_split":{
             "split":0.8
         },
-        "classes":["background","collagen"],
         "loss":"MSE",
         "lr":0.00005,
         "batch_size":2,
-        "step_num":2000,
-        "save_step":20
-    },
-    "preprocessing":{
-        "image_size":"512,512,6",
-        "mask_size":"512,512,1",
-        "color_transform":"invert_bf_01norm",
-        "image_means":"0.18156888,0.24440907,0.0526424,0.77244529,0.65214559,0.81593694",
-        "image_stds":"0.10988351,0.12964595,0.02082968,0.17056486,0.18138126,0.12390202"
+        "step_num":3000,
+        "save_step":20,
+        "preprocessing":{
+            "image_size":"512,512,6",
+            "mask_size":"512,512,1",
+            "color_transform":"invert_bf_01norm"
+        }
     }
 }

@@ -23,6 +23,7 @@ from PIL import Image
 import pandas as pd
 from tqdm import tqdm
 import sys
+import os
 
 from CollagenSegUtils import visualize_continuous
 
@@ -75,23 +76,28 @@ class Custom_Plus_Plus_Loss(torch.nn.Module):
 
 def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     
-    if not train_parameters['architecture'] == 'DUnet':
-        encoder = train_parameters['encoder']
-        encoder_weights = train_parameters['encoder_weights']
+    model_details = train_parameters['model_details']
+
+    if not model_details['architecture'] == 'DUnet':
+        encoder = model_details['encoder']
+        encoder_weights = model_details['encoder_weights']
         nept_run['encoder'] = encoder
         nept_run['encoder_pre_train'] = encoder_weights
 
-    output_type = train_parameters['output_type']
-    active = train_parameters['active']
-    target_type = train_parameters['target_type']
-    ann_classes = train_parameters['target_type']
+    output_type = 'comparison'
+    active = model_details['active']
+    target_type = model_details['target_type']
+    ann_classes = model_details['target_type']
     output_dir = train_parameters['output_dir']
     model_dir = output_dir+'/models/'
+
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
 
     if active=='None':
         active = None
 
-    in_channels = train_parameters['in_channels']
+    in_channels = model_details['in_channels']
 
     if target_type=='binary':
         loss = smp.losses.DiceLoss(mode='binary')
@@ -119,12 +125,12 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     print(f'Device is : {device}')
     print(f'Torch Cuda version is : {torch.version.cuda}')    
 
-    nept_run['Architecture'] = train_parameters['architecture']
+    nept_run['Architecture'] = model_details['architecture']
     nept_run['Loss'] = train_parameters['loss']
     nept_run['output_type'] = output_type
     nept_run['lr'] = train_parameters['lr']
     
-    if train_parameters['architecture']=='Unet++':
+    if model_details['architecture']=='Unet++':
         model = smp.UnetPlusPlus(
                 encoder_name = encoder,
                 encoder_weights = encoder_weights,
@@ -156,8 +162,11 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     valid_loader = DataLoader(dataset_valid,batch_size=batch_size,shuffle=True)
     
     # Maximum number of epochs defined here as well as how many steps between model saves and example outputs
-    epoch_num = train_parameters['epoch_num']
+    epoch_num = train_parameters['step_num']
     save_step = train_parameters['save_step']
+
+    train_loss = 0
+    val_loss = 0
 
     # Recording training and validation loss
     train_loss_list = []

@@ -9,19 +9,19 @@ import os
 from time import sleep
 import subprocess
 
-base_model_dir = '/blue/pinaki.sarder/samuelborder/Same_Training_Set/'
+base_model_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/'
 model_dict_list = [
     {
         'model': 'DEDU-MCRGB',
         'type': 'multi',
         'tags': ['MultiChannel_RGB Predictions'],
-        'model_file': f'{base_model_dir}MultiChannel_RGB/models/Collagen_Seg_Model_Latest.pth'
+        'model_file': f'{base_model_dir}MultiChannel_RGB_redo/models/Collagen_Seg_Model_Latest.pth'
     },
     {
         'model':'DEDU-MCG',
         'type':'multi',
         'tags':['MultiChannel_G Predictions'],
-        'model_file': f'{base_model_dir}MultiChannel_Green/models/Collagen_Seg_Model_Latest.pth'
+        'model_file': f'{base_model_dir}MultiChannel_G_redo/models/Collagen_Seg_Model_Latest.pth'
     },
     {
         'model':'DEDU-FRGB',
@@ -49,10 +49,9 @@ model_dict_list = [
     }
 ]
 
-model_dict_list = [model_dict_list[2]]
 base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/'
-dataset_list = os.listdir(base_data_dir)
-#dataset_list = ['Same_Training_Set_Data']
+#dataset_list = os.listdir(base_data_dir)
+dataset_list = ['UCD-PATH']
 
 print(f'Iterating through {len(model_dict_list)} models on {len(dataset_list)} datasets')
 
@@ -81,6 +80,7 @@ count = 0
 
 for dataset in dataset_list:
     for model in model_dict_list:
+        print(model)
 
         # Generating new test_inputs
         test_inputs['input_parameters']['type'] = model['type']

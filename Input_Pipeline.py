@@ -292,8 +292,14 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
     mask_size = [int(i) for i in parameters['preprocessing']['mask_size'].split(',')]
     color_transform = parameters['preprocessing']['color_transform']
 
-    image_means = [float(i) for i in parameters['preprocessing']['image_means'].split(',')]
-    image_stds = [float(i) for i in parameters['preprocessing']['image_stds'].split(',')]
+    if 'image_means' in parameters['preprocessing']:
+        image_means = [float(i) for i in parameters['preprocessing']['image_means'].split(',')]
+        image_stds = [float(i) for i in parameters['preprocessing']['image_stds'].split(',')]
+    else:
+        # Normalization is normally subtracting mean and dividing by standard deviation
+        # Setting the image_means to 0 and stds to 1 nullifies the effect
+        image_means = [float(0.0) for i in range(img_size[-1])]
+        image_stds = [float(1.0) for i in range(img_size[-1])]
 
     if phase == 'train':
 

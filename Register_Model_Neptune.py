@@ -13,16 +13,20 @@ import neptune
 from glob import glob
 import pandas as pd
 
-#neptune_api_token = os.environ.get('NEPTUNE_API_TOKEN')
-"""
+neptune_api_token = os.environ.get('NEPTUNE_API_TOKEN')
+
 model_version = neptune.init_model_version(
-    model = 'DEDU-BFG',
+    model = 'DEDU-MCRGB',
     project = 'samborder/Deep-DUET',
     mode = 'async',
     api_token=neptune_api_token
 )
-"""
 
+path_to_model = 'D:\\Collagen_Segmentation\\Same_Training_Set_Data\\Results\\MultiChannel_RGB_redo\\models\\Collagen_Seg_Model_Latest.pth'
+model_version['model_file'].upload(path_to_model)
+
+
+"""
 models_list = ['MCRGB','MCG','FRGB','FG','BFRGB','BFG']
 model_names = ['MultiChannel_RGB','MultiChannel_Grayscale','Fluorescence_RGB','Fluorescence_Grayscale','Brightfield_RGB','Brightfield_Grayscale']
 
@@ -36,7 +40,7 @@ for m_key,m_name in zip(models_list,model_names):
 
     model_name = m_name
     path_to_model = f'C:\\Users\\Sam\\Desktop\\Collagen_Segmentation\\Results\\{model_name}\\models\\Collagen_Seg_Model_Latest.pth'
-    """
+    
     #model_version['model_file'].upload(path_to_model)
 
     #model_color_transform = 'green'
@@ -74,7 +78,7 @@ for m_key,m_name in zip(models_list,model_names):
 
     for m_p in model_dict:
         model_version[f'model_details/{m_p}'] = model_dict[m_p]
-    """
+    
     
     path_to_csvs = f'C:\\Users\\Sam\\Desktop\\Collagen_Segmentation\\Results\\{model_name}\\Testing_Output\\'
     model_csv_files = glob(path_to_csvs+'*.csv')
@@ -85,7 +89,7 @@ for m_key,m_name in zip(models_list,model_names):
         model_version[file_name].upload(m_csv)
     
 
-
+"""
 
 
 

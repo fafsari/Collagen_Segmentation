@@ -83,6 +83,8 @@ def main():
 
         if not os.path.exists(input_parameters['output_dir']):
             os.makedirs(input_parameters['output_dir'])
+        
+        training_parameters['output_dir']=input_parameters['output_dir']
 
         if input_parameters['type']=='multi':
             
@@ -244,6 +246,7 @@ def main():
 
         if not os.path.exists(input_parameters['output_dir']):
             os.makedirs(input_parameters['output_dir'])
+        training_parameters['output_dir'] = input_parameters['output_dir']
 
         if input_parameters['type']=='multi':
             

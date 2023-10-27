@@ -39,6 +39,10 @@ from CollagenCluster import Clusterer
 def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
 
     model_details = test_parameters['model_details']
+
+    if 'scaler_means' not in model_details:
+        test_parameters['model_details']['scaler_means'] = None
+        
     encoder = model_details['encoder']
     encoder_weights = model_details['encoder_weights']
 

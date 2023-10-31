@@ -15,13 +15,13 @@ model_dict_list = [
         'model': 'DEDU-MCRGB',
         'type': 'multi',
         'tags': ['MultiChannel_RGB Predictions'],
-        'model_file': f'{base_model_dir}MultiChannel_RGB_redo/models/Collagen_Seg_Model_Latest.pth'
+        'model_file': f'{base_model_dir}MultiChannel_RGB_nonorm/models/Collagen_Seg_Model_Latest.pth'
     },
     {
         'model':'DEDU-MCG',
         'type':'multi',
         'tags':['MultiChannel_G Predictions'],
-        'model_file': f'{base_model_dir}MultiChannel_G_redo/models/Collagen_Seg_Model_Latest.pth'
+        'model_file': f'{base_model_dir}MultiChannel_G_nonorm/models/Collagen_Seg_Model_Latest.pth'
     },
     {
         'model':'DEDU-FRGB',

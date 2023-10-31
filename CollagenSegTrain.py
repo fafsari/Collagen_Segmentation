@@ -73,6 +73,58 @@ class Custom_Plus_Plus_Loss(torch.nn.Module):
 
         return mse_loss, bin_loss
     
+class EnsembleModel(torch.nn.Module):
+    def __init__(self,
+                 in_channels,
+                 active,
+                 n_classes):
+
+        self.in_channels = in_channels
+        self.active = active
+        self.n_classes = n_classes
+
+        encoder = 'resnet34'
+        encoder_weights = 'imagenet'
+
+        if self.active=='sigmoid':
+            self.final_active = torch.nn.Sigmoid()
+        else:
+            self.final_active = torch.nn.Identity()
+
+        self.model_b = smp.UnetPlusPlus(
+                encoder_name = encoder,
+                encoder_weights = encoder_weights,
+                in_channels = self.in_channels,
+                classes = self.n_classes,
+                activation = self.active
+                )
+        
+        self.model_d = smp.UnetPlusPlus(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
+            in_channels = self.in_channels,
+            classes = self.n_classes,
+            activation = self.active
+        )
+
+        self.combine_layers = torch.nn.Sequential(
+            torch.nn.LazyConv2d(5),
+            torch.nn.Dropout(p=0.1),
+            torch.nn.BatchNorm2d(5),
+            self.final_active
+        )
+
+    def forward(self,input):
+
+        b_input = input[:,0:int(self.in_channels/2),:,:]
+        d_input = input[:,int(self.in_channels/2):self.in_channels,:,:]
+
+        b_output = self.model_b(b_input)
+        d_output = self.model_d(d_input)
+
+        combined_output = self.combine_layers(b_output+d_output)
+
+        return combined_output
 
 def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     
@@ -138,6 +190,13 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 classes = n_classes,
                 activation = active
                 )
+    elif model_details['architecture']=='ensemble':
+        model = EnsembleModel(
+            in_channels = in_channels,
+            active = active,
+            n_classes = n_classes
+            )
+    
     optimizer = torch.optim.Adam([
             dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.0001)
             ])

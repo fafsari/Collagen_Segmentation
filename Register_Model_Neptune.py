@@ -15,15 +15,41 @@ import pandas as pd
 
 neptune_api_token = os.environ.get('NEPTUNE_API_TOKEN')
 
-model_version = neptune.init_model_version(
-    model = 'DEDU-MCRGB',
+model_version = neptune.init_model(
+    with_id = 'DEDU-MCRGBE',
     project = 'samborder/Deep-DUET',
     mode = 'async',
     api_token=neptune_api_token
 )
 
-path_to_model = 'D:\\Collagen_Segmentation\\Same_Training_Set_Data\\Results\\MultiChannel_RGB_redo\\models\\Collagen_Seg_Model_Latest.pth'
+path_to_model = 'D:\\Collagen_Segmentation\\Same_Training_Set_Data\\Results\\MultiChannel_RGB_ensemble\\models\\Collagen_Seg_Model_Latest.pth'
 model_version['model_file'].upload(path_to_model)
+
+image_size = '512,512,6'
+mask_size = '512,512,1'
+
+model_version['preprocessing/color_transform'] = ''
+#model_version['preprocessing/image_means'] = model_image_means
+#model_version['preprocessing/image_stds'] = model_image_stds
+model_version['preprocessing/image_size'] = image_size
+model_version['preprocessing/mask_size'] = mask_size
+
+model_dict = {
+    'encoder':'resnet34',
+    'encoder_weights':'imagenet',
+    'active':'sigmoid',
+    'architecture':'ensemble',
+    'loss':'MSE',
+    'lr':0.00005,
+    'batch_size':2,
+    'target_type':'nonbinary',
+    'ann_classes':'background,collagen'
+}
+
+for m_p in model_dict:
+    model_version[f'model_details/{m_p}'] = model_dict[m_p]
+
+
 
 
 """

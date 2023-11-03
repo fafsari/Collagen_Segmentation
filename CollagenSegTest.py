@@ -34,6 +34,7 @@ import plotly.express as px
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 from CollagenSegUtils import visualize_continuous, get_metrics
 from CollagenCluster import Clusterer
+from CollagenSegTrain import EnsembleModel
     
         
 def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
@@ -75,6 +76,12 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                 classes = n_classes,
                 activation = active
                 )
+    elif model_details['architecture']=='ensemble':
+        model = EnsembleModel(
+            in_channels = in_channels,
+            active = active,
+            n_classes = n_classes
+        )
 
     model.load_state_dict(torch.load(model_path))
     model.to(device)
@@ -85,7 +92,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
         # Evaluating model on test set
         test_dataloader = DataLoader(dataset_valid)
 
-        test_output_dir = output_dir+'Testing_Output/'
+        test_output_dir = output_dir+'/Testing_Output/'
         if not os.path.exists(test_output_dir):
             os.makedirs(test_output_dir)
             
@@ -101,6 +108,11 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
         data_iterator = iter(test_dataloader)
         all_latent_features = None
         clustering_labels = []
+
+        if dataset_valid.patch_batch:
+            print('Using patch prediction pipeline')
+        else:
+            print('Images are the same size as the model inputs')
 
         with tqdm(range(len(dataset_valid)),desc='Testing') as pbar:
             for i in range(0,len(dataset_valid.images)):
@@ -205,7 +217,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                         pred_mask_img = pred_mask.detach().cpu().numpy()
 
                         if dataset_valid.testing_metrics:
-                            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
+                            testing_metrics_df = pd.concat([testing_metrics_df,pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type))],ignore_index=True)
                         # Outputting the prediction as a continuous mask even though running binary metrics
 
                     elif target_type=='nonbinary':
@@ -213,7 +225,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                         target_img = target.cpu().numpy()
 
                         if dataset_valid.testing_metrics:
-                            testing_metrics_df = testing_metrics_df.append(pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type)),ignore_index=True)
+                            testing_metrics_df = pd.concat([testing_metrics_df,pd.DataFrame(get_metrics(pred_mask.detach().cpu(),target.cpu(), input_name, metrics_calculator,target_type))],ignore_index=True)
 
                     image = image.cpu().numpy()
                     if type(in_channels)==int:
@@ -240,7 +252,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                         fig.savefig(test_output_dir+'Test_Example_'+input_name)
                         #nept_run['testing/Testing_Output_'+input_name].upload(test_output_dir+'Test_Example_'+input_name)
                     elif output_type=='prediction':
-
+                        
                         im = Image.fromarray((fig*255).astype(np.uint8))
                         im.save(test_output_dir+'Test_Example_'+input_name.replace('.jpg','.tif'))
 

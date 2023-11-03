@@ -28,61 +28,18 @@ import os
 from CollagenSegUtils import visualize_continuous
 
 
-class Custom_MSE_Loss(torch.nn.Module):
-    def __init__(self):
-        super(Custom_MSE_Loss,self).__init__()
-
-
-    def forward(self,output,target):
-        diff = (output-target)**2
-        normed = (diff - torch.min(diff))/torch.max(diff)
-        meaned = torch.mean(normed)
-        return meaned
-
-class Custom_MSE_LossPlus(torch.nn.Module):
-    def __init__(self):
-        super(Custom_MSE_LossPlus,self).__init__()
-    
-    def forward(self,output,target):
-        diff = (output-target)**2
-        mean_square = torch.mean(diff)
-        normed = (diff-torch.min(diff))/torch.max(diff)
-        meaned = torch.mean(normed)
-        return mean_square+meaned
-
-class Custom_Plus_Plus_Loss(torch.nn.Module):
-    def __init__(self):
-        super(Custom_Plus_Plus_Loss,self).__init__()
-
-        self.MSE_Loss = torch.nn.MSELoss(reduction='mean')
-
-    def dice_loss(self, output, target):
-        numerator = (torch.round(output)*torch.round(target)).sum()
-        denominator = torch.round(output).sum() + torch.round(target).sum()
-        final = 1-(2*numerator)/(denominator+1e-7)
-
-        return final
-
-    def forward(self,output, target):
-
-        # MSE portion
-        mse_loss = self.MSE_Loss(output,target)
-
-        # Binary portion
-        bin_loss = self.dice_loss(output,target)
-
-        return mse_loss, bin_loss
-    
 class EnsembleModel(torch.nn.Module):
     def __init__(self,
                  in_channels,
                  active,
                  n_classes):
+        super().__init__()
 
         self.in_channels = in_channels
         self.active = active
         self.n_classes = n_classes
 
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         encoder = 'resnet34'
         encoder_weights = 'imagenet'
 
@@ -94,7 +51,7 @@ class EnsembleModel(torch.nn.Module):
         self.model_b = smp.UnetPlusPlus(
                 encoder_name = encoder,
                 encoder_weights = encoder_weights,
-                in_channels = self.in_channels,
+                in_channels = int(self.in_channels/2),
                 classes = self.n_classes,
                 activation = self.active
                 )
@@ -102,29 +59,34 @@ class EnsembleModel(torch.nn.Module):
         self.model_d = smp.UnetPlusPlus(
             encoder_name = encoder,
             encoder_weights = encoder_weights,
-            in_channels = self.in_channels,
+            in_channels = int(self.in_channels/2),
             classes = self.n_classes,
             activation = self.active
         )
 
         self.combine_layers = torch.nn.Sequential(
-            torch.nn.LazyConv2d(5),
+            torch.nn.LazyConv2d(64,kernel_size=1),
             torch.nn.Dropout(p=0.1),
-            torch.nn.BatchNorm2d(5),
+            torch.nn.BatchNorm2d(64),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Conv2d(64,self.n_classes,kernel_size=1),
             self.final_active
         )
+
 
     def forward(self,input):
 
         b_input = input[:,0:int(self.in_channels/2),:,:]
         d_input = input[:,int(self.in_channels/2):self.in_channels,:,:]
+        b_output = self.model_b.decoder(*self.model_b.encoder(b_input))
+        d_output = self.model_d.decoder(*self.model_d.encoder(d_input))
 
-        b_output = self.model_b(b_input)
-        d_output = self.model_d(d_input)
+        combined_output = torch.cat((b_output,d_output),dim=1)
+        #print(f'combined decoder channels size: {combined_output.size()}')
+        final_prediction = self.combine_layers(combined_output)
+        #print(f'final_prediction size: {final_prediction.size()}')
 
-        combined_output = self.combine_layers(b_output+d_output)
-
-        return combined_output
+        return final_prediction
 
 def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     
@@ -162,13 +124,6 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
             loss = torch.nn.L1Loss(reduction='mean')
         elif train_parameters['loss'] == 'BCE':
             loss = torch.nn.BCELoss()
-        elif train_parameters['loss'] == 'custom':
-            loss = Custom_MSE_Loss()
-        elif train_parameters['loss'] == 'custom+':
-            loss = Custom_MSE_LossPlus()
-        elif train_parameters['loss'] == 'custom++':
-            loss = Custom_Plus_Plus_Loss()
-
         n_classes = 1
 
 
@@ -352,13 +307,13 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
 
                 # Different process for saving comparison figures vs. only predictions
                 if output_type == 'comparison':
-                    fig.savefig(output_dir+f'Training_Epoch_{i}_Example.png')
-                    nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.png')
+                    fig.savefig(output_dir+f'/Training_Epoch_{i}_Example.png')
+                    nept_run[f'Example_Output_{i}'].upload(output_dir+f'/Training_Epoch_{i}_Example.png')
                 elif output_type == 'prediction':
 
                     im = Image.fromarray(fig.astype(np.uint8))
-                    im.save(output_dir+f'Training_Epoch_{i}_Example.tif')
-                    nept_run[f'Example_Output_{i}'].upload(output_dir+f'Training_Epoch_{i}_Example.tif')
+                    im.save(output_dir+f'/Training_Epoch_{i}_Example.tif')
+                    nept_run[f'Example_Output_{i}'].upload(output_dir+f'/Training_Epoch_{i}_Example.tif')
 
     if not i%save_step==0:
         torch.save(model.state_dict(),model_dir+f'Collagen_Seg_Model_Latest.pth')

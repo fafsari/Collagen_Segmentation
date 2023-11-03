@@ -3,20 +3,20 @@
         "phase":"train",
         "type":"multi",
         "image_dir":{
-            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/NF 0/",
-            "Brightfield":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/B_2nd/"
+            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/F/",
+            "Brightfield":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/B/"
         },
         "label_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/C/",
-        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/MultiChannel_RGB_nonorm",
+        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/MultiChannel_RGB_ensemble",
         "neptune":{
             "project":"samborder/Deep-DUET",
             "source_files":["*.py","**/.py"],
-            "tags":["Rerunning MultiChannel RGB training without color normalization"]
+            "tags":["MultiChannel RGB ensemble model"]
         }
     },
     "train_parameters":{
         "model_details":{
-            "architecture":"Unet++",
+            "architecture":"ensemble",
             "encoder":"resnet34",
             "encoder_weights":"imagenet",
             "active":"sigmoid",
@@ -35,7 +35,7 @@
         "preprocessing":{
             "image_size":"512,512,6",
             "mask_size":"512,512,1",
-            "color_transform":"invert_bf_01norm"
+            "color_transform":""
         }
     }
 }

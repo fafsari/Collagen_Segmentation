@@ -97,8 +97,10 @@ def main():
                     image_paths_base.append(sorted(pd.read_csv(input_parameters['image_dir'][inp_type])['Paths'].tolist()))
 
             # Getting the image paths as lists of lists (each input type)
-            image_paths = [list(i) for i in zip(*image_paths_base)]
-        
+            image_paths = []
+            for i in range(len(image_paths_base[0])):
+                image_paths.append([image_paths_base[0][i],image_paths_base[1][i]])
+
         elif input_parameters['type']=='single':
 
             # Getting either DUET or Brightfield images
@@ -412,7 +414,11 @@ def main():
                 elif os.path.isfile(input_parameters['image_dir'][inp_type]):
                     image_paths_base.append(sorted(pd.read_csv(input_parameters['image_dir'][inp_type])['Paths'].tolist()))
 
-            image_paths = [list(i) for i in zip(*image_paths_base)]
+            # Getting the image paths as lists of lists (each input type)
+            image_paths = []
+            for i in range(len(image_paths_base[0])):
+                image_paths.append([image_paths_base[0][i],image_paths_base[1][i]])
+
         elif input_parameters['type']=='single':
             if os.path.isdir(input_parameters['image_dir'][input_image_type[0]]):
                 image_paths = sorted(glob(input_parameters['image_dir'][input_image_type[0]]+'*'))

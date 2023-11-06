@@ -7,12 +7,12 @@
             "Brightfield":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/B/"
         },
         "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/MultiChannel_RGB_ensemble/",
-        "model":"DEDU-MCRGB",
+        "model":"DEDU-MCRGBE",
         "model_file":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/MultiChannel_RGB_ensemble/models/Collagen_Seg_Model_Latest.pth",
         "neptune":{
             "project":"samborder/Deep-DUET",
             "source_files":["*.py","**/.py"],
-            "tags":["MultiChannel_RGB_ensemble"]
+            "tags":["MultiChannel_RGB_ensemble testing on all images"]
         }
     }
 }

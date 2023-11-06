@@ -7,11 +7,11 @@
             "Brightfield":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/B/"
         },
         "label_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/C/",
-        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/MultiChannel_RGB_ensemble",
+        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/MultiChannel_G_ensemble_binary",
         "neptune":{
             "project":"samborder/Deep-DUET",
             "source_files":["*.py","**/.py"],
-            "tags":["MultiChannel RGB ensemble model"]
+            "tags":["MultiChannel G ensemble binary model"]
         }
     },
     "train_parameters":{
@@ -20,22 +20,22 @@
             "encoder":"resnet34",
             "encoder_weights":"imagenet",
             "active":"sigmoid",
-            "target_type":"nonbinary",
-            "in_channels":6,
+            "target_type":"binary",
+            "in_channels":2,
             "ann_classes":"background,collagen"
         },
         "train_test_split":{
             "split":0.8
         },
-        "loss":"MSE",
+        "loss":"BCE",
         "lr":0.00005,
         "batch_size":2,
         "step_num":3000,
         "save_step":20,
         "preprocessing":{
-            "image_size":"512,512,6",
+            "image_size":"512,512,2",
             "mask_size":"512,512,1",
-            "color_transform":""
+            "color_transform":"green"
         }
     }
 }

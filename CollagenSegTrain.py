@@ -45,8 +45,10 @@ class EnsembleModel(torch.nn.Module):
 
         if self.active=='sigmoid':
             self.final_active = torch.nn.Sigmoid()
-        else:
-            self.final_active = torch.nn.Identity()
+        elif self.active =='softmax':
+            self.final_active = torch.nn.Softmax(dim=1)
+
+        
 
         self.model_b = smp.UnetPlusPlus(
                 encoder_name = encoder,
@@ -101,7 +103,7 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     output_type = 'comparison'
     active = model_details['active']
     target_type = model_details['target_type']
-    ann_classes = model_details['target_type']
+    ann_classes = model_details['ann_classes'].split(',')
     output_dir = train_parameters['output_dir']
     model_dir = output_dir+'/models/'
 
@@ -115,7 +117,8 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
 
     if target_type=='binary':
         loss = smp.losses.DiceLoss(mode='binary')
-        n_classes = len(ann_classes)
+        #n_classes = len(ann_classes)
+        n_classes = 1
 
     elif target_type=='nonbinary':
         if train_parameters['loss']=='MSE':
@@ -214,6 +217,8 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
 
             # Running predictions on training batch
             train_preds = model(train_imgs)
+            print(f'size of train_preds: {train_preds.size()}')
+            print(f'size of train_masks: {train_masks.size()}')
 
             # Calculating loss
             if train_parameters['loss']=='custom++':

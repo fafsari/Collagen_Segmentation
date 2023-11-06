@@ -16,16 +16,16 @@ import pandas as pd
 neptune_api_token = os.environ.get('NEPTUNE_API_TOKEN')
 
 model_version = neptune.init_model(
-    with_id = 'DEDU-MCRGBE',
+    with_id = 'DEDU-MCGE',
     project = 'samborder/Deep-DUET',
     mode = 'async',
     api_token=neptune_api_token
 )
 
-path_to_model = 'D:\\Collagen_Segmentation\\Same_Training_Set_Data\\Results\\MultiChannel_RGB_ensemble\\models\\Collagen_Seg_Model_Latest.pth'
+path_to_model = 'D:\\Collagen_Segmentation\\Same_Training_Set_Data\\Results\\MultiChannel_G_ensemble\\models\\Collagen_Seg_Model_Latest.pth'
 model_version['model_file'].upload(path_to_model)
 
-image_size = '512,512,6'
+image_size = '512,512,2'
 mask_size = '512,512,1'
 
 model_version['preprocessing/color_transform'] = ''

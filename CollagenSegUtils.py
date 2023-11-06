@@ -249,7 +249,7 @@ def resize_special(img,output_size,transform):
             b_img = (b_img - np.min(b_img))/np.ptp(b_img)
 
             img = np.concatenate((f_img[:,:,None],b_img[:,:,None]),axis=-1)
-            img = resize(img,output_shape = (output_size))
+            #img = resize(img,output_shape = (output_size))
         elif transform == 'multi_input_mean_invbf':
 
             # Mean of color channels, inverting bf
@@ -261,6 +261,15 @@ def resize_special(img,output_size,transform):
 
             img = np.concatenate((f_img[:,:,None],b_img[:,:,None]),axis=-1)
             img = resize(img, output_shape = (output_size))
+    
+        elif transform=='multi_input_green':
+
+            # Grabbing green channels without inverting
+            f_img = img[:,:,1]
+            b_img = img[:,:,4]
+
+            img = np.concatenate((f_img[:,:,None],b_img[:,:,None]),axis=-1)
+
     else:
         if transform=='mean':
 
@@ -314,8 +323,7 @@ def resize_special(img,output_size,transform):
             f_norm = np.divide(f_img,np.sum(f_img,axis=-1)[:,:,None],where=(np.sum(f_img,axis=-1)[:,:,None]!=0))
 
             img = np.concatenate((f_norm,inv_bf_norm),axis=-1)
-            
-    
+                
     img = resize(img,output_size)
 
     return img

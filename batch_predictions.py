@@ -12,6 +12,18 @@ import subprocess
 base_model_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/'
 model_dict_list = [
     {
+        'model':'DEDU-MCRGBE',
+        'type':'multi',
+        'tags':['MultiChannel_RGB_Ensemble Predictions'],
+        'model_file':f'{base_model_dir}MultiChannel_RGB_ensemble/models/Collagen_Seg_Model_Latest.pth'
+    },
+    {
+        'model':'DEDU-MCGE',
+        'type':'multi',
+        'tags':['MultiChannel_G_Ensemble Predictions'],
+        'model_file':f'{base_model_dir}/MultiChannel_G_ensemble/models/Collagen_Seg_Model_Latest.pth'
+    },
+    {
         'model': 'DEDU-MCRGB',
         'type': 'multi',
         'tags': ['MultiChannel_RGB Predictions'],
@@ -50,8 +62,9 @@ model_dict_list = [
 ]
 
 base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/'
-#dataset_list = os.listdir(base_data_dir)
-dataset_list = ['UCD-PATH']
+dataset_list = os.listdir(base_data_dir)
+model_dict_list = model_dict_list[0:3]
+#dataset_list = ['UCD-PATH']
 
 print(f'Iterating through {len(model_dict_list)} models on {len(dataset_list)} datasets')
 

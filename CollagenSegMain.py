@@ -456,14 +456,16 @@ def main():
                 model_details[m] = model_version[f'model_details/{m}'].fetch()
 
             # Grabbing clustering scaler and training set coordinates
-            model_version['UMAP_Scaler/scaler_means'].download(input_parameters['output_dir']+'/scaler_means.npy')
-            model_version['UMAP_Scaler/scaler_var'].download(input_parameters['output_dir']+'/scaler_var.npy')
-            model_version['UMAP_Scaler/umap_reducer'].download(input_parameters['output_dir']+'/umap_reducer.sav')
+            try:
+                model_version['UMAP_Scaler/scaler_means'].download(input_parameters['output_dir']+'/scaler_means.npy')
+                model_version['UMAP_Scaler/scaler_var'].download(input_parameters['output_dir']+'/scaler_var.npy')
+                model_version['UMAP_Scaler/umap_reducer'].download(input_parameters['output_dir']+'/umap_reducer.sav')
 
-            model_details['scaler_means'] = np.load(input_parameters['output_dir']+'/scaler_means.npy')
-            model_details['scaler_var'] = np.load(input_parameters['output_dir']+'/scaler_var.npy')
-            model_details['umap_reducer'] = joblib.load(input_parameters['output_dir']+'/umap_reducer.sav')
-
+                model_details['scaler_means'] = np.load(input_parameters['output_dir']+'/scaler_means.npy')
+                model_details['scaler_var'] = np.load(input_parameters['output_dir']+'/scaler_var.npy')
+                model_details['umap_reducer'] = joblib.load(input_parameters['output_dir']+'/umap_reducer.sav')
+            except:
+                print('no umap info for this model')
         else:
 
             model_file = input_parameters['model_file']

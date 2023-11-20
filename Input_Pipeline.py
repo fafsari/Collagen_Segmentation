@@ -313,11 +313,11 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                     input = False,
                                     target = True,
                                     output_shape = mask_size),
-                #FunctionWrapperDouble(normalize,
-                #                      input = True,
-                #                      target = False,
-                #                      mean = image_means,
-                #                      std = image_stds)
+                FunctionWrapperDouble(normalize,
+                                      input = True,
+                                      target = False,
+                                      mean = image_means,
+                                      std = image_stds)
         ])        
 
         # Continuous target type augmentations
@@ -358,11 +358,11 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                     input = False,
                                     target = True,
                                     output_shape = mask_size),
-                #FunctionWrapperDouble(normalize,
-                #                        input = True,
-                #                        target = False,
-                #                        mean = image_means,
-                #                        std = image_stds)
+                FunctionWrapperDouble(normalize,
+                                        input = True,
+                                        target = False,
+                                        mean = image_means,
+                                        std = image_stds)
             ])
         
         transforms_testing = ComposeDouble([

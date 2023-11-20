@@ -9,10 +9,10 @@ import sys
 import numpy as np
 from glob import glob
 
-from dash import dcc, ctx, Dash, dash_table,Input,Output,State, no_update
+from dash import dcc, html, ctx, Dash, dash_table,Input,Output,State, no_update
 import dash_bootstrap_components as dbc
 
-from dash_extensions.enrich import html
+#from dash_extensions.enrich import html
 
 import plotly.graph_objects as go
 import plotly.express as px

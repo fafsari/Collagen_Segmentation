@@ -35,6 +35,7 @@ from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 from CollagenSegUtils import visualize_continuous, get_metrics
 from CollagenCluster import Clusterer
 from CollagenSegTrain import EnsembleModel
+from tiffile import imsave
     
         
 def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
@@ -175,10 +176,15 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                     # Scaling predictions by overlap (mean pixel prediction where there is overlap)
                     final_pred_mask = np.multiply(final_pred_mask,1/overlap_mask)
 
-                    im = Image.fromarray((final_pred_mask).astype(np.uint8))
+                    save_name = dataset_valid.cached_item_names[dataset_valid.cached_item_index].split(os.sep)[-1]
+                    og_file_ext = save_name.split('.')[-1]
+                    save_name = save_name.replace('.'+og_file_ext,'_prediction.tif')
+
+                    #im = Image.fromarray((final_pred_mask).astype(np.uint8))
                     # Smoothing image to get rid of grid lines
-                    im = im.filter(ImageFilter.SMOOTH_MORE)
-                    im.save(test_output_dir+f'{dataset_valid.cached_item_names[dataset_valid.cached_item_index].split(os.sep)[-1].replace(".tif","_prediction.tif")}')
+                    #im = im.filter(ImageFilter.SMOOTH_MORE)
+                    #im.save(test_output_dir+f'{dataset_valid.cached_item_names[dataset_valid.cached_item_index].split(os.sep)[-1].replace(".tif","_prediction.tif")}')
+                    imsave(test_output_dir+save_name)
 
                     # Saving overlap mask
                     #overlap_mask = (overlap_mask-np.min(overlap_mask))/(np.max(overlap_mask))

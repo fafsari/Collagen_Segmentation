@@ -20,12 +20,27 @@ import plotly.express as px
 import matplotlib as mpl
 
 from PIL import Image
+from io import BytesIO, StringIO
 
 from skimage.morphology import remove_small_objects
 from skimage import measure
+import textwrap
+from base64 import b64decode
 
 
 def gen_layout():
+
+    upload_style = {
+            'width': '100%',
+            'height': '60px',
+            'lineHeight': '60px',
+            'borderWidth': '1px',
+            'borderStyle': 'dashed',
+            'borderRadius': '5px',
+            'textAlign': 'center',
+            'margin': '10px',
+            'fontSize':8
+        }
 
     main_layout = html.Div(
         dbc.Container(
@@ -42,12 +57,7 @@ def gen_layout():
                                 dcc.Graph(
                                     id = 'image-figure',
                                     figure = go.Figure()
-                                ),
-                                html.Hr(),
-                                dbc.Row([
-                                    dbc.Col(html.Div(dbc.Button('Previous Image',id='prev-image',n_clicks=0)),md=6),
-                                    dbc.Col(html.Div(dbc.Button('Next Image',id='next-image',n_clicks=0)),md=6)
-                                ],justify='center')
+                                )
                             ])
                         ])
                     ],md=8, style = {'maxHeight':'100vh','overflow':'scroll'}),
@@ -57,15 +67,35 @@ def gen_layout():
                             dbc.CardBody([
                                 dbc.Label('Output folder:',html_for = 'output-folder'),
                                 dbc.Row([
-                                    dbc.Col(dcc.Input(type='text',id='output-folder'),md=8),
-                                    dbc.Col(html.Button('Load Output',id='load-output',n_clicks=0),md=4)
+                                    dbc.Col([
+                                        dcc.Loading(
+                                            dcc.Upload(
+                                                id='upload-image',
+                                                children = html.Div([
+                                                    'Drag and Drop or ',
+                                                    html.A('Select Image File')
+                                                ]),
+                                                style = upload_style,
+                                                multiple=False
+                                            )
+                                        ),
+                                        html.Div(id='image-upload-status')
+                                    ],md=6),
+                                    dbc.Col([
+                                        dcc.Loading(
+                                            dcc.Upload(
+                                                id = 'upload-mask',
+                                                children = html.Div([
+                                                    'Drag and Drop or ',
+                                                    html.A('Select Mask File')
+                                                ]),
+                                                style = upload_style,
+                                                multiple = False
+                                            )
+                                        ),
+                                        html.Div(id='upload-mask-status')
+                                    ],md=6)
                                 ],align='center'),
-                                html.Div(id='output-folder-status'),
-                                #html.Hr(),
-                                #dbc.Row([
-                                #    dbc.Col(html.Button(id='show-fluorescent',n_clicks=0),md=6),
-                                #    dbc.Col(html.Button(id='show-brightfield',n_clicks=0),md=6)
-                                #],align='center'),
                                 html.Hr(),
                                 dbc.Label('Prediction Transparency:',html_for='trans-slider'),
                                 dcc.Slider(min=0,max=1,step=0.1,value=0.7,id='trans-slider'),
@@ -78,7 +108,7 @@ def gen_layout():
                                 html.Hr(),
                                 dbc.Label('Download post-processed mask',html_for='download-mask'),
                                 dbc.Row(
-                                    dbc.Button('Download Mask',id='download-mask-butt',n_clicks=0,disabled=False),
+                                    dbc.Button('Download New Mask',id='download-mask-butt',n_clicks=0,disabled=False),
                                     justify='center'
                                 ),
                                 dcc.Download(id='download-mask')
@@ -117,23 +147,20 @@ class DUETViewer:
 
         self.add_callbacks()
 
-        self.app.run_server(host='0.0.0.0',debug=True, use_reloader=True,port=8050)
+        self.app.run_server(host='0.0.0.0',debug=False, use_reloader=False,port=8050)
 
     def add_callbacks(self):
 
         self.app.callback(
             [Output('image-figure','figure'),
-             Output('output-folder-status','children'),
+             Output('image-upload-status','children'),
+             Output('upload-mask-status','children'),
              Output('min-size','max')],
-            [Input('load-output','n_clicks'),
-             Input('prev-image','n_clicks'),
-             Input('next-image','n_clicks'),
+            [Input('upload-image','contents'),
+             Input('upload-mask','contents'),
              Input('trans-slider','value'),
              Input('pred-thresh','value'),
              Input('min-size','value')],
-             #Input('show-fluorescent','n_clicks'),
-             #Input('show-brightfield','n_clicks')],
-             State('output-folder','value'),
              prevent_initial_call=True
         )(self.update_image)
 
@@ -143,136 +170,104 @@ class DUETViewer:
             prevent_initial_call=True
         )(self.download_mask)
 
-    def update_image(self,load_butt,prev_butt,next_butt,trans_val,thresh_val,min_size,out_folder):
+    def load_file(self,image_contents):
+
+        #try:
+        # Reading in an uploaded image file using PIL and BytesIO
+        # Crucial detail for reading bytes object
+        #https://github.com/plotly/dash-canvas/blob/master/dash_canvas/utils/io_utils.py?source=post_page-----929c72330716--------------------------------
+        new_image = Image.open(BytesIO(b64decode(image_contents[22:])))
+        output_status = dbc.Alert('Success!',color='success')
+        #except:
+        #   new_image = None
+        #    output_status = dbc.Alert('Uh Oh! There was an error reading your upload!',color='warning')
+
+        return new_image, output_status
+
+    def update_image(self,image_upload, mask_upload, trans_val,thresh_val,min_size):
         
         print(f'triggered_id: {ctx.triggered_id}')
         self.transparency = trans_val
         self.thresh_val = thresh_val
         self.min_size = min_size
+        mask_status = no_update
+        image_status = no_update
 
-        if ctx.triggered_id=='load-output':
-            # Loading a new output folder
-            if not out_folder is None:
-                # This folder just has to be for the model, they all have the same folder structure
-                self.output_folder = out_folder+'Testing_Output'+os.sep
-                self.image_folder = self.output_folder.replace(f'Results{os.sep}{self.output_folder.split(os.sep)[-3]}{os.sep}Testing_Output{os.sep}',f'B{os.sep}')
-                print(f'Reading images from: {self.output_folder} and {self.image_folder}')
-                self.predictions = glob(self.output_folder+'*')
-                self.images = glob(self.image_folder+'*')
-                print(f'Found: {len(self.images)} images')
-                if len(self.images)>0:
-                    self.threshold = thresh_val
-                    self.transparency = trans_val
-                    self.image_idx = 0
-                    self.current_image = Image.open(self.images[0])
-                    self.current_mask = Image.open(self.predictions[0])
-                    self.current_overlaid_image = self.create_overlay(self.current_image,self.current_mask)
+        if ctx.triggered_id=='upload-image':
 
-                    img_fig = go.Figure(
-                        data = px.imshow(self.current_overlaid_image)['data'],
-                        layout = {'margin':{'b':0,'l':0,'r':0}}
+            self.current_image, image_status = self.load_file(image_upload)
+            mask_status = no_update
+
+        elif ctx.triggered_id=='upload-mask':
+            
+            self.current_mask, mask_status = self.load_file(mask_upload)
+            image_status = no_update
+
+        # Generating new overlay based on provided inputs
+        self.current_overlaid_image = self.create_overlay()
+        img_fig = go.Figure(
+            data = px.imshow(self.current_overlaid_image)['data'],
+            layout = {'margin':{'b':0,'l':0,'r':0}}
+        )
+        img_fig.update_layout(
+            title = {
+                'text':'<br>'.join(
+                    textwrap.wrap(
+                    f'Current image with: prediction threshold: {self.thresh_val} and minimum size: {self.min_size}',
+                    width = 50
                     )
-                    img_fig.update_layout(
-                        title={
-                            'text':f'{self.images[self.image_idx].split(os.sep)[-1]}, threshold: {self.thresh_val}'
-                        }
-            )
+                )
+            }
+        )
 
-                    output_status = dbc.Alert('Found results!',color='success')
-                else:
+        return img_fig, image_status, mask_status, self.max_size_slider
 
-                    img_fig = go.Figure()
-                    output_status = dbc.Alert('Error in filepath',color='warning')
-
-            else:
-                img_fig = no_update
-                output_status = no_update
-        else:
-            """
-            if ctx.triggered_id=='show-brightfield':
-                self.image_folder = os.path.join(out_folder.split(os.sep)[0:-3]+['B'])
-                self.images = glob(self.image_folder+'*')
-                self.current_image = Image.open(self.images[self.image_idx])
-            
-            elif ctx.triggered_id=='show-fluorescent':
-                self.image_folder = os.path.join(out_folder.split(os.sep)[0:-3]+['F'])
-                self.images = glob(self.image_folder+'*')
-                self.current_image = Image.open(self.images[self.image_idx])
-            """
-            if ctx.triggered_id=='next-image':
-                if self.image_idx+1>=len(self.images):
-                    self.image_idx = 0
-                else:
-                    self.image_idx+=1
-                
-                print(self.images[self.image_idx])
-                print(self.predictions[self.image_idx])
-                self.current_image = Image.open(self.images[self.image_idx])
-                self.current_mask = Image.open(self.predictions[self.image_idx])
-
-            elif ctx.triggered_id=='prev-image':
-                if self.image_idx-1<=0:
-                    self.image_idx = len(self.images)-1
-                else:
-                    self.image_idx -= 1
-                
-                self.current_image = Image.open(self.images[self.image_idx])
-                self.current_mask = Image.open(self.predictions[self.image_idx])
-            
-            self.current_overlaid_image = self.create_overlay(self.current_image,self.current_mask)
-
-            img_fig = go.Figure(
-                data = px.imshow(self.current_overlaid_image)['data'],
-                layout = {'margin':{'b':0,'l':0,'r':0}}
-            )
-
-            img_fig.update_layout(
-                title={
-                    'text':f'{self.images[self.image_idx].split(os.sep)[-1]}, threshold: {self.thresh_val}'
-                }
-            )
-            output_status = no_update
-
-        return img_fig, output_status, self.max_size_slider
-
-    def create_overlay(self,image,pred):
+    def create_overlay(self):
         # Creating new overlaid mask from these inputs
         print(f'Threshold: {self.thresh_val}')
-        threshed_pred = np.array(pred).copy()
-        thresh_mask = np.ones_like(threshed_pred)
-        thresh_mask[threshed_pred<=int(255*self.thresh_val)] = 0.
+        print(f'self.current_mask is None: {self.current_mask is None}')
+        print(f'self.current_image is None: {self.current_image is None}')
+        if not self.current_mask is None and not self.current_image is None:
+            threshed_pred = np.array(self.current_mask).copy()
+            thresh_mask = np.ones_like(threshed_pred)
+            thresh_mask[threshed_pred<=int(255*self.thresh_val)] = 0.
 
-        # Adding small object filtering to mask
-        #thresh_mask = remove_small_objects(thresh_mask>0,self.min_size)
-        labels_mask = measure.label(thresh_mask>0)
-        regions = measure.regionprops(labels_mask)
-        regions.sort(key=lambda x: x.area,reverse=True)
-        print(f'found : {len(regions)} regions')
-        self.max_size_slider = len(regions)
-        if self.min_size>0:
+            # Adding small object filtering to mask
+            #thresh_mask = remove_small_objects(thresh_mask>0,self.min_size)
             labels_mask = measure.label(thresh_mask>0)
             regions = measure.regionprops(labels_mask)
             regions.sort(key=lambda x: x.area,reverse=True)
-            print(f'found : {len(regions)} regions')
             self.max_size_slider = len(regions)
-            include_regions_number = self.min_size
-            print(f'including: {include_regions_number}')
-            if len(regions)>1:
-                for rg in regions[include_regions_number:]:
-                    labels_mask[rg.coords[:,0],rg.coords[:,1]] = 0
+            if self.min_size>0:
+                labels_mask = measure.label(thresh_mask>0)
+                regions = measure.regionprops(labels_mask)
+                regions.sort(key=lambda x: x.area,reverse=True)
+                self.max_size_slider = len(regions)
+                include_regions_number = self.min_size
+                if len(regions)>1:
+                    for rg in regions[include_regions_number:]:
+                        labels_mask[rg.coords[:,0],rg.coords[:,1]] = 0
+                
+                thresh_mask = thresh_mask*(labels_mask>0)
+
+            threshed_pred_rgb = 255*self.cm(np.uint8(threshed_pred))[:,:,0:3]
+            threshed_pred_rgb[thresh_mask==0,:] = 0.
+
+            zero_mask = np.where(thresh_mask==0,0,int(self.transparency*255))
+            pred_4d = np.concatenate((threshed_pred_rgb,zero_mask[:,:,None]),axis=-1)
+            pred_rgba = Image.fromarray(np.uint8(pred_4d),'RGBA')
+
+            img_4d = self.current_image.convert('RGBA')
+            img_4d.paste(pred_rgba, mask=pred_rgba)
+        elif not self.current_image is None:
+            img_4d = self.current_image
+
+        elif not self.current_mask is None:
+            img_4d = self.current_mask
+        
+        else:
+            img_4d = Image.fromarray(np.uint8(np.zeros(512)))
             
-            thresh_mask = thresh_mask*(labels_mask>0)
-
-        threshed_pred_rgb = 255*self.cm(np.uint8(threshed_pred))[:,:,0:3]
-        threshed_pred_rgb[thresh_mask==0,:] = 0.
-
-        zero_mask = np.where(thresh_mask==0,0,int(self.transparency*255))
-        pred_4d = np.concatenate((threshed_pred_rgb,zero_mask[:,:,None]),axis=-1)
-        pred_rgba = Image.fromarray(np.uint8(pred_4d),'RGBA')
-
-        img_4d = image.convert('RGBA')
-        img_4d.paste(pred_rgba, mask=pred_rgba)
-
         return img_4d
 
     def download_mask(self,download_click):
@@ -285,10 +280,8 @@ class DUETViewer:
             labels_mask = measure.label(processed_mask>0)
             regions = measure.regionprops(labels_mask)
             regions.sort(key=lambda x: x.area,reverse=True)
-            print(f'found : {len(regions)} regions')
             self.max_size_slider = len(regions)
             include_regions_number = self.min_size
-            print(f'including: {include_regions_number}')
             if len(regions)>1:
                 for rg in regions[include_regions_number:]:
                     labels_mask[rg.coords[:,0],rg.coords[:,1]] = 0
@@ -296,10 +289,9 @@ class DUETViewer:
             processed_mask = processed_mask*(labels_mask>0)
 
         processed_mask = np.repeat(processed_mask[:,:,None],repeats=3,axis=-1)
-        print(f'shape of processed_mask: {np.shape(processed_mask)}')
         processed_mask = Image.fromarray(processed_mask)
 
-        image_name = self.images[self.image_idx].split(os.sep)[-1].replace('.png','_processed.png')
+        image_name = 'Processed_Collagen_Mask.tif'
         processed_mask.save(f'./{image_name}')
 
         return dcc.send_file(f'./{image_name}')

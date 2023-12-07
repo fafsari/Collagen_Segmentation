@@ -5,13 +5,13 @@
         "image_dir":{
             "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Pig Kidneys - Fluorescence G/F/"
         },
-        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Pig Kidneys - Fluorescence G/Results/Fluorescence_G/",
-        "model":"DEDU-FG",
-        "model_file":"/blue/pinaki.sarder/samuelborder/Same_Training_Set/Fluorescence_G/models/Collagen_Seg_Model_Latest.pth",
+        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Pig Kidneys - Fluorescence G/Results/Fluorescence_RGB/",
+        "model":"DEDU-FRGB",
+        "model_file":"/blue/pinaki.sarder/samuelborder/Same_Training_Set/Fluorescence_RGB/models/Collagen_Seg_Model_Latest.pth",
         "neptune":{
             "project":"samborder/Deep-DUET",
             "source_files":["*.py","**/.py"],
-            "tags":["Fluorescence G testing on more pig images"]
+            "tags":["Fluorescence RGB testing on more pig images"]
         }
     }
 }

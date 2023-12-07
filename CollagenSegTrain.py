@@ -69,8 +69,7 @@ class EnsembleModel(torch.nn.Module):
             torch.nn.Dropout(p=0.1),
             torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(inplace=True),
-            torch.nn.Conv2d(64,self.n_classes,kernel_size=1),
-            self.final_active
+            torch.nn.Conv2d(64,self.n_classes,kernel_size=1)
         )
 
 
@@ -82,10 +81,8 @@ class EnsembleModel(torch.nn.Module):
         d_output = self.model_d.decoder(*self.model_d.encoder(d_input))
 
         combined_output = torch.cat((b_output,d_output),dim=1)
-        #print(f'combined decoder channels size: {combined_output.size()}')
-        final_prediction = self.combine_layers(combined_output)
-        #print(f'final_prediction size: {final_prediction.size()}')
-
+        final_prediction = self.final_active(self.combine_layers(combined_output))
+        
         return final_prediction
 
 def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
@@ -215,18 +212,9 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
 
             # Running predictions on training batch
             train_preds = model(train_imgs)
-            print(f'size of train_preds: {train_preds.size()}')
-            print(f'size of train_masks: {train_masks.size()}')
 
             # Calculating loss
-            if train_parameters['loss']=='custom++':
-                mse_loss,bin_loss = loss(train_preds,train_masks)
-                nept_run['training_reg_loss'].log(mse_loss.item())
-                nept_run['training_bin_loss'].log(bin_loss.item())
-
-                train_loss = mse_loss+bin_loss
-            else:
-                train_loss = loss(train_preds,train_masks)
+            train_loss = loss(train_preds,train_masks)
 
             # Backpropagation
             train_loss.backward()
@@ -251,15 +239,10 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 val_imgs = val_imgs.to(device)
                 val_masks = val_masks.to(device)
 
+                # Predicting on the validation images
                 val_preds = model(val_imgs)
-
-                if train_parameters['loss'] == 'custom++':
-                    val_mse_loss, val_bin_loss = loss(val_preds,val_masks)
-                    nept_run['validation_bin_loss'].log(val_bin_loss.item())
-                    nept_run['validation_reg_loss'].log(val_mse_loss.item())
-                    val_loss = val_mse_loss+val_bin_loss
-                else:
-                    val_loss = loss(val_preds,val_masks)
+                # Finding validation loss
+                val_loss = loss(val_preds,val_masks)
 
                 val_loss = val_loss.item()
                 val_loss_list.append(val_loss)
@@ -269,6 +252,7 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 else:
                     nept_run[f'validation_loss_{train_parameters["current_k_fold"]}'].log(val_loss)
 
+            # Stepping the learning rate plateau with the current validation loss
             #scheduler.step()
             lr_plateau.step(val_loss)
 

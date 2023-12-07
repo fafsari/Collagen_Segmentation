@@ -172,15 +172,11 @@ class DUETViewer:
 
     def load_file(self,image_contents):
 
-        #try:
         # Reading in an uploaded image file using PIL and BytesIO
         # Crucial detail for reading bytes object
         #https://github.com/plotly/dash-canvas/blob/master/dash_canvas/utils/io_utils.py?source=post_page-----929c72330716--------------------------------
         new_image = Image.open(BytesIO(b64decode(image_contents[22:])))
         output_status = dbc.Alert('Success!',color='success')
-        #except:
-        #   new_image = None
-        #    output_status = dbc.Alert('Uh Oh! There was an error reading your upload!',color='warning')
 
         return new_image, output_status
 
@@ -192,19 +188,22 @@ class DUETViewer:
         self.min_size = min_size
         mask_status = no_update
         image_status = no_update
+        update_max_size = False
 
         if ctx.triggered_id=='upload-image':
 
             self.current_image, image_status = self.load_file(image_upload)
             mask_status = no_update
+            update_max_size = True
 
         elif ctx.triggered_id=='upload-mask':
             
             self.current_mask, mask_status = self.load_file(mask_upload)
             image_status = no_update
+            update_max_size = True
 
         # Generating new overlay based on provided inputs
-        self.current_overlaid_image = self.create_overlay()
+        self.current_overlaid_image = self.create_overlay(update_max_size)
         img_fig = go.Figure(
             data = px.imshow(self.current_overlaid_image)['data'],
             layout = {'margin':{'b':0,'l':0,'r':0}}
@@ -222,7 +221,7 @@ class DUETViewer:
 
         return img_fig, image_status, mask_status, self.max_size_slider
 
-    def create_overlay(self):
+    def create_overlay(self,update_max_size):
         # Creating new overlaid mask from these inputs
         print(f'Threshold: {self.thresh_val}')
         print(f'self.current_mask is None: {self.current_mask is None}')
@@ -233,22 +232,23 @@ class DUETViewer:
             thresh_mask[threshed_pred<=int(255*self.thresh_val)] = 0.
 
             # Adding small object filtering to mask
-            #thresh_mask = remove_small_objects(thresh_mask>0,self.min_size)
-            labels_mask = measure.label(thresh_mask>0)
-            regions = measure.regionprops(labels_mask)
-            regions.sort(key=lambda x: x.area,reverse=True)
-            self.max_size_slider = len(regions)
-            if self.min_size>0:
-                labels_mask = measure.label(thresh_mask>0)
-                regions = measure.regionprops(labels_mask)
-                regions.sort(key=lambda x: x.area,reverse=True)
-                self.max_size_slider = len(regions)
-                include_regions_number = self.min_size
-                if len(regions)>1:
-                    for rg in regions[include_regions_number:]:
-                        labels_mask[rg.coords[:,0],rg.coords[:,1]] = 0
-                
-                thresh_mask = thresh_mask*(labels_mask>0)
+            if update_max_size:
+                self.max_size_slider = max([i.area for i in measure.regionprops(measure.label(thresh_mask))])
+            thresh_mask = remove_small_objects(thresh_mask>0,self.min_size)
+            #labels_mask = measure.label(thresh_mask>0)
+            #regions = measure.regionprops(labels_mask)
+            #regions.sort(key=lambda x: x.area,reverse=True)
+            #if self.min_size>0:
+            #    labels_mask = measure.label(thresh_mask>0)
+            #    regions = measure.regionprops(labels_mask)
+            #    regions.sort(key=lambda x: x.area,reverse=True)
+            #    self.max_size_slider = len(regions)
+            #    include_regions_number = self.min_size
+            #    if len(regions)>1:
+            #        for rg in regions[include_regions_number:]:
+            #            labels_mask[rg.coords[:,0],rg.coords[:,1]] = 0
+            #    
+            #    thresh_mask = thresh_mask*(labels_mask>0)
 
             threshed_pred_rgb = 255*self.cm(np.uint8(threshed_pred))[:,:,0:3]
             threshed_pred_rgb[thresh_mask==0,:] = 0.
@@ -298,9 +298,6 @@ class DUETViewer:
 
 
 
-
-
-
 def main():
 
     app_layout = gen_layout()
@@ -316,15 +313,8 @@ def main():
 
 
 
-
-
-
 if __name__ == '__main__':
     
     main()
-
-
-
-
 
 

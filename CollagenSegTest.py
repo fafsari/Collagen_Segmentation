@@ -35,7 +35,7 @@ from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 from CollagenSegUtils import visualize_continuous, get_metrics
 from CollagenCluster import Clusterer
 from CollagenSegTrain import EnsembleModel
-from tiffile import imsave
+from tifffile import imsave
     
         
 def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
@@ -166,7 +166,9 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                         )
                         
                         # Adding to final_pred_mask and overlap_mask
-                        final_pred_mask[row_start:row_start+patch_size[0],col_start:col_start+patch_size[1]] += (fig*255).astype(np.uint8)
+                        #final_pred_mask[row_start:row_start+patch_size[0],col_start:col_start+patch_size[1]] += (fig*255).astype(np.uint8)
+                        final_pred_mask[row_start:row_start+patch_size[0],col_start:col_start+patch_size[1]] += np.squeeze(pred_mask_img*255)
+
                         overlap_mask[row_start:row_start+patch_size[0],col_start:col_start+patch_size[1]] += np.ones((patch_size[0],patch_size[1]))
                         
                         #img_fig = Image.fromarray((fig*255).astype(np.uint8))
@@ -180,11 +182,11 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                     og_file_ext = save_name.split('.')[-1]
                     save_name = save_name.replace('.'+og_file_ext,'_prediction.tif')
 
-                    #im = Image.fromarray((final_pred_mask).astype(np.uint8))
+                    im = Image.fromarray((final_pred_mask).astype(np.uint8))
                     # Smoothing image to get rid of grid lines
-                    #im = im.filter(ImageFilter.SMOOTH_MORE)
-                    #im.save(test_output_dir+f'{dataset_valid.cached_item_names[dataset_valid.cached_item_index].split(os.sep)[-1].replace(".tif","_prediction.tif")}')
-                    imsave(test_output_dir+save_name)
+                    im = im.filter(ImageFilter.SMOOTH_MORE)
+                    im.save(test_output_dir+save_name)
+                    #imsave(test_output_dir+save_name,final_pred_mask)
 
                     # Saving overlap mask
                     #overlap_mask = (overlap_mask-np.min(overlap_mask))/(np.max(overlap_mask))

@@ -46,7 +46,13 @@ class EnsembleModel(torch.nn.Module):
         if self.active=='sigmoid':
             self.final_active = torch.nn.Sigmoid()
         elif self.active =='softmax':
-            self.final_active = torch.nn.Softmax(dim=1)        
+            self.final_active = torch.nn.Softmax(dim=1)       
+        elif self.active == 'linear':
+            self.active = None
+            self.final_active = torch.nn.Identity()
+        else:
+            self.active = None
+            self.final_active = torch.nn.ReLU()
 
         self.model_b = smp.UnetPlusPlus(
                 encoder_name = encoder,

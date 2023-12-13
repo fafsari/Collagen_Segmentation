@@ -19,7 +19,7 @@
             "architecture":"ensemble",
             "encoder":"resnet34",
             "encoder_weights":"imagenet",
-            "active":"sigmoid",
+            "active":"relu",
             "target_type":"nonbinary",
             "in_channels":2,
             "ann_classes":"background,collagen"

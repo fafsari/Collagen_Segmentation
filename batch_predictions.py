@@ -10,6 +10,7 @@ from time import sleep
 import subprocess
 
 base_model_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/'
+other_model_dir = '/blue/pinaki.sarder/samuelborder/Same_Training_Set/'
 model_dict_list = [
     {
         'model':'DEDU-MCRGBE',
@@ -39,31 +40,31 @@ model_dict_list = [
         'model':'DEDU-FRGB',
         'type':'single',
         'tags':['Fluorescence_RGB Predictions'],
-        'model_file':f'{base_model_dir}Fluorescence_RGB/models/Collagen_Seg_Model_Latest.pth'
+        'model_file':f'{other_model_dir}Fluorescence_RGB/models/Collagen_Seg_Model_Latest.pth'
     },
     {
         'model':'DEDU-FG',
         'type':'single',
         'tags':['Fluorescence_G Predictions'],
-        'model_file':f'{base_model_dir}Fluorescence_G/models/Collagen_Seg_Model_Latest.pth'
+        'model_file':f'{other_model_dir}Fluorescence_G/models/Collagen_Seg_Model_Latest.pth'
     },
     {
         'model':'DEDU-BFRGB',
         'type':'single',
         'tags':['Brightfield_RGB Predictions'],
-        'model_file':f'{base_model_dir}Brightfield_RGB/models/Collagen_Seg_Model_Latest.pth'
+        'model_file':f'{other_model_dir}Brightfield_RGB/models/Collagen_Seg_Model_Latest.pth'
     },
     {
         'model':'DEDU-BFG',
         'type':'single',
         'tags':['Brightfield_G Predictions'],
-        'model_file':f'{base_model_dir}Brightfield_G/models/Collagen_Seg_Model_Latest.pth'
+        'model_file':f'{other_model_dir}Brightfield_G/models/Collagen_Seg_Model_Latest.pth'
     }
 ]
 
-base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/'
+base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/10 SET/'
 dataset_list = os.listdir(base_data_dir)
-model_dict_list = model_dict_list[0:3]
+#model_dict_list = model_dict_list[0:3]
 #dataset_list = ['UCD-PATH']
 
 print(f'Iterating through {len(model_dict_list)} models on {len(dataset_list)} datasets')
@@ -99,17 +100,20 @@ for dataset in dataset_list:
         test_inputs['input_parameters']['type'] = model['type']
         if model['type']=='multi':
             test_inputs['input_parameters']['image_dir'] = {
-                "DUET":f'{base_data_dir}{dataset}/F/',
-                'Brightfield':f'{base_data_dir}{dataset}/B/'
+                "DUET":f'{base_data_dir}{dataset}/Fluorescence/',
+                'Brightfield':f'{base_data_dir}{dataset}/Brightfield/'
             }
         elif model['type']=='single':
-            if 'B' in model['model']:
+            # Need to check if this is a BF or F
+            check_inputs = model['model'].split('-')[-1]
+            # check_inputs will be either 'BFRGB', 'BFG', 'FG', or 'FRGB'
+            if check_inputs in ['BFG','BFRGB']:
                 test_inputs['input_parameters']['image_dir'] = {
-                    'Brightfield':f'{base_data_dir}{dataset}/B/'
+                    'Brightfield':f'{base_data_dir}{dataset}/Brightfield/'
                 }
-            else:
+            elif check_inputs in ['FG','FRGB']:
                 test_inputs['input_parameters']['image_dir'] = {
-                    'DUET':f'{base_data_dir}{dataset}/F/'
+                    'DUET':f'{base_data_dir}{dataset}/Fluorescence/'
                 }
         
         output_dir = f'{base_data_dir}{dataset}/Results/{model["tags"][0].split(" ")[0]}/'

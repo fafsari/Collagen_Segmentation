@@ -3,9 +3,9 @@
         "phase":"test",
         "type":"single",
         "image_dir":{
-            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Pig Kidneys - Fluorescence G/F/"
+            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/F/"
         },
-        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Pig Kidneys - Fluorescence G/Results/Fluorescence_RGB/",
+        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/Results/Fluorescence_RGB_retry/",
         "model":"DEDU-FRGB",
         "model_file":"/blue/pinaki.sarder/samuelborder/Same_Training_Set/Fluorescence_RGB/models/Collagen_Seg_Model_Latest.pth",
         "neptune":{

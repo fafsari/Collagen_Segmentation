@@ -28,8 +28,16 @@ import plotly.graph_objects as go
 import plotly.express as px
 from tqdm import tqdm
 
-from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score, precison_score, recall_score, f1_score, mean_squared_error
+from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score, recall_score, f1_score
 
+def precision_score(y_true,y_pred):
+
+    # Calculate precision given two flattened vectors of labels
+    # precision = (tp)/(tp+fp)
+    tp = np.sum(y_pred(np.argwhere(y_pred==y_true)))
+    fp = np.sum(1-y_pred(np.argwhere(y_pred!=y_true)))
+
+    return tp/(tp+fp)
 
 def main(args):
 
@@ -76,51 +84,53 @@ def main(args):
 
         roc_curve_aggregate = []
 
+        gt_names = os.listdir(args.label_path+'/')
+
         for t_idx,t in test_names:
-
-            test_image = np.array(Image.open(f'{args.test_model_path}/Testing_Output/{t}'))
-
-            binary_test_image = np.uint8(np.where(test_image>0))
-
             # Adjusting the test name to match the original image format (adjust as needed)
             adjusted_name = t.replace('Test_Example_','').replace('_prediction','').replace('.tif','.jpg')
-            gt_image = np.array(Image.open(f'{args.label_path}/{adjusted_name}'))
 
-            binary_gt_image = np.uint8(np.where(gt_image>0))
+            if adjusted_name in gt_names:
 
-            # Accuracy
-            accuracy = accuracy_score(binary_gt_image.flatten(),binary_test_image.flatten())
+                test_image = np.array(Image.open(f'{args.test_model_path}/Testing_Output/{t}'))
+                binary_test_image = np.uint8(np.where(test_image>0))
 
-            # Dice (F1)
-            dice = f1_score(binary_gt_image.flatten(),binary_test_image.flatten())
+                gt_image = np.array(Image.open(f'{args.label_path}/{adjusted_name}'))
+                binary_gt_image = np.uint8(np.where(gt_image>0))
 
-            # Recall (Sensitivity/True Positive Rate)
-            recall = recall_score(binary_gt_image.flatten(),binary_test_image.flatten())
+                # Accuracy
+                accuracy = accuracy_score(binary_gt_image.flatten(),binary_test_image.flatten())
 
-            # Precision
-            precision = precison_score(binary_gt_image.flatten(),binary_test_image.flatten())
+                # Dice (F1)
+                dice = f1_score(binary_gt_image.flatten(),binary_test_image.flatten())
 
-            # Area Under the Curve (AUC)
-            auc = roc_auc_score(binary_gt_image.flatten(),binary_test_image.flatten())
+                # Recall (Sensitivity/True Positive Rate)
+                recall = recall_score(binary_gt_image.flatten(),binary_test_image.flatten())
 
-            # ROC and Specificity
-            false_pos_rate, true_pos_rate, _ = roc_curve(binary_gt_image.flatten(),binary_test_image.flatten())
-            specificity = np.nanmean(1-false_pos_rate)
-            
-            roc_curve_aggregate.append([false_pos_rate,true_pos_rate])
+                # Precision
+                precision = precison_score(binary_gt_image.flatten(),binary_test_image.flatten())
 
-            # MSE
-            mse = np.nanmean((test_image-gt_image)**(0.5))
-            
-            # Adding metrics to metrics_dict
-            metrics_dict['Image_Name'].append(t)
-            metrics_dict['Dice'].append(dice)
-            metrics_dict['Accuracy'].append(accuracy)
-            metrics_dict['Recall'].append(recall)
-            metrics_dict['Precision'].append(precision)
-            metrics_dict['Specificity'].append(specificity)
-            metrics_dict['AUC'].append(auc)
-            metrics_dict['MSE'].append(mse)
+                # Area Under the Curve (AUC)
+                auc = roc_auc_score(binary_gt_image.flatten(),binary_test_image.flatten())
+
+                # ROC and Specificity
+                false_pos_rate, true_pos_rate, _ = roc_curve(binary_gt_image.flatten(),binary_test_image.flatten())
+                specificity = np.nanmean(1-false_pos_rate)
+                
+                roc_curve_aggregate.append([false_pos_rate,true_pos_rate])
+
+                # MSE
+                mse = np.nanmean((test_image-gt_image)**(0.5))
+                
+                # Adding metrics to metrics_dict
+                metrics_dict['Image_Name'].append(t)
+                metrics_dict['Dice'].append(dice)
+                metrics_dict['Accuracy'].append(accuracy)
+                metrics_dict['Recall'].append(recall)
+                metrics_dict['Precision'].append(precision)
+                metrics_dict['Specificity'].append(specificity)
+                metrics_dict['AUC'].append(auc)
+                metrics_dict['MSE'].append(mse)
 
             pbar.update(t_idx)
             pbar.set_description(f'Computing metrics: {t_idx}/{len(test_names)}')
@@ -206,7 +216,7 @@ if __name__=="__main__":
     parser.add_argument('test_model_path',type=str,help='Parent directory for model to evaluate, see comment in CollagenEvaluate.py for folder structure.')
     parser.add_argument('label_path',type=str,help='Path to label masks (not one-hot)')
     parser.add_argument('output_dir',type=str,default='Evaluation_Metrics',help='If you want to save the output to another path, specify here. (no / needed at the end).')
-    parser.add_argument('train_test_names',type=str,default=None,help='If you have predictions for both the training and testing/holdout set images in the same directory, you can specify the path to a csv file where one column has image name (Image_Name) and another column has whether it is "Train" or "Test" (Phase).')
+    parser.add_argument('train_test_names',type=str,default=None,help='If you have predictions for both the training and testing/holdout set images in the same directory, you can specify the path to a csv file where one column has image name (Image_Names) and another column has whether it is "Train" or "Test" (Phase).')
 
     main(parser.parse_args())
 

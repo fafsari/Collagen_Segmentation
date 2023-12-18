@@ -1,27 +1,26 @@
 {
     "input_parameters":{
         "phase":"train",
-        "type":"multi",
+        "type":"single",
         "image_dir":{
-            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/F/",
             "Brightfield":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/B/"
         },
         "label_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/C/",
-        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/Ensemble_Mean",
+        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/Brightfield_Mean",
         "neptune":{
             "project":"samborder/Deep-DUET",
             "source_files":["*.py","**/.py","**.json","**/.json"],
-            "tags":["Ensemble Mean model"]
+            "tags":["Brightfield Mean model"]
         }
     },
     "train_parameters":{
         "model_details":{
-            "architecture":"ensemble",
+            "architecture":"Unet++",
             "encoder":"resnet34",
             "encoder_weights":"imagenet",
             "active":"sigmoid",
             "target_type":"nonbinary",
-            "in_channels":2,
+            "in_channels":1,
             "ann_classes":"background,collagen"
         },
         "train_test_split":{
@@ -33,7 +32,7 @@
         "step_num":4000,
         "save_step":20,
         "preprocessing":{
-            "image_size":"512,512,2",
+            "image_size":"512,512,1",
             "mask_size":"512,512,1",
             "color_transform":"mean"
         }

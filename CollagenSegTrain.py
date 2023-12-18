@@ -73,7 +73,7 @@ class EnsembleModel(torch.nn.Module):
         self.combine_layers = torch.nn.Sequential(
             torch.nn.LazyConv2d(64,kernel_size=1),
             torch.nn.Dropout(p=0.1),
-            torch.nn.BatchNorm2d(64),
+            #torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(inplace=True),
             torch.nn.Conv2d(64,self.n_classes,kernel_size=1)
         )
@@ -283,16 +283,16 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 
                 if type(in_channels)==int:
                     if in_channels == 6:
-                        current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=2)
+                        current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=-2)
                     elif in_channels==4:
-                        current_img = np.concatenate((np.stack((current_img[0,:,:],)*3,axis=1),current_img[0:3,:,:]),axis=2)
+                        current_img = np.concatenate((np.stack((current_img[0,:,:],)*3,axis=1),current_img[0:3,:,:]),axis=-2)
                     elif in_channels==2:
-                        current_img = np.concatenate((current_img[0,:,:],current_img[1,:,:]),axis=-1)
+                        current_img = np.concatenate((current_img[0,:,:],current_img[1,:,:]),axis=-2)
                 elif type(in_channels)==list:
                     if sum(in_channels)==6:
-                        current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=2)
+                        current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=-2)
                     elif sum(in_channels)==2:
-                        current_img = np.concatenate((current_img[0,:,:][None,:,:],current_img[1,:,:][None,:,:]),axis=2)
+                        current_img = np.concatenate((current_img[0,:,:][None,:,:],current_img[1,:,:][None,:,:]),axis=-2)
 
                 img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 

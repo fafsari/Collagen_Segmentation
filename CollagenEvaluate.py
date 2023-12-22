@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from PIL import Image
+from skimage.io import imread
 
 import argparse
 
@@ -28,14 +29,15 @@ import plotly.graph_objects as go
 import plotly.express as px
 from tqdm import tqdm
 
-from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score, recall_score, f1_score
+from sklearn.metrics import roc_curve, roc_auc_score, accuracy_score, recall_score, f1_score, mean_squared_error
 
+          
 def precision_score(y_true,y_pred):
 
     # Calculate precision given two flattened vectors of labels
     # precision = (tp)/(tp+fp)
-    tp = np.sum(y_pred(np.argwhere(y_pred==y_true)))
-    fp = np.sum(1-y_pred(np.argwhere(y_pred!=y_true)))
+    tp = np.sum(y_pred*y_true)
+    fp = np.sum((1-y_pred)*y_true)
 
     return tp/(tp+fp)
 
@@ -48,7 +50,7 @@ def main(args):
     print(f'label_path: {args.label_path}')
     print(f'output_dir: {args.output_dir}')
     print(f'train_test_names: {args.train_test_names}')
-          
+
     
     model_name = args.test_model_path.split(os.sep)[-1]
 
@@ -65,6 +67,10 @@ def main(args):
 
         # Getting the "Test" image names
         test_names = train_test_df[train_test_df['Phase'].str.match('Test')]['Image_Names'].tolist()
+        
+        # Formatting for test outputs
+        test_names = ['Test_Example_'+t.replace('.jpg','.tif') for t in test_names]
+
 
     print(f'Found: {len(test_names)} images for metrics calculation')
     
@@ -86,17 +92,22 @@ def main(args):
 
         gt_names = os.listdir(args.label_path+'/')
 
-        for t_idx,t in test_names:
+        for t_idx,t in enumerate(test_names):
             # Adjusting the test name to match the original image format (adjust as needed)
             adjusted_name = t.replace('Test_Example_','').replace('_prediction','').replace('.tif','.jpg')
-
             if adjusted_name in gt_names:
 
-                test_image = np.array(Image.open(f'{args.test_model_path}/Testing_Output/{t}'))
-                binary_test_image = np.uint8(np.where(test_image>0))
+                test_image = (1/255)*np.array(Image.open(f'{args.test_model_path}/Testing_Output/{t}'))
+                binary_test_image = test_image.copy()
+                binary_test_image[binary_test_image>=0.1] = 1
+                binary_test_image[binary_test_image<0.1] = 0
+                binary_test_image = np.uint8(binary_test_image)
 
-                gt_image = np.array(Image.open(f'{args.label_path}/{adjusted_name}'))
-                binary_gt_image = np.uint8(np.where(gt_image>0))
+                gt_image = (1/255)*np.array(Image.open(f'{args.label_path}/{adjusted_name}'))[:,:,0]
+                binary_gt_image = gt_image.copy()
+                binary_gt_image[binary_gt_image>=0.1] = 1
+                binary_gt_image[binary_gt_image<0.1] = 0
+                binary_gt_image = np.uint8(binary_gt_image)
 
                 # Accuracy
                 accuracy = accuracy_score(binary_gt_image.flatten(),binary_test_image.flatten())
@@ -108,19 +119,19 @@ def main(args):
                 recall = recall_score(binary_gt_image.flatten(),binary_test_image.flatten())
 
                 # Precision
-                precision = precison_score(binary_gt_image.flatten(),binary_test_image.flatten())
+                precision = precision_score(binary_gt_image.flatten(),binary_test_image.flatten())
 
                 # Area Under the Curve (AUC)
-                auc = roc_auc_score(binary_gt_image.flatten(),binary_test_image.flatten())
+                auc = roc_auc_score(binary_gt_image.flatten(),test_image.flatten())
 
                 # ROC and Specificity
-                false_pos_rate, true_pos_rate, _ = roc_curve(binary_gt_image.flatten(),binary_test_image.flatten())
+                false_pos_rate, true_pos_rate, _ = roc_curve(binary_gt_image.flatten(),test_image.flatten())
                 specificity = np.nanmean(1-false_pos_rate)
                 
                 roc_curve_aggregate.append([false_pos_rate,true_pos_rate])
 
                 # MSE
-                mse = np.nanmean((test_image-gt_image)**(0.5))
+                mse = mean_squared_error(gt_image,test_image)
                 
                 # Adding metrics to metrics_dict
                 metrics_dict['Image_Name'].append(t)
@@ -132,8 +143,8 @@ def main(args):
                 metrics_dict['AUC'].append(auc)
                 metrics_dict['MSE'].append(mse)
 
-            pbar.update(t_idx)
-            pbar.set_description(f'Computing metrics: {t_idx}/{len(test_names)}')
+                pbar.update(1)
+                pbar.set_description(f'Computing metrics: {t_idx}/{len(test_names)}')
 
         pbar.close()
 
@@ -151,6 +162,16 @@ def main(args):
         min_idx = metrics_dict['AUC'].index(min_auc)
         max_idx = metrics_dict['AUC'].index(max_auc)
 
+        # Creating mean roc curve (can't do because there is a different number of unique values for each one)
+        #mean_fpr_curve = np.nanmean(np.array([i[0] for i in roc_curve_aggregate]),axis=0)
+        #mean_tpr_curve = np.nanmean(np.array([i[1] for i in roc_curve_aggregate]),axis=0)
+        
+        # Finding closest roc curve to the mean roc
+        auc_diff = np.argmin([abs(i-mean_auc) for i in metrics_dict['AUC']])
+        print(f'Closest AUC to the mean is: {metrics_dict["AUC"][auc_diff]}, mean = {mean_auc}')
+        mean_fpr_curve = roc_curve_aggregate[auc_diff][0]
+        mean_tpr_curve = roc_curve_aggregate[auc_diff][1]
+
         # Creating figure. Combined minimum and maximum ROC with fill between them. 
         fig = go.Figure()
         fig.add_shape(
@@ -166,7 +187,7 @@ def main(args):
                 fill = None,
                 mode = 'lines',
                 line_color = 'red',
-                name = f'Minimum AUC: {min_auc}'
+                name = f'Minimum AUC: {round(min_auc,4)}'
             )
         )
         fig.add_trace(
@@ -176,7 +197,16 @@ def main(args):
                 fill = 'tonexty',
                 mode = 'lines',
                 line_color = 'blue',
-                name = f'Maximum AUC: {max_auc}'
+                name = f'Maximum AUC: {round(max_auc,4)}'
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x = mean_fpr_curve,
+                y = mean_tpr_curve,
+                mode = 'lines',
+                line_color = 'yellow',
+                name = f'Mean AUC: {round(mean_auc,4)}'
             )
         )
 
@@ -187,7 +217,7 @@ def main(args):
             xaxis = dict(constrain='domain'),
             width=700,
             height = 500,
-            title = f'ROC for {model_name}, Mean AUC: {mean_auc}, Median AUC: {median_auc}'
+            title = f'ROC for {model_name}, Mean AUC: {round(mean_auc,4)}, Median AUC: {round(median_auc,4)}'
         )
 
         # Saving outputs to output directory
@@ -213,10 +243,10 @@ if __name__=="__main__":
         description = 'Collagen segmentation evaluation argument parser'
     )
 
-    parser.add_argument('test_model_path',type=str,help='Parent directory for model to evaluate, see comment in CollagenEvaluate.py for folder structure.')
-    parser.add_argument('label_path',type=str,help='Path to label masks (not one-hot)')
-    parser.add_argument('output_dir',type=str,default='Evaluation_Metrics',help='If you want to save the output to another path, specify here. (no / needed at the end).')
-    parser.add_argument('train_test_names',type=str,default=None,help='If you have predictions for both the training and testing/holdout set images in the same directory, you can specify the path to a csv file where one column has image name (Image_Names) and another column has whether it is "Train" or "Test" (Phase).')
+    parser.add_argument('--test_model_path',type=str, help='Parent directory for model to evaluate, see comment in CollagenEvaluate.py for folder structure.')
+    parser.add_argument('--label_path',type=str, help='Path to label masks (not one-hot)')
+    parser.add_argument('--output_dir',type=str, default='Evaluation_Metrics',help='If you want to save the output to another path, specify here. (no / needed at the end).')
+    parser.add_argument('--train_test_names',type=str, default=None,help='If you have predictions for both the training and testing/holdout set images in the same directory, you can specify the path to a csv file where one column has image name (Image_Names) and another column has whether it is "Train" or "Test" (Phase).')
 
     main(parser.parse_args())
 

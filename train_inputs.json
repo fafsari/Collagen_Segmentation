@@ -30,12 +30,12 @@
         "loss":"MSE",
         "lr":0.00005,
         "batch_size":2,
-        "step_num":4000,
+        "step_num":2000,
         "save_step":20,
         "preprocessing":{
             "image_size":"512,512,2",
             "mask_size":"512,512,1",
-            "color_transform":"mean"
+            "color_transform":"multi_input_mean"
         }
     }
 }

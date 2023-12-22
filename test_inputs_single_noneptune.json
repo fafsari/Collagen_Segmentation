@@ -1,0 +1,26 @@
+{
+    "input_parameters":{
+        "phase":"test",
+        "type":"multi",
+        "image_dir":{
+            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/F/",
+            "Brightfield":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/B/"
+        },
+        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/Results/Ensemble_Mean/",
+        "model_file":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/Ensemble_Mean/models/Collagen_Seg_Model_Latest.pth",
+        "model_details":{
+            "architecture":"ensemble",
+            "encoder":"resnet34",
+            "encoder_weights":"imagenet",
+            "active":"sigmoid",
+            "target_type":"nonbinary",
+            "in_channels":2,
+            "ann_classes":"background,collagen"
+        },
+        "preprocessing":{
+            "image_size":"512,512,2",
+            "mask_size":"512,512,1",
+            "color_transform":"mean"
+        }
+    }
+}

@@ -1,17 +1,18 @@
 {
     "input_parameters":{
         "phase":"test",
-        "type":"single",
+        "type":"multi",
         "image_dir":{
-            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/F/"
+            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/Normalized/F/",
+            "Brightfield":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/Normalized/B/"
         },
-        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/Results/Fluorescence_RGB_retry/",
-        "model":"DEDU-FRGB",
-        "model_file":"/blue/pinaki.sarder/samuelborder/Same_Training_Set/Fluorescence_RGB/models/Collagen_Seg_Model_Latest.pth",
+        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/Normalized/Results/Concatenated_RGB_retry/",
+        "model":"DEDU-MCRGB",
+        "model_file":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/Concatenated_RGB/models/Collagen_Seg_Model_Latest.pth",
         "neptune":{
             "project":"samborder/Deep-DUET",
             "source_files":["*.py","**/.py"],
-            "tags":["Fluorescence RGB testing on more pig images"]
+            "tags":["Concatenated RGB individual testing"]
         }
     }
 }

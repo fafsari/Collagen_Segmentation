@@ -128,16 +128,17 @@ model_dict_list = [
     {
         'model':'DEDU-ENG',
         'type':'multi',
-        'tags':['Ensemble_G predictions'],
-        'model_file':f'{base_model_dir}Ensemble_G/models/Collagen_Seg_Model_Latest.pth',
+        'tags':['Ensemble_Green predictions'],
+        'model_file':f'{base_model_dir}Ensemble_Green/models/Collagen_Seg_Model_Latest.pth',
         'model_details':ensemble_g_details,
         'preprocessing': multi_green_prep
     },
     {
         'model':'DEDU-ENGL',
         'type':'multi',
-        'tags':['Ensemble_G_Long predictions'],
-        'model_file':f'{base_model_dir}Ensemble_G_Long/models/Collagen_Seg_Model_Latest.pth',
+        'tags':['Ensemble_Green_Long predictions'],
+        'model_file':f'{base_model_dir}Ensemble_Green_Long/models/Collagen_Seg_Model_Latest.pth',
+        'model_details':ensemble_g_details,
         'preprocessing':multi_green_prep
     },
     {
@@ -173,13 +174,13 @@ model_dict_list = [
     {
         'model':'DEDU-MCG',
         'type':'multi',
-        'tags':['Concatenated_G predictions'],
+        'tags':['Concatenated_Green predictions'],
         'model_file':f'{base_model_dir}Concatenated_Green/models/Collagen_Seg_Model_Latest.pth'
     },
     {
         'model':'DEDU-MCGL',
         'type':'multi',
-        'tags':['Concatenated_G_Long predictions'],
+        'tags':['Concatenated_Green_Long predictions'],
         'model_file':f'{base_model_dir}Concatenated_Green_Long/models/Collagen_Seg_Model_Latest.pth',
         'model_details':concat_g_details,
         'preprocessing':multi_green_prep
@@ -293,8 +294,11 @@ model_dict_list = [
 base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/'
 dataset_list = os.listdir(base_data_dir)
 
+model_dict_list = [i for i in model_dict_list if i['type']=='single']
+
 f_dir = 'Normalized/F'
 bf_dir = 'Normalized/B'
+out_dir = 'Normalized/Results'
 
 print(f'Iterating through {len(model_dict_list)} models on {len(dataset_list)} datasets')
 
@@ -353,17 +357,17 @@ for dataset in dataset_list:
         elif model['type']=='single':
             # Need to check if this is a BF or F
             check_inputs = model['model'].split('-')[-1]
-            # check_inputs will be either 'BFRGB', 'BFG', 'FG', or 'FRGB'
-            if check_inputs in ['BFG','BFRGB']:
+            # check_inputs will be either 'BFRGB', 'BFRGBL', 'BFG', 'BFGL', 'BFM', 'BFML', 'FRGB', 'FRGBL', 'FG', 'FGL', 'FM', 'FML'
+            if check_inputs in ['BFG','BFGL','BFRGB','BFRGBL','BFM','BFML']:
                 test_iter_inputs['input_parameters']['image_dir'] = {
                     'Brightfield':f'{base_data_dir}{dataset}/{bf_dir}/'
                 }
-            elif check_inputs in ['FG','FRGB']:
+            elif check_inputs in ['FG','FGL','FRGB','FRGBL','FM','FML']:
                 test_iter_inputs['input_parameters']['image_dir'] = {
                     'DUET':f'{base_data_dir}{dataset}/{f_dir}/'
                 }
         
-        output_dir = f'{base_data_dir}{dataset}/Results/{model["tags"][0].split(" ")[0]}/'
+        output_dir = f'{base_data_dir}{dataset}/{out_dir}/{model["tags"][0].split(" ")[0]}/'
         test_iter_inputs['input_parameters']['output_dir'] = output_dir
         test_iter_inputs['input_parameters']['model'] = model['model']
         test_iter_inputs['input_parameters']['model_file'] = model['model_file']

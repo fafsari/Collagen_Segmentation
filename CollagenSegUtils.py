@@ -226,9 +226,7 @@ def resize_special(img,output_size,transform):
 
     # multi-image input transform
     if 'multi_input' in transform:
-        if transform=='multi_input_rgb':
-            img = resize(img,output_shape=(output_size))
-        elif transform =='multi_input_invbf':
+        if transform =='multi_input_invbf':
             # Inverting brightfield channels
             img = resize(img,output_shape=(output_size))
 

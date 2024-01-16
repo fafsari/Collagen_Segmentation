@@ -11,6 +11,6 @@
 pwd; hostname; date
 module load singularity
 
-singularity exec ./collagen_segmentation_latest.sif python3 Collagen_Segmentation/CollagenEvaluate.py --test_model_path "/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/Ensemble_Green_Long" --label_path "/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/C"
+singularity exec ./collagen_segmentation_latest.sif python3 Collagen_Segmentation/CollagenEvaluate.py --test_model_path "/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/Ensemble_RGB" --label_path "/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/C"
 
 date

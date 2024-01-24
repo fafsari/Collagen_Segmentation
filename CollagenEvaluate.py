@@ -98,12 +98,14 @@ def main(args):
             if adjusted_name in gt_names:
 
                 test_image = (1/255)*np.array(Image.open(f'{args.test_model_path}/Testing_Output/{t}'))
+                #print(f'test output image unique values: {np.unique(test_image).tolist()}')
                 binary_test_image = test_image.copy()
                 binary_test_image[binary_test_image>=0.1] = 1
                 binary_test_image[binary_test_image<0.1] = 0
                 binary_test_image = np.uint8(binary_test_image)
 
                 gt_image = (1/255)*np.array(Image.open(f'{args.label_path}/{adjusted_name}'))[:,:,0]
+                #print(f'gt image unique values: {np.unique(gt_image).tolist()}')
                 binary_gt_image = gt_image.copy()
                 binary_gt_image[binary_gt_image>=0.1] = 1
                 binary_gt_image[binary_gt_image<0.1] = 0
@@ -172,6 +174,8 @@ def main(args):
         mean_fpr_curve = roc_curve_aggregate[auc_diff][0]
         mean_tpr_curve = roc_curve_aggregate[auc_diff][1]
 
+        # Adding mean roc curves to df and saving
+        mean_roc_df = pd.DataFrame(data = np.concatenate((mean_fpr_curve.T[:,None],mean_tpr_curve.T[:,None]),axis = -1),columns = ['Mean FPR','Mean TPR'])
         # Creating figure. Combined minimum and maximum ROC with fill between them. 
         fig = go.Figure()
         fig.add_shape(
@@ -227,6 +231,8 @@ def main(args):
 
             metrics_df.to_csv(f'{args.test_model_path}/Evaluation_Metrics/{model_name}_Segmentation_Metrics.csv')
             fig.write_image(f'{args.test_model_path}/Evaluation_Metrics/{model_name}_ROC_Plot.png')
+            mean_roc_df.to_csv(f'{args.test_model_path}/Evaluation_Metrics/{model_name}_ROC_Data.csv')
+
 
         else:
             if not os.path.exists(args.output_dir):
@@ -234,7 +240,7 @@ def main(args):
 
             metrics_df.to_csv(args.output_dir+f'/{model_name}_Segmentation_Metrics.csv')
             fig.write_image(args.output_dir+f'/{model_name}_ROC_Plot.png')
-
+            mean_roc_df.to_csv(args.output_dir+f'/{model_name}_ROC_Data.csv')
 
 
 if __name__=="__main__":

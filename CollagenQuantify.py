@@ -42,18 +42,24 @@ import plotly.graph_objects as go
 
 class Quantifier:
     def __init__(self,
-                 image_dir:str,
+                 bf_image_dir:str,
+                 f_image_dir:str,
+                 mask_dir:str,
                  output_dir:str,
                  threshold:float):
         
-        self.image_dir = image_dir
+        self.bf_image_dir = bf_image_dir
+        self.f_image_dir = f_image_dir
+        self.mask_dir = mask_dir
         self.output_dir = output_dir
         self.threshold = threshold
 
         # Getting predicted image patches from self.image_dir
         # Should all have .tif extension
-        self.image_paths = glob(self.image_dir+'*.tif')
-        print(f'------------------Found: {len(self.image_paths)} Images!---------------------')
+        self.mask_paths = sorted(glob(self.mask_dir+'*'))
+        self.f_image_paths = [i.replace(self.mask_dir,self.f_image_dir).replace('Test_Example_','').replace('.tif','.jpg') for i in self.mask_paths]
+        self.bf_image_paths = [i.replace(self.f_image_dir,self.bf_image_dir) for i in self.f_image_paths]
+        print(f'------------------Found: {len(self.mask_paths)} Images!---------------------')
 
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
@@ -62,21 +68,52 @@ class Quantifier:
 
         # This will be a list of features for all images, list of dictionaries
         all_feature_list = []
-        for img_idx,img in enumerate(self.image_paths):
+        for img_idx,img in enumerate(self.mask_paths):
 
             # Reading the image:
             og_pred_image = np.array(Image.open(img))
             bin_image = self.binarize(og_pred_image)
 
+            bf_image = np.mean(255-np.array(Image.open(self.bf_image_paths[img_idx])),axis=-1)
+            f_image = np.mean(np.array(Image.open(self.f_image_paths[img_idx])),axis=-1)
+
+            print(f'Prediction name: {img.split(os.sep)[-1]}')
+            print(f'BF image name: {self.bf_image_paths[img_idx].split(os.sep)[-1]}')
+            print(f'F image name: {self.f_image_paths[img_idx].split(os.sep)[-1]}')
+
+            masked_bf_image = np.uint8(bin_image*bf_image)
+            masked_f_image = np.uint8(bin_image*f_image)
+
+            # Global and distance transform features can still be using the prediction
+            # The merged image features are the intensity and texture features
             glob_features = self.global_features(bin_image)
-            int_features = self.intensity_features(og_pred_image)
-            text_features = self.texture_features(og_pred_image)
             dt_features = self.distance_transform_features(bin_image)
+
+            # BF merged intensity and texture features
+            bf_int_features = self.intensity_features(masked_bf_image)
+            bf_text_features = self.texture_features(masked_bf_image)
+
+            bf_features = {**bf_int_features,**bf_text_features}
+
+            # F merged intensity and texture features
+            f_int_features = self.intensity_features(masked_f_image)
+            f_text_features = self.texture_features(masked_f_image)
+
+            f_features = {**f_int_features,**f_text_features}
+
+            # Renaming keys in each set of dictionaries
+            renamed_bf_features = {}
+            for b in bf_features:
+                renamed_bf_features[f'BF {b}'] = bf_features[b]
+
+            renamed_f_features = {}
+            for f in f_features:
+                renamed_f_features[f'F {f}'] = f_features[f]
 
             # Merging dictionaries (3.9<=)
             #image_features = glob_features | int_features | text_features | dt_features
             # Merging dictionaries (3.5<=)
-            image_features = {**glob_features, **int_features, **text_features, **dt_features}
+            image_features = {**glob_features, **dt_features, **renamed_bf_features, **renamed_f_features}
             image_features['Image Names'] = img.split('/')[-1]
 
             all_feature_list.append(image_features)
@@ -215,7 +252,9 @@ class Quantifier:
 def main(args):
 
     feature_extractor = Quantifier(
-        image_dir = args.test_image_path,
+        bf_image_dir = args.bf_image_dir,
+        f_image_dir = args.f_image_dir,
+        mask_dir = args.test_image_path,
         output_dir = args.output_dir,
         threshold = args.threshold
     )
@@ -228,6 +267,8 @@ if __name__=='__main__':
     )
 
     parser.add_argument('--test_image_path',type=str, help='Path to predicted collagen masks')
+    parser.add_argument('--bf_image_dir',type=str,help='Path to brightfield image patches')
+    parser.add_argument('--f_image_dir',type=str,help='Path to fluorescence image patches')
     parser.add_argument('--output_dir',type=str, default='Evaluation_Metrics',help='If you want to save the output to another path, specify here. (no / needed at the end).')
     parser.add_argument('--threshold',type=float,default = 0.1, help = 'Value used to threshold grayscale images to make them binary')
 

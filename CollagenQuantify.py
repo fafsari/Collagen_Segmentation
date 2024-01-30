@@ -56,7 +56,7 @@ class Quantifier:
 
         # Getting predicted image patches from self.image_dir
         # Should all have .tif extension
-        self.mask_paths = sorted(glob(self.mask_dir+'*'))
+        self.mask_paths = sorted(glob(self.mask_dir+'*.tif'))
         self.f_image_paths = [i.replace(self.mask_dir,self.f_image_dir).replace('Test_Example_','').replace('.tif','.jpg') for i in self.mask_paths]
         self.bf_image_paths = [i.replace(self.f_image_dir,self.bf_image_dir) for i in self.f_image_paths]
         print(f'------------------Found: {len(self.mask_paths)} Images!---------------------')
@@ -77,9 +77,10 @@ class Quantifier:
             bf_image = np.mean(255-np.array(Image.open(self.bf_image_paths[img_idx])),axis=-1)
             f_image = np.mean(np.array(Image.open(self.f_image_paths[img_idx])),axis=-1)
 
-            print(f'Prediction name: {img.split(os.sep)[-1]}')
-            print(f'BF image name: {self.bf_image_paths[img_idx].split(os.sep)[-1]}')
-            print(f'F image name: {self.f_image_paths[img_idx].split(os.sep)[-1]}')
+            # Verifying image name alignment
+            #print(f'Prediction name: {img.split(os.sep)[-1]}')
+            #print(f'BF image name: {self.bf_image_paths[img_idx].split(os.sep)[-1]}')
+            #print(f'F image name: {self.f_image_paths[img_idx].split(os.sep)[-1]}')
 
             masked_bf_image = np.uint8(bin_image*bf_image)
             masked_f_image = np.uint8(bin_image*f_image)
@@ -221,27 +222,19 @@ class Quantifier:
 
             if not feat=='Image Names':
 
-                feat_bar = px.bar(
+                feat_bar = px.violin(
                     data_frame=feature_df,
-                    x = 'Image Names',
                     y = feat
                 )
 
                 feat_bar.update_layout(
-                    xaxis = {
-                        'title': {
-                            'text':'<b>Image</b>'
-                        },
-                        'ticks':'',
-                        'tickfont':{'size':1}
-                    },
                     yaxis = {
                         'title':{
                             'text':f'<b>{feat}</b>'
                         }
                     },
                     title = {
-                        'text': f'<b>Bar plot of {feat} across predicted image patches'
+                        'text': f'<b>Violin plot of {feat}<br>across predicted image patches'
                     }
                 )
 

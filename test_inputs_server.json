@@ -3,16 +3,16 @@
         "phase":"test",
         "type":"multi",
         "image_dir":{
-            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/Normalized/F/",
-            "Brightfield":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/Normalized/B/"
+            "DUET":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/020524_DUET_Patches/32H/F/",
+            "Brightfield":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/020524_DUET_Patches/32H/B/"
         },
-        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/DUET UCD PATH vs CGPL/UCD-CGPL/Normalized/Results/Concatenated_RGB_retry/",
-        "model":"DEDU-MCRGB",
-        "model_file":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/Concatenated_RGB/models/Collagen_Seg_Model_Latest.pth",
+        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/020524_DUET_Patches/32H/Results/Ensemble_RGB/",
+        "model":"DEDU-ENSRGB",
+        "model_file":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/Ensemble_RGB/models/Collagen_Seg_Model_Latest.pth",
         "neptune":{
             "project":"samborder/Deep-DUET",
             "source_files":["*.py","**/.py"],
-            "tags":["Concatenated RGB individual testing"]
+            "tags":["Ensemble RGB individual testing"]
         }
     }
 }

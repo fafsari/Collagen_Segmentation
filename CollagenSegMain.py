@@ -18,7 +18,7 @@ from glob import glob
 from math import floor
 import json
 import joblib
-
+from math import ceil
 from sklearn.model_selection import KFold
 
 import neptune
@@ -38,6 +38,17 @@ class FakeNeptune:
         pass
     def upload(self):
         pass
+
+def check_image_bytes(image_path_list,threshold = 400000):
+    # Checking if a path contains an image with greater than a set threshold of bytes
+    # In this case it looks like all the images with less than ~400kb just contain background
+    passed_list = []
+    for i in image_path_list:
+        if os.path.getsize(i)>=threshold:
+            passed_list.append(i)
+
+    return passed_list
+
 
 def main():
     # Changing up from sys.argv to reading a specific set of input parameters
@@ -414,6 +425,16 @@ def main():
                 elif os.path.isfile(input_parameters['image_dir'][inp_type]):
                     image_paths_base.append(sorted(pd.read_csv(input_parameters['image_dir'][inp_type])['Paths'].tolist()))
 
+            # Hack for only predicting on images which contain minimal background
+            # Defined threshold (400kb) for brightfield images
+            passed_images = check_image_bytes(image_paths_base[1])
+            print(f'{len(passed_images)} passed the bytes check')
+            passed_image_idxes = [image_paths_base[1].index(i) for i in passed_images]
+            image_paths_base = [
+                [image_paths_base[0][i] for i in passed_image_idxes],
+                passed_images
+            ]
+
             # Getting the image paths as lists of lists (each input type)
             image_paths = []
             for i in range(len(image_paths_base[0])):
@@ -478,16 +499,27 @@ def main():
         input_parameters['model_details'] = model_details
         input_parameters['preprocessing'] = preprocessing
 
-        nothin, dataset_test = make_training_set(
-            'test',
-            None,
-            None,
-            image_paths,
-            label_paths,
-            input_parameters
-        )
+        # This is a hack for running on large sets of large images
+        image_set_size = 5
+        run_throughs = ceil(len(image_paths)/5)
 
-        Test_Network(model_file, dataset_test, nept_run, input_parameters)
+        for run in range(run_throughs):
+            print(f'Running on images: {int(run*image_set_size)} to {int((run+1)*image_set_size)}')
+            if not int((run+1)*image_set_size)>=len(image_paths):
+                run_paths = image_paths[int(run*image_set_size):int((run+1)*image_set_size)]
+            else:
+                run_paths = image_paths[int(run*image_set_size):len(image_paths)]
+                
+            nothin, dataset_test = make_training_set(
+                'test',
+                None,
+                None,
+                run_paths,
+                [],
+                input_parameters
+            )
+
+            Test_Network(model_file, dataset_test, nept_run, input_parameters)
 
     elif input_parameters['phase']=='cluster':
 

@@ -1,16 +1,17 @@
 #!/bin/sh
-#SBATCH --qos=pinaki.sarder-b
-#SBATCH --job-name=collagen_segmentation
+#SBATCH --job-name=glomerular_classification
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=100gb
+#SBATCH --mem=5gb
 #SBATCH --time=01:00:00
-#SBATCH --output=collagen_seg_evaluation_%j.out
+#SBATCH --output=model_evaluation_%j.out
 
 pwd; hostname; date
 module load singularity
 
-singularity exec ./collagen_segmentation_latest.sif python3 Collagen_Segmentation/CollagenEvaluate.py --test_model_path "/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/Ensemble_RGB" --label_path "/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/C"
+## For Docker containers
+image_name = "username/image:tag"
+singularity exec docker//{$image_name} python3 evaluation.py --test_image_path "/path/to/test/images/" --output_path "/path/to/evaluation.csv"
 
 date

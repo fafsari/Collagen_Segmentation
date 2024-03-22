@@ -300,7 +300,9 @@ model_dict_list = [model_dict_list[0]]
 f_dir = 'F'
 bf_dir = 'B'
 out_dir = 'Results'
-skip_duplicates = True
+
+# Setting to false to go through again (see check_image_bytes() in CollagenSegMain to adjust which images are predicted on)
+skip_duplicates = False
 print('-----------------------------------------------------------------')
 print(f'Iterating through {len(model_dict_list)} models on {len(dataset_list)} datasets')
 print('-----------------------------------------------------------')

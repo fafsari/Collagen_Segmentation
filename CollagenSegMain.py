@@ -39,13 +39,26 @@ class FakeNeptune:
     def upload(self):
         pass
 
-def check_image_bytes(image_path_list,threshold = 40000):
+def check_image_bytes(image_path_list,lower_threshold = None, upper_threshold = None):
     # Checking if a path contains an image with greater than a set threshold of bytes
     # In this case it looks like all the images with less than ~40kb just contain background
+
     passed_list = []
     for i in image_path_list:
-        if os.path.getsize(i)>=threshold:
-            passed_list.append(i)
+        file_size = os.path.getsize(i)
+        if not lower_threshold is None:
+            if file_size>=lower_threshold:
+                if not upper_threshold is None:
+                    if file_size<=upper_threshold:
+                        passed_list.append(i)
+                else:
+                    passed_list.append(i)
+        else:
+            if not upper_threshold is None:
+                if file_size<=upper_threshold:
+                    passed_list.append(i)
+            else:
+                passed_list.append(i)
 
     return passed_list
 
@@ -53,7 +66,8 @@ def check_duplicate(image_path_list,output_path):
 
     passed_list = []
     for i in image_path_list:
-        if not os.path.exists(output_path+i.replace('.jpg','_prediction.tif')):
+        image_name = i.split(os.sep)[-1]
+        if not os.path.exists(output_path+f"Testing_Output/{image_name.replace('.jpg','_prediction.tif')}"):
             passed_list.append(i)
     
     return passed_list
@@ -436,13 +450,13 @@ def main():
 
             # Hack for only predicting on images which contain minimal background
             # Defined threshold (40kb) for brightfield images
-            passed_images = check_image_bytes(image_paths_base[1])
+            passed_images = check_image_bytes(image_paths_base[1],lower_threshold = 40e3, upper_threshold = 400e3)
             print(f'{len(passed_images)} passed the bytes check')
 
             if 'skip_duplicates' in input_parameters:
                 if input_parameters['skip_duplicates']:
                     passed_images = check_duplicate(passed_images,input_parameters['output_dir'])
-
+                    print(f'{len(passed_images)} passed the duplicates check!')
 
             passed_image_idxes = [image_paths_base[1].index(i) for i in passed_images]
             image_paths_base = [

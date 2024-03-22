@@ -121,6 +121,10 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                 # Initializing combined mask from patched predictions
                 if dataset_valid.patch_batch:
 
+                    save_name = dataset_valid.cached_item_names[dataset_valid.cached_item_index].split(os.sep)[-1]
+                    og_file_ext = save_name.split('.')[-1]
+                    save_name = save_name.replace('.'+og_file_ext,'_prediction.tif')
+
                     # Getting original image dimensions from test_dataloader
                     original_image, _ = dataset_valid.images[i]
                     original_image_size = np.shape(original_image)
@@ -177,10 +181,6 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
 
                     # Scaling predictions by overlap (mean pixel prediction where there is overlap)
                     final_pred_mask = np.multiply(final_pred_mask,1/overlap_mask)
-
-                    save_name = dataset_valid.cached_item_names[dataset_valid.cached_item_index].split(os.sep)[-1]
-                    og_file_ext = save_name.split('.')[-1]
-                    save_name = save_name.replace('.'+og_file_ext,'_prediction.tif')
 
                     im = Image.fromarray((final_pred_mask).astype(np.uint8))
                     # Smoothing image to get rid of grid lines

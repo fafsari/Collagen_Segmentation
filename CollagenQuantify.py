@@ -33,9 +33,10 @@ from glob import glob
 
 import cv2
 from skimage.feature import graycomatrix, graycoprops
+from scipy.ndimage import binary_fill_holes
 from PIL import Image
 
-
+from tqdm import tqdm
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -57,8 +58,9 @@ class Quantifier:
         # Getting predicted image patches from self.image_dir
         # Should all have .tif extension
         self.mask_paths = sorted(glob(self.mask_dir+'*.tif'))
-        self.f_image_paths = [i.replace(self.mask_dir,self.f_image_dir).replace('Test_Example_','').replace('.tif','.jpg') for i in self.mask_paths]
+        self.f_image_paths = [i.replace(self.mask_dir,self.f_image_dir).replace('Test_Example_','').replace('_prediction','').replace('.tif','.jpg') for i in self.mask_paths]
         self.bf_image_paths = [i.replace(self.f_image_dir,self.bf_image_dir) for i in self.f_image_paths]
+        print(f'--------------On: {self.output_dir.split("/")[-3]} -------------------------')
         print(f'------------------Found: {len(self.mask_paths)} Images!---------------------')
 
         if not os.path.exists(self.output_dir):
@@ -68,56 +70,58 @@ class Quantifier:
 
         # This will be a list of features for all images, list of dictionaries
         all_feature_list = []
-        for img_idx,img in enumerate(self.mask_paths):
+        for img_idx,img in tqdm(enumerate(self.mask_paths)):
 
             # Reading the image:
             og_pred_image = np.array(Image.open(img))
             bin_image = self.binarize(og_pred_image)
 
-            bf_image = np.mean(255-np.array(Image.open(self.bf_image_paths[img_idx])),axis=-1)
-            f_image = np.mean(np.array(Image.open(self.f_image_paths[img_idx])),axis=-1)
+            if np.sum(bin_image)>0:
 
-            # Verifying image name alignment
-            #print(f'Prediction name: {img.split(os.sep)[-1]}')
-            #print(f'BF image name: {self.bf_image_paths[img_idx].split(os.sep)[-1]}')
-            #print(f'F image name: {self.f_image_paths[img_idx].split(os.sep)[-1]}')
+                bf_image = np.mean(255-np.array(Image.open(self.bf_image_paths[img_idx])),axis=-1)
+                f_image = np.mean(np.array(Image.open(self.f_image_paths[img_idx])),axis=-1)
 
-            masked_bf_image = np.uint8(bin_image*bf_image)
-            masked_f_image = np.uint8(bin_image*f_image)
+                # Verifying image name alignment
+                #print(f'Prediction name: {img.split(os.sep)[-1]}')
+                #print(f'BF image name: {self.bf_image_paths[img_idx].split(os.sep)[-1]}')
+                #print(f'F image name: {self.f_image_paths[img_idx].split(os.sep)[-1]}')
 
-            # Global and distance transform features can still be using the prediction
-            # The merged image features are the intensity and texture features
-            glob_features = self.global_features(bin_image)
-            dt_features = self.distance_transform_features(bin_image)
+                masked_bf_image = np.uint8(bin_image*bf_image)
+                masked_f_image = np.uint8(bin_image*f_image)
 
-            # BF merged intensity and texture features
-            bf_int_features = self.intensity_features(masked_bf_image)
-            bf_text_features = self.texture_features(masked_bf_image)
+                # Global and distance transform features can still be using the prediction
+                # The merged image features are the intensity and texture features
+                glob_features = self.global_features(bin_image)
+                dt_features = self.distance_transform_features(bin_image)
 
-            bf_features = {**bf_int_features,**bf_text_features}
+                # BF merged intensity and texture features
+                bf_int_features = self.intensity_features(masked_bf_image)
+                bf_text_features = self.texture_features(masked_bf_image)
 
-            # F merged intensity and texture features
-            f_int_features = self.intensity_features(masked_f_image)
-            f_text_features = self.texture_features(masked_f_image)
+                bf_features = {**bf_int_features,**bf_text_features}
 
-            f_features = {**f_int_features,**f_text_features}
+                # F merged intensity and texture features
+                f_int_features = self.intensity_features(masked_f_image)
+                f_text_features = self.texture_features(masked_f_image)
 
-            # Renaming keys in each set of dictionaries
-            renamed_bf_features = {}
-            for b in bf_features:
-                renamed_bf_features[f'BF {b}'] = bf_features[b]
+                f_features = {**f_int_features,**f_text_features}
 
-            renamed_f_features = {}
-            for f in f_features:
-                renamed_f_features[f'F {f}'] = f_features[f]
+                # Renaming keys in each set of dictionaries
+                renamed_bf_features = {}
+                for b in bf_features:
+                    renamed_bf_features[f'BF {b}'] = bf_features[b]
 
-            # Merging dictionaries (3.9<=)
-            #image_features = glob_features | int_features | text_features | dt_features
-            # Merging dictionaries (3.5<=)
-            image_features = {**glob_features, **dt_features, **renamed_bf_features, **renamed_f_features}
-            image_features['Image Names'] = img.split('/')[-1]
+                renamed_f_features = {}
+                for f in f_features:
+                    renamed_f_features[f'F {f}'] = f_features[f]
 
-            all_feature_list.append(image_features)
+                # Merging dictionaries (3.9<=)
+                #image_features = glob_features | int_features | text_features | dt_features
+                # Merging dictionaries (3.5<=)
+                image_features = {**glob_features, **dt_features, **renamed_bf_features, **renamed_f_features}
+                image_features['Image Names'] = img.split('/')[-1]
+
+                all_feature_list.append(image_features)
 
         # Saving combined feature dataframe
         feature_df = pd.DataFrame.from_records(all_feature_list)
@@ -142,11 +146,16 @@ class Quantifier:
         # Takes as input the binary image and returns global features
         total_patch_area = np.shape(bin_image)[0]*np.shape(bin_image)[1]
         collagen_area = np.sum(bin_image)
-        other_area = total_patch_area-collagen_area
-        area_ratio = collagen_area/total_patch_area
+        if collagen_area>0:
+            other_area = binary_fill_holes(bin_image)
+            area_ratio = collagen_area/other_area
+        else:
+            other_area = total_patch_area
+            area_ratio = 0.0
 
         feature_dict = {
             'Total Patch Area':total_patch_area,
+            'Filled Area': other_area,
             'Collagen Area':collagen_area,
             'Collagen Area Ratio':area_ratio
         }

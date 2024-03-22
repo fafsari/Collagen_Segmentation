@@ -292,14 +292,15 @@ model_dict_list = [
 ]
 
 base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/020524_DUET_Patches/'
-#dataset_list = os.listdir(base_data_dir)
-dataset_list = ['32H']
+dataset_list = [i for i in os.listdir(base_data_dir) if os.path.isdir(base_data_dir+i)]
+#dataset_list = ['32H']
 
 model_dict_list = [model_dict_list[0]]
 
 f_dir = 'F'
 bf_dir = 'B'
 out_dir = 'Results'
+skip_duplicates = True
 print('-----------------------------------------------------------------')
 print(f'Iterating through {len(model_dict_list)} models on {len(dataset_list)} datasets')
 print('-----------------------------------------------------------')
@@ -329,7 +330,8 @@ non_neptune_inputs = {
         "model":"",
         "model_file":"",
         "model_details":{},
-        "preprocessing":{}
+        "preprocessing":{},
+        "skip_duplicates": skip_duplicates
     }
 }
 
@@ -384,14 +386,14 @@ for dataset in dataset_list:
             json.dump(test_iter_inputs,f,ensure_ascii=False)
             f.close()
         
-        if not os.path.exists(output_dir):
-            process = subprocess.Popen(['python3', 'Collagen_Segmentation/CollagenSegMain.py', f'./batch_inputs/test_inputs{count}.json'])
-            process.wait()
+        #if not os.path.exists(output_dir):
+        process = subprocess.Popen(['python3', 'Collagen_Segmentation/CollagenSegMain.py', f'./batch_inputs/test_inputs{count}.json'])
+        process.wait()
 
-            exit_code = process.returncode
-            print(f'Return code of process was: {exit_code}')
-        else:
-            print('Already run, skipping')
+        exit_code = process.returncode
+        print(f'Return code of process was: {exit_code}')
+        #else:
+        #    print('Already run, skipping')
 
         count+=1
 

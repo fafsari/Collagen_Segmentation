@@ -70,7 +70,7 @@ class Quantifier:
 
         # This will be a list of features for all images, list of dictionaries
         all_feature_list = []
-        for img_idx,img in tqdm(enumerate(self.mask_paths)):
+        for img_idx,img in tqdm(enumerate(self.mask_paths),total = len(self.mask_paths)):
 
             # Reading the image:
             og_pred_image = np.array(Image.open(img))

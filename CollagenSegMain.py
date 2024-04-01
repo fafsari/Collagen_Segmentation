@@ -450,7 +450,7 @@ def main():
 
             # Hack for only predicting on images which contain minimal background
             # Defined threshold (40kb) for brightfield images
-            passed_images = check_image_bytes(image_paths_base[1],lower_threshold = 40e3, upper_threshold = 400e3)
+            passed_images = check_image_bytes(image_paths_base[1],lower_threshold = 300e3, upper_threshold = 400e3)
             print(f'{len(passed_images)} passed the bytes check')
 
             if 'skip_duplicates' in input_parameters:

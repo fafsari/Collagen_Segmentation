@@ -84,7 +84,10 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
             n_classes = n_classes
         )
 
-    model.load_state_dict(torch.load(model_path))
+    if torch.cuda.is_available:
+        model.load_state_dict(torch.load(model_path))
+    else:
+        model.load_state_dict(torch.load(model_path,map_location=torch.device('cpu')))
     model.to(device)
     model.eval()
 

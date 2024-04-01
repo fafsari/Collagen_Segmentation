@@ -135,7 +135,7 @@ class Quantifier:
         else:
             print('Silly goose! There are no images in there! ')
 
-            
+
     def binarize(self,image):
         # Take in a continuous image prediction (2D) and return binarized image
 
@@ -153,18 +153,19 @@ class Quantifier:
         total_patch_area = np.shape(bin_image)[0]*np.shape(bin_image)[1]
         collagen_area = np.sum(bin_image)
         if collagen_area>0:
-            other_area = np.sum(binary_fill_holes(bin_image))
-            if other_area>0:
-                area_ratio = collagen_area/(other_area+collagen_area)
-            else:
-                area_ratio = 1.0
+            tissue_area = np.sum(binary_fill_holes(bin_image))
+            other_area = total_patch_area - tissue_area
+
+            area_ratio = collagen_area/(tissue_area+collagen_area)
+
         else:
-            other_area = total_patch_area
+            tissue_area = total_patch_area
             area_ratio = 0.0
 
         feature_dict = {
             'Total Patch Area':total_patch_area,
-            'Filled Area': other_area,
+            'Tissue Area': tissue_area,
+            'Empty Area': other_area,
             'Collagen Area':collagen_area,
             'Collagen Area Ratio':area_ratio
         }

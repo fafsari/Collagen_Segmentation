@@ -94,21 +94,24 @@ def main():
     # Recursive feature elimination
     # Non-Agg
     scaled_nonagg_features = StandardScaler().fit_transform(numeric_combined_features.values)
+    """
     linear_svc_nonagg = LinearSVC(C=0.1, penalty = 'l2',dual = False,max_iter=10000).fit(scaled_nonagg_features, combined_features['Fibrosis Score'].values)
     nonagg_model = SelectFromModel(linear_svc_nonagg,prefit=True)
     #new_features = nonagg_model.transform(numeric_combined_features.values)
 
     non_agg_selected_features = nonagg_model.get_feature_names_out(input_features = numeric_combined_features.columns.tolist()).tolist()
     print(f'Non-Agg selected features: {non_agg_selected_features}')
-
+    """
     # Agg
     scaled_agg_features = StandardScaler().fit_transform(numeric_aggregated_features.values)
+    """
     linear_svc_agg = LinearSVC(C=0.1, penalty = 'l2',dual = False,max_iter=10000).fit(scaled_agg_features, aggregated_features['Fibrosis Score'].values)
     agg_model = SelectFromModel(linear_svc_agg,prefit=True)
     #new_features = nonagg_model.transform(numeric_aggregated_features.values)
 
     agg_selected_features = agg_model.get_feature_names_out(input_features = numeric_aggregated_features.columns.tolist()).tolist()
     print(f'Agg selected features: {agg_selected_features}')
+    """
 
     agg_fig_output_path = output_path+'Agg/'
     nonagg_fig_output_path = output_path+'NonAgg/'
@@ -132,10 +135,10 @@ def main():
     
     additional_features= ['Collagen Area Ratio']
 
-    non_agg_selected_features.extend(additional_features)
-    agg_selected_features.extend(additional_features)
+    #non_agg_selected_features.extend(additional_features)
+    #agg_selected_features.extend(additional_features)
 
-    for feat in non_agg_selected_features:
+    for feat in numeric_combined_features.columns.tolist():
         fig = go.Figure()
 
         slide_idxes = np.unique(sorted_non_agg['SlideName'].tolist(),return_index=True)[1]
@@ -151,10 +154,18 @@ def main():
             )
 
         fig.update_traces(orientation = 'h', side = 'positive', width = 3, points = False)
-        fig.update_layout(xaxis_showgrid=False, xaxis_zeroline = False)
+        fig.update_layout(
+            xaxis_showgrid=False, 
+            xaxis_zeroline = False, 
+            height = 900, 
+            title = f'{feat} distribution across slides (color indicating fibrosis score)',
+            xaxis_title = f'Scaled {feat} value',
+            yaxis_title = 'Slide Name'
+            )
         fig.write_image(nonagg_fig_output_path+f'{feat}.png')
 
-    for feat in agg_selected_features:
+    """
+    for feat in numeric_combined_features.columns.tolist():
         fig = go.Figure()
 
         slide_idxes = np.unique(sorted_non_agg['SlideName'].tolist(),return_index=True)[1]
@@ -170,11 +181,62 @@ def main():
             )
 
         fig.update_traces(orientation = 'h', side = 'positive', width = 3, points = False)
-        fig.update_layout(xaxis_showgrid=False, xaxis_zeroline = False)
+        fig.update_layout(xaxis_showgrid=False, xaxis_zeroline = False, height = 900, title = f'{feat} distribution across slides (color indicating fibrosis score)')
         fig.write_image(agg_fig_output_path+f'{feat}.png')
+    """
 
+    for feat in numeric_combined_features.columns.tolist():
+        fig = go.Figure()
+
+        fib_idxes = np.unique(sorted_non_agg['Fibrosis Score'].tolist(),return_index=True)[1]
+        fibs = [sorted_non_agg['Fibrosis Score'].tolist()[i] for i in sorted(fib_idxes)]
+        for fib in fibs:
+            fig.add_trace(
+                go.Violin(
+                    x = sorted_non_agg[sorted_non_agg['Fibrosis Score']==fib][feat].values,
+                    line_color = colors[unique_fib_scores.index(fib)],
+                    name = f'Fibrosis Score: {fib}'
+                )
+            )
+
+        fig.update_traces(orientation = 'h', side = 'positive', width = 3, points = False)
+        fig.update_layout(
+            xaxis_showgrid=False, 
+            xaxis_zeroline = False, 
+            height = 900, 
+            title = f'{feat} distribution across fibrosis scores',
+            xaxis_title = f'Scaled {feat} value',
+            yaxis_title = 'Pathologist Fibrosis Score'
+            )
+        fig.write_image(nonagg_fig_output_path+f'{feat}_fib_score.png')
+
+    for feat in numeric_combined_features.columns.tolist():
+        fig = go.Figure()
+
+        fib_idxes = np.unique(sorted_non_agg['Fibrosis Score'].tolist(),return_index=True)[1]
+        fibs = [sorted_non_agg['Fibrosis Score'].tolist()[i] for i in sorted(fib_idxes)]
+        for fib in fibs:
+            fig.add_trace(
+                go.Violin(
+                    x = sorted_non_agg[sorted_non_agg['Fibrosis Score']==fib][feat].values,
+                    line_color = colors[unique_fib_scores.index(fib)],
+                    name = fib
+                )
+            )
+
+        fig.update_traces(orientation = 'h', side = 'positive', width = 3, points = False)
+        fig.update_layout(
+            xaxis_showgrid=False,
+            xaxis_zeroline = False, 
+            height = 900, 
+            title = f'{feat} distribution across fibrosis scores',
+            xaxis_title = f'Scaled {feat} value',
+            yaxis_title = 'Pathologist Fibrosis Score'
+            )
+        fig.write_image(agg_fig_output_path+f'{feat}_fib_score.png')
 
     # Generating umap
+    """
     umap_reducer = UMAP()
     embedding = umap_reducer.fit_transform(scaled_nonagg_features)
     embedding_df = pd.DataFrame({
@@ -198,7 +260,7 @@ def main():
         color = 'SlideName'
     )
     umap_fig.write_image(output_path+'UMAP_SlideName_NonAgg.png')
-
+    """
 
 if __name__=="__main__":
     main()

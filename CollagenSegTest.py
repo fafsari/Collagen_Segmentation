@@ -94,7 +94,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
     with torch.no_grad():
 
         # Evaluating model on test set
-        test_dataloader = DataLoader(dataset_valid)
+        #test_dataloader = DataLoader(dataset_valid)
 
         test_output_dir = output_dir+'/Testing_Output/'
         if not os.path.exists(test_output_dir):
@@ -109,7 +109,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                 testing_metrics_df = pd.DataFrame(data = {'MSE':[],'Norm_MSE':[]})
 
         # Setting up iterator to generate images from the validation dataset
-        data_iterator = iter(test_dataloader)
+        data_iterator = iter(dataset_valid)
         all_latent_features = None
         clustering_labels = []
 
@@ -124,7 +124,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                 # Initializing combined mask from patched predictions
                 if dataset_valid.patch_batch:
 
-                    save_name = dataset_valid.cached_item_names[dataset_valid.cached_item_index].split(os.sep)[-1]
+                    save_name = dataset_valid.cached_item_names[i].split(os.sep)[-1]
                     og_file_ext = save_name.split('.')[-1]
                     save_name = save_name.replace('.'+og_file_ext,'_prediction.tif')
 
@@ -139,11 +139,17 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                     # Now getting the number of patches needed for the current image
                     n_patches = len(dataset_valid.cached_data[i])
                     image_name = dataset_valid.cached_item_names[i]
+                    #print(f'image name: {image_name}')
 
-                    for n in range(0,n_patches):
+                    # Grabbing list of data at once:
+                    image_list, _, input_name_list = next(data_iterator)
+                    for image, input_name in zip(image_list, input_name_list):
 
-                        image, _, input_name = next(data_iterator)
+                        #for n in range(0,n_patches):
+
+                        #image, _, input_name = next(data_iterator)
                         input_name = ''.join(input_name).split(os.sep)[-1]
+                        #print(f'input_name: {input_name}')
 
                         pred_mask = model(image.to(device))
                         if not test_parameters['model_details']['scaler_means'] is None:
@@ -157,20 +163,19 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                                 all_latent_features = np.concatenate((all_latent_features,pred_latent_features),axis=0)
                                 clustering_labels.append({'Full_Image_Name':image_name,'Patch_Name':input_name})
 
-                        if target_type=='binary':        
-                            pred_mask_img = pred_mask.detach().cpu().numpy()
-
-                        elif target_type=='nonbinary':
-                            pred_mask_img = pred_mask.detach().cpu().numpy()
+                        # Detaching prediction from gradients, converting to numpy array
+                        pred_mask_img = pred_mask.detach().cpu().numpy()
 
                         # Getting patch locations from input_name
                         row_start = int(input_name.split('_')[-2])
                         col_start = int(input_name.split('_')[-1].split('.')[0])
 
+                        """
                         fig = visualize_continuous(
                             images = {'Pred_Mask':pred_mask_img},
                             output_type = 'prediction'
                         )
+                        """
                         
                         # Adding to final_pred_mask and overlap_mask
                         #final_pred_mask[row_start:row_start+patch_size[0],col_start:col_start+patch_size[1]] += (fig*255).astype(np.uint8)

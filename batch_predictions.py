@@ -293,7 +293,7 @@ model_dict_list = [
 
 base_data_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/020524_DUET_Patches/'
 dataset_list = [i for i in os.listdir(base_data_dir) if os.path.isdir(base_data_dir+i)]
-#dataset_list = ['32H']
+#dataset_list = ['24H Part 1']
 
 model_dict_list = [model_dict_list[0]]
 

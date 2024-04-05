@@ -440,7 +440,7 @@ def main():
             label_paths = []
         
         if input_parameters['type']=='multi':
-
+            
             image_paths_base = []
             for inp_type in input_image_type:
                 if os.path.isdir(input_parameters['image_dir'][inp_type]):
@@ -450,7 +450,7 @@ def main():
 
             # Hack for only predicting on images which contain minimal background
             # Defined threshold (40kb) for brightfield images
-            passed_images = check_image_bytes(image_paths_base[1],lower_threshold = 300e3, upper_threshold = 400e3)
+            passed_images = check_image_bytes(image_paths_base[1],lower_threshold = 300e3, upper_threshold = None)
             print(f'{len(passed_images)} passed the bytes check')
 
             if 'skip_duplicates' in input_parameters:
@@ -530,14 +530,18 @@ def main():
 
         # This is a hack for running on large sets of large images
         image_set_size = 5
-        run_throughs = ceil(len(image_paths)/5)
+        run_throughs = ceil(len(image_paths)/image_set_size)
 
         for run in range(run_throughs):
-            print(f'Running on images: {int(run*image_set_size)} to {int((run+1)*image_set_size)}')
+            
             if not int((run+1)*image_set_size)>=len(image_paths):
+                print(f'Running on images: {int(run*image_set_size)} to {int((run+1)*image_set_size)}')
                 run_paths = image_paths[int(run*image_set_size):int((run+1)*image_set_size)]
             else:
+                print(f'Running on images: {int(run*image_set_size)} to {len(image_paths)}')
                 run_paths = image_paths[int(run*image_set_size):len(image_paths)]
+            
+            print(run_paths)
                 
             nothin, dataset_test = make_training_set(
                 'test',

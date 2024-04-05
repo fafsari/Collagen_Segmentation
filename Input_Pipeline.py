@@ -77,6 +77,8 @@ class SegmentationDataSet(Dataset):
         self.image_stds = []
         self.images = []
         self.cached_item_names = []
+        self.item_idx = -1
+        self.cached_item_index = 0
 
         image_size = [int(i) for i in self.parameters['preprocessing']['image_size'].split(',')]
         
@@ -141,7 +143,7 @@ class SegmentationDataSet(Dataset):
 
                 # Overlap percentage, hardcoded patch size
                 self.patch_size = [image_size[0],image_size[1]]
-                self.patch_batch = 0.75
+                self.patch_batch = 0.25
                 stride = [int(self.patch_size[0]*(1-self.patch_batch)), int(self.patch_size[1]*(1-self.patch_batch))]
 
                 # Calculating and storing patch coordinates for each image and reading those regions at training time :/
@@ -167,13 +169,12 @@ class SegmentationDataSet(Dataset):
                             new_img, new_tar = self.pre_transform(new_img, new_tar)
 
                         item_patches.append((new_img,new_tar))
-                        patch_names.append(img_name.replace(f'.{img_name.split(".")[-1]}',f'_{r_s}_{c_s}.{img_name.split(".")[-1]}'))
+                        patch_names.append(name.replace(f'.{name.split(".")[-1]}',f'_{r_s}_{c_s}.{name.split(".")[-1]}'))
 
                 self.cached_data.append(item_patches)
                 self.cached_names.append(patch_names)
                 
                 self.cached_item_patches = [len(i) for i in self.cached_data]
-                self.cached_item_index = 0
 
         print(f'Cached Data: {len(self.cached_data)}')
 
@@ -185,14 +186,48 @@ class SegmentationDataSet(Dataset):
             return sum([len(i) for i in self.cached_data])
         
     # Getting matching input and target(label)
-    def __getitem__(self,
-                    index: int):
-        
+    def __getitem__(self,index:int):
+        #index = self.item_idx
+
         if not self.patch_batch:
             x, y = self.cached_data[index]
             input_ID = self.cached_names[index]
+            
+            # Preprocessing steps (if there are any)
+            if self.transform is not None:
+                x, y = self.transform(x, y)
+            
+            # Getting in the right input/target data types
+            x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
+
+            return x, y, input_ID
+
         else:
 
+            # Just returning a list of all patches for this index:
+            image_patches = self.cached_data[index]
+            patch_names = self.cached_names[index]
+
+            x_list = []
+            y_list = []
+            input_ID_list = []
+            for img_tar_pair, patch_id in zip(image_patches,patch_names):
+                img, tar = img_tar_pair
+
+                if self.transform is not None:
+                    x, y = self.transform(img, tar)
+                
+                # Adding batch dimension
+                x = x[None,:,:,:]
+                y = y[None,:,:,:]
+                x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
+                x_list.append(x)
+                y_list.append(y)
+                input_ID_list.append(patch_id)
+
+            return x_list, y_list, input_ID_list
+
+            """
             if self.cached_item_index == 0:
                 # if the index is equal to the number of patches - 1 then it will still work
                 if index > self.cached_item_patches[self.cached_item_index]-1:
@@ -200,10 +235,11 @@ class SegmentationDataSet(Dataset):
                     self.cached_item_index += 1
                     # Now index = 0 again
                     index -= self.cached_item_patches[self.cached_item_index-1]
+
             else:
 
                 index -= sum(self.cached_item_patches[0:self.cached_item_index])
-                if index > self.cached_item_patches[self.cached_item_index]-1:
+                if index >= self.cached_item_patches[self.cached_item_index]:
                     self.cached_item_index += 1
                     # Sending index back to zero
                     index -= self.cached_item_patches[self.cached_item_index-1]
@@ -215,14 +251,7 @@ class SegmentationDataSet(Dataset):
                 print(f'self.cached_item_index: {self.cached_item_index}')
                 print(f'sum(self.cached_item_patches[0:self.cached_item_index]): {sum(self.cached_item_patches[0:self.cached_item_index+1])}')
                 print(f'self.cached_item_patches: {self.cached_item_patches}')
-
-        # Preprocessing steps (if there are any)
-        if self.transform is not None:
-            x, y = self.transform(x, y)
-        
-        # Getting in the right input/target data types
-        x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
-        return x, y, input_ID
+            """
     
     def add_sub_categories(self,sub_categories, sub_cat_column):
         # Implementing sub-category weighting if provided with dataframe
@@ -249,9 +278,16 @@ class SegmentationDataSet(Dataset):
         print(f'sample_weight: {self.sample_weight}')
     
     def __iter__(self):
+        
+        self.item_idx = -1
 
         return self
     
+    def __next__(self):
+        self.item_idx+=1
+        return self[self.item_idx]
+
+    """
     def __next__(self):
 
         # Used during training when there is a sample_weight
@@ -276,7 +312,7 @@ class SegmentationDataSet(Dataset):
             name_list.append(input_id)
 
         return torch.stack(img_list), torch.stack(tar_list), name_list
-
+    """
     def normalize_cache(self,means,stds):
         # Applying normalization to a dataset according to a given set of means and standard deviations per channel
         for img,tar in self.cached_data:

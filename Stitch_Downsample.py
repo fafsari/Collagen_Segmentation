@@ -9,6 +9,7 @@ import sys
 import numpy as np
 
 from skimage.transform import resize
+from skimage.filters import gaussian, threshold_otsu
 
 from PIL import Image
 
@@ -34,7 +35,8 @@ def get_patch_coordinates(patch_name):
 def main():
     
     base_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/020524_DUET_Patches/'
-    slides = os.listdir(base_dir)
+    #slides = os.listdir(base_dir)
+    slides = ['24H Part 1']
     print(f'Found: {len(slides)} slides')
 
     b_dir = '/B/'
@@ -92,15 +94,18 @@ def main():
             stitched_downsampled_bf = np.repeat(np.zeros_like(stitched_downsampled_mask)[:,:,None],repeats=3,axis=-1)
             stitched_downsampled_f = np.zeros_like(stitched_downsampled_bf)
 
+            """
+            if os.path.exists(slide_out_dir+f'{slide}_Stitched_BF.tif'):
+                stitch_inputs = False
+            else:
+                stitch_inputs = True
+            """
+            stitch_inputs = True
+
             print(f'downsampled mask size: {stitched_downsampled_mask.shape}')
             for y,x,name in zip(y_coords,x_coords,checked_names):
                 checked_patch = np.array(Image.open(slide_pred_dir+name))[0:-(patch_overlap+1),0:-(patch_overlap+1)]
                 resized_patch = resize(checked_patch,output_shape = [int(checked_patch.shape[0]/downsample),int(checked_patch.shape[1]/downsample)])
-
-                checked_bf = np.array(Image.open(slide_b_dir+name.replace('_prediction.tif','.jpg')))[0:-(patch_overlap+1),0:-(patch_overlap+1),:]
-                resized_bf = resize(checked_bf,output_shape = [int(checked_patch.shape[0]/downsample),int(checked_patch.shape[1]/downsample),3])
-                checked_f = np.array(Image.open(slide_f_dir+name.replace('_prediction.tif','.jpg')))[0:-(patch_overlap+1),0:-(patch_overlap+1),:]
-                resized_f = resize(checked_f,output_shape = [int(checked_patch.shape[0]/downsample),int(checked_patch.shape[1]/downsample),3])
 
                 # Where should this patch go?
                 y_start = int(y*resized_patch.shape[0])
@@ -109,14 +114,44 @@ def main():
                 print(f'x: {x}, x_start: {x_start}, x_end: {x_start+resized_patch.shape[1]}')
 
                 stitched_downsampled_mask[y_start:int(y_start+resized_patch.shape[0]),x_start:int(x_start+resized_patch.shape[1])] += np.uint8(255*resized_patch)
-                stitched_downsampled_bf[y_start:int(y_start+resized_patch.shape[0]),x_start:int(x_start+resized_patch.shape[1]),:] += np.uint8(255*resized_bf)
-                stitched_downsampled_f[y_start:int(y_start+resized_patch.shape[0]),x_start:int(x_start+resized_patch.shape[1]),:] += np.uint8(255*resized_f)
+                
+                if stitch_inputs:
+                    checked_bf = np.array(Image.open(slide_b_dir+name.replace('_prediction.tif','.jpg')))[0:-(patch_overlap+1),0:-(patch_overlap+1),:]
+                    resized_bf = resize(checked_bf,output_shape = [int(checked_patch.shape[0]/downsample),int(checked_patch.shape[1]/downsample),3])
+                    checked_f = np.array(Image.open(slide_f_dir+name.replace('_prediction.tif','.jpg')))[0:-(patch_overlap+1),0:-(patch_overlap+1),:]
+                    resized_f = resize(checked_f,output_shape = [int(checked_patch.shape[0]/downsample),int(checked_patch.shape[1]/downsample),3])
+
+                    stitched_downsampled_bf[y_start:int(y_start+resized_patch.shape[0]),x_start:int(x_start+resized_patch.shape[1]),:] += np.uint8(255*resized_bf)
+                    stitched_downsampled_f[y_start:int(y_start+resized_patch.shape[0]),x_start:int(x_start+resized_patch.shape[1]),:] += np.uint8(255*resized_f)
 
 
             Image.fromarray(stitched_downsampled_mask).save(slide_out_dir+f'{slide}_Stitched_Output.tif')
-            Image.fromarray(stitched_downsampled_bf).save(slide_out_dir+f'{slide}_Stitched_BF.tif')
-            Image.fromarray(stitched_downsampled_f).save(slide_out_dir+f'{slide}_Stitched_F.tif')
+            
+            if stitch_inputs:
+                Image.fromarray(stitched_downsampled_bf).save(slide_out_dir+f'{slide}_Stitched_BF.tif')
+                Image.fromarray(stitched_downsampled_f).save(slide_out_dir+f'{slide}_Stitched_F.tif')
 
+                # Constructing virtual trichrome
+                # Gaussian smoothing
+                smoothed_mask = np.uint8(gaussian(stitched_downsampled_mask,sigma = 1,preserve_range=True))
+                Image.fromarray(smoothed_mask).save(slide_out_dir+f'{slide}_smoothed.tif')
+
+                # Thresholding
+                thresh_mask = np.uint8(smoothed_mask > 1.25*threshold_otsu(smoothed_mask))
+                Image.fromarray(255*thresh_mask).save(slide_out_dir+f'{slide}_thresh_mask.tif')
+
+                # Multiplying to green channel of DUET image
+                threshed_f = stitched_downsampled_f[:,:,1] * thresh_mask
+                new_blue = np.repeat(threshed_f.copy()[:,:,None],repeats=3,axis=-1)
+                new_blue[:,:,0] = np.zeros_like(stitched_downsampled_mask)
+                new_blue[:,:,1] = np.zeros_like(stitched_downsampled_mask)
+
+                Image.fromarray(new_blue).save(slide_out_dir+f'{slide}_new_blue.tif')
+
+                virtual_trichrome = stitched_downsampled_bf.copy()
+                virtual_trichrome = np.where(thresh_mask>0,new_blue,virtual_trichrome)
+
+                Image.fromarray(virtual_trichrome).save(slide_out_dir+f'{slide}_Virtual_Tri.tif')
 
         except NotADirectoryError:
             print('not a directory')

@@ -37,6 +37,7 @@ def main():
     
     base_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/020524_DUET_Patches/'
     slides = os.listdir(base_dir)
+    slides = [i for i in slides if os.path.isdir(base_dir+i)]
     #slides = ['24H Part 1']
     print(f'Found: {len(slides)} slides')
 
@@ -71,7 +72,7 @@ def main():
                     if np.sum(patch_img)>0:
                         checked_names.append(p)
                 
-                print(f'Patches with collagen: {len(checked_names)}')
+                #print(f'Patches with collagen: {len(checked_names)}')
                 x_coords = []
                 y_coords = []
                 for c in checked_names:

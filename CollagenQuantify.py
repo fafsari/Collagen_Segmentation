@@ -186,6 +186,8 @@ class Quantifier:
                     for a in image_features:
                         if not a=='Image Names':
                             image_features_json[a] = float(image_features[a])
+                        else:
+                            image_features_json[a] = image_features[a]
 
                     # Writing JSON formatted features to output directory
                     with open(self.output_dir+'/Stitched_Features.json','w') as f:

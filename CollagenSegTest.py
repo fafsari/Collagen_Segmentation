@@ -207,7 +207,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                         image, target, input_name = next(data_iterator)
                         input_name = ''.join(input_name)
                     except StopIteration:
-                        data_iterator = iter(test_dataloader)
+                        data_iterator = iter(data_iterator)
                         image, target, input_name = next(data_iterator)
                         input_name = ''.join(input_name)
 

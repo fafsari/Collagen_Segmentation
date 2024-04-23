@@ -197,6 +197,10 @@ class SegmentationDataSet(Dataset):
             if self.transform is not None:
                 x, y = self.transform(x, y)
             
+            # Adding batch dimension
+            x = x[None,:,:,:]
+            y = y[None,:,:,:]
+            
             # Getting in the right input/target data types
             x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
 

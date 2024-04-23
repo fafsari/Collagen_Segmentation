@@ -26,6 +26,7 @@ def main():
                 slide_features = json.load(f)
                 f.close()
             
+            slide_features['Image Name'] = slide
             all_features.append(slide_features)
 
     

@@ -14,6 +14,9 @@ from skimage.filters import gaussian, threshold_otsu
 from PIL import Image
 from tqdm import tqdm
 
+from scipy.ndimage import distance_transform_edt
+from matplotlib import cm as colormap
+
 
 def get_patch_coordinates(patch_name):
     """
@@ -32,13 +35,28 @@ def get_patch_coordinates(patch_name):
 
     return y_coord, x_coord
 
+def get_distance_transform_image(output_array):
+    """
+    Apply distance transform, normalize, and apply colormap to output array
+    """
+    distance_transform_rgb = np.zeros((output_array.shape[0],output_array.shape[1],3))
+    dist_output = distance_transform_edt(output_array>25)
+
+    # Normalizing and applying colormap
+    norm_dist = (dist_output-np.min(dist_output))/(np.max(dist_output))
+    rgb_dist = np.uint8(255*colormap.jet(norm_dist)[:,:,0:3])
+    
+    rgb_dist[norm_dist==np.min(norm_dist),:] = 0 
+
+    return rgb_dist, np.uint8(dist_output)
+
 
 def main():
     
     base_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/020524_DUET_Patches/'
     slides = os.listdir(base_dir)
     slides = [i for i in slides if os.path.isdir(base_dir+i)]
-    #slides = ['24H Part 1']
+    #slides = ['20H']
     print(f'Found: {len(slides)} slides')
 
     b_dir = '/B/'
@@ -105,7 +123,6 @@ def main():
                     stitch_inputs = True
                 """
                 stitch_inputs = True
-
                 #print(f'downsampled mask size: {stitched_downsampled_mask.shape}')
                 for y,x,name in zip(y_coords,x_coords,checked_names):
                     checked_patch = np.array(Image.open(slide_pred_dir+name))[0:-(patch_overlap+1),0:-(patch_overlap+1)]
@@ -127,10 +144,15 @@ def main():
 
                         stitched_downsampled_bf[y_start:int(y_start+resized_patch.shape[0]),x_start:int(x_start+resized_patch.shape[1]),:] += np.uint8(255*resized_bf)
                         stitched_downsampled_f[y_start:int(y_start+resized_patch.shape[0]),x_start:int(x_start+resized_patch.shape[1]),:] += np.uint8(255*resized_f)
-
+                    
+                    pbar.update(1/(len(checked_names)))
 
                 Image.fromarray(stitched_downsampled_mask).save(slide_out_dir+f'{slide}_Stitched_Output.tif')
                 
+                rgb_distance_transform, grayscale_distance_transform = get_distance_transform_image(stitched_downsampled_mask)
+                Image.fromarray(rgb_distance_transform).save(slide_out_dir+f'{slide}_Stitched_Output_DT.tif')
+                Image.fromarray(grayscale_distance_transform).save(slide_out_dir+f'{slide}_Stitched_Output_grayscale_DT.tif')
+
                 if stitch_inputs:
                     Image.fromarray(stitched_downsampled_bf).save(slide_out_dir+f'{slide}_Stitched_BF.tif')
                     Image.fromarray(stitched_downsampled_f).save(slide_out_dir+f'{slide}_Stitched_F.tif')
@@ -161,7 +183,7 @@ def main():
             except NotADirectoryError:
                 print('not a directory')
 
-            pbar.update(1)
+            #pbar.update(1)
 
 if __name__ == '__main__':
     print('executing main')

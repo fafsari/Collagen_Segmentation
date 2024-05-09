@@ -144,7 +144,9 @@ class SegmentationDataSet(Dataset):
                 # Overlap percentage, hardcoded patch size
                 self.patch_size = [image_size[0],image_size[1]]
                 self.patch_batch = 0.25
-                stride = [int(self.patch_size[0]*(1-self.patch_batch)), int(self.patch_size[1]*(1-self.patch_batch))]
+                # Correction for downsampled (10X as opposed to 20X) data
+                self.downsample_level = 0.5
+                stride = [int(self.patch_size[0]*(1-self.patch_batch)*self.downsample_level), int(self.patch_size[1]*(1-self.patch_batch)*self.downsample_level)]
 
                 # Calculating and storing patch coordinates for each image and reading those regions at training time :/
                 n_patches = [1+floor((np.shape(img)[0]-self.patch_size[0])/stride[0]), 1+floor((np.shape(img)[1]-self.patch_size[1])/stride[1])]
@@ -198,8 +200,8 @@ class SegmentationDataSet(Dataset):
                 x, y = self.transform(x, y)
             
             # Adding batch dimension
-            x = x[None,:,:,:]
-            y = y[None,:,:,:]
+            #x = x[None,:,:,:]
+            #y = y[None,:,:,:]
             
             # Getting in the right input/target data types
             x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
@@ -291,32 +293,6 @@ class SegmentationDataSet(Dataset):
         self.item_idx+=1
         return self[self.item_idx]
 
-    """
-    def __next__(self):
-
-        # Used during training when there is a sample_weight
-        img_list = []
-        tar_list = []
-        name_list = []
-        for b in range(self.batch_size):
-            
-            if self.sample_weight:
-                s_idx = np.random.choice(list(range(len(self.cached_data))),p=self.sample_weight)
-
-            img, tar = self.cached_data[s_idx]
-            input_id = self.cached_names[s_idx]
-            
-            if self.transform is not None:
-                x, y = self.transform(img,tar)
-            
-            x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
-
-            img_list.append(x)
-            tar_list.append(y)
-            name_list.append(input_id)
-
-        return torch.stack(img_list), torch.stack(tar_list), name_list
-    """
     def normalize_cache(self,means,stds):
         # Applying normalization to a dataset according to a given set of means and standard deviations per channel
         for img,tar in self.cached_data:
@@ -363,7 +339,6 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
         # Continuous target type augmentations
         transforms_training = ComposeDouble([
             AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
-            #AlbuSeg2d(albumentations.IAAPerspective(p=0.5)),
             AlbuSeg2d(albumentations.RandomBrightnessContrast(p=0.2)),
             AlbuSeg2d(albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.5,rotate_limit=45,interpolation=1,p=0.1)),
             AlbuSeg2d(albumentations.VerticalFlip(p=0.5)),

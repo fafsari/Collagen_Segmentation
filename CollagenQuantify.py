@@ -33,7 +33,7 @@ from glob import glob
 
 import cv2
 from skimage.feature import graycomatrix, graycoprops
-from scipy.ndimage import binary_fill_holes
+from scipy.ndimage import binary_fill_holes, label
 from PIL import Image
 
 from tqdm import tqdm
@@ -254,6 +254,17 @@ class Quantifier:
             'Standard Deviation Distance Transform': std_distance,
             'Median Distance Transform': med_distance
         }
+        
+        # Pixel & ROI counts above certain values (0,50)
+        pixel_steps = [5*i for i in range(0,11)]
+        for p in pixel_steps:
+
+            pixel_count = np.nansum(dist_transform_img>p)
+            _, roi_count = label(dist_transform_img>p)
+
+            feature_dict[f'Distance Transform Pixel Count > {p}'] = pixel_count
+            feature_dict[f'Distance Transform ROI Count > {p}'] = roi_count
+
 
         return feature_dict
     

@@ -44,6 +44,9 @@ def check_image_bytes(image_path_list,lower_threshold = None, upper_threshold = 
     # In this case it looks like all the images with less than ~40kb just contain background
 
     passed_list = []
+    if lower_threshold is None and upper_threshold is None:
+        return image_path_list
+
     for i in image_path_list:
         file_size = os.path.getsize(i)
         if not lower_threshold is None:
@@ -450,7 +453,7 @@ def main():
 
             # Hack for only predicting on images which contain minimal background
             # Defined threshold (40kb) for brightfield images
-            passed_images = check_image_bytes(image_paths_base[1],lower_threshold = 200e3, upper_threshold = None)
+            passed_images = check_image_bytes(image_paths_base[1],lower_threshold = None, upper_threshold = None)
             print(f'{len(passed_images)} passed the bytes check')
 
             if 'skip_duplicates' in input_parameters:

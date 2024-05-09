@@ -11,7 +11,7 @@ from time import sleep
 import subprocess
 
 datasets_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/020524_DUET_Patches/'
-datasets_list = os.listdir(datasets_dir)
+datasets_list = [i for i in os.listdir(datasets_dir) if os.path.isdir(datasets_dir+i)]
 print(datasets_list)
 print(f'---------Found {len(datasets_list)} models! Wow!----------------------')
 

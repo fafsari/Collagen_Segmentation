@@ -49,6 +49,7 @@ class MultiModalModel(torch.nn.Module):
         if self.duet_decay:
             self.decay_count = -1
             self.decay_sigma = 100
+            self.decay_stop = 1000
 
         if self.active=='sigmoid':
             self.final_active = torch.nn.Sigmoid()
@@ -88,10 +89,20 @@ class MultiModalModel(torch.nn.Module):
         """
         Decreasing influence of DUET side of the ensemble model on final prediction as training progresses
         """
-        self.duet_decay += 1
+        self.decay_count += 1
 
-        # https://en.wikipedia.org/wiki/Half-normal_distribution
-        new_val = ((2**0.5)/(self.decay_sigma*(pi**0.5))) * np.exp2(-1*((self.decay_count**2)/(2*(self.decay_sigma**2))))
+        if self.decay_count < self.decay_stop:
+            # https://en.wikipedia.org/wiki/Half-normal_distribution
+            # multiplied by decay sigma to get the initial value closer to 1
+            new_val = ((2**0.5)/(self.decay_sigma*(pi**0.5))) * np.exp2(-1*((self.decay_count**2)/(2*(self.decay_sigma**2))))
+
+            if self.decay_count == 0:
+                self.decay_scale = 1/new_val
+            
+            new_val = new_val * self.decay_scale
+        
+        else:
+            new_val = 0.0
 
         return new_val
 
@@ -104,8 +115,8 @@ class MultiModalModel(torch.nn.Module):
         d_output = self.model_d.decoder(*self.model_d.encoder(d_input))
 
         if self.duet_decay:
-            new_decay_val = self.update_decay()
-            d_output = d_output * new_decay_val
+            self.decay_val = self.update_decay()
+            d_output = d_output * self.decay_val
 
         combined_output = torch.cat((b_output,d_output),dim=1)
         final_prediction = self.final_active(self.combine_layers(combined_output))
@@ -253,6 +264,10 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 nept_run['training_loss'].log(train_loss)
             else:
                 nept_run[f'training_loss_{train_parameters["current_k_fold"]}'].log(train_loss)
+
+            # Logging decay value if there is one
+            if 'decay_val' in vars(model):
+                nept_run['DUET_decay'].log(model.decay_val)
 
             # Updating optimizer
             optimizer.step()

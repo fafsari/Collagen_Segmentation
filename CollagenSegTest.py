@@ -216,6 +216,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                     # Add something here so that it calculates perforance metrics and outputs
                     # raw values for 2-class segmentation(not binarized output masks)
                     #pred_mask = model.predict(image.to(device))
+                    image = image[None,:,:,:]
                     pred_mask = model(image.to(device))
 
                     if not test_parameters['model_details']['scaler_means'] is None:

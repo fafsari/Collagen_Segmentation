@@ -44,7 +44,6 @@ class SegmentationDataSet(Dataset):
                  targets: list,
                  transform = None,
                  pre_transform = None,
-                 target_type = None,
                  batch_size = None,
                  parameters = {}):
         
@@ -53,14 +52,8 @@ class SegmentationDataSet(Dataset):
         self.targets = targets
         self.transform = transform
         self.inputs_dtype = torch.float32
+        self.targets_dtype = self.inputs_dtype
         self.parameters = parameters
-
-        if target_type == 'binary':
-            self.targets_dtype = torch.long
-        elif target_type == 'nonbinary':
-            self.targets_dtype = torch.float32
-        elif target_type is None:
-            self.targets_dtype = torch.float32
         
         self.batch_size = batch_size
         self.patch_batch = False
@@ -338,10 +331,11 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
 
         # Continuous target type augmentations
         transforms_training = ComposeDouble([
-            AlbuSeg2d(albumentations.HorizontalFlip(p=0.5)),
-            AlbuSeg2d(albumentations.RandomBrightnessContrast(p=0.2)),
-            AlbuSeg2d(albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.5,rotate_limit=45,interpolation=1,p=0.1)),
-            AlbuSeg2d(albumentations.VerticalFlip(p=0.5)),
+            AlbuSeg2d(albumentations.HorizontalFlip(p=0.2)),
+            AlbuSeg2d(albumentations.RandomBrightnessContrast(p=0.5)),
+            AlbuSeg2d(albumentations.ColorJitter(p = 0.5)),
+            AlbuSeg2d(albumentations.ShiftScaleRotate(p=0.3)),
+            AlbuSeg2d(albumentations.VerticalFlip(p=0.2)),
             FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0)
         ])
 

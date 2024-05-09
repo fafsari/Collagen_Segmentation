@@ -34,7 +34,7 @@ import plotly.express as px
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 from CollagenSegUtils import visualize_continuous, get_metrics
 from CollagenCluster import Clusterer
-from CollagenSegTrain import EnsembleModel
+from CollagenSegTrain import MultiModalModel
 from tifffile import imsave
     
         
@@ -77,8 +77,8 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                 classes = n_classes,
                 activation = active
                 )
-    elif model_details['architecture']=='ensemble':
-        model = EnsembleModel(
+    elif model_details['architecture']=='multimodal':
+        model = MultiModalModel(
             in_channels = in_channels,
             active = active,
             n_classes = n_classes

@@ -24,24 +24,31 @@ import pandas as pd
 from tqdm import tqdm
 import sys
 import os
+from math import pi
 
 from CollagenSegUtils import visualize_continuous
 
 
-class EnsembleModel(torch.nn.Module):
+class MultiModalModel(torch.nn.Module):
     def __init__(self,
                  in_channels,
                  active,
-                 n_classes):
+                 n_classes,
+                 duet_decay = True):
         super().__init__()
 
         self.in_channels = in_channels
         self.active = active
         self.n_classes = n_classes
+        self.duet_decay = duet_decay
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         encoder = 'resnet34'
         encoder_weights = 'imagenet'
+
+        if self.duet_decay:
+            self.decay_count = -1
+            self.decay_sigma = 100
 
         if self.active=='sigmoid':
             self.final_active = torch.nn.Sigmoid()
@@ -73,10 +80,20 @@ class EnsembleModel(torch.nn.Module):
         self.combine_layers = torch.nn.Sequential(
             torch.nn.LazyConv2d(64,kernel_size=1),
             torch.nn.Dropout(p=0.1),
-            #torch.nn.BatchNorm2d(64),
             torch.nn.ReLU(inplace=True),
             torch.nn.Conv2d(64,self.n_classes,kernel_size=1)
         )
+
+    def update_decay(self):
+        """
+        Decreasing influence of DUET side of the ensemble model on final prediction as training progresses
+        """
+        self.duet_decay += 1
+
+        # https://en.wikipedia.org/wiki/Half-normal_distribution
+        new_val = ((2**0.5)/(self.decay_sigma*(pi**0.5))) * np.exp2(-1*((self.decay_count**2)/(2*(self.decay_sigma**2))))
+
+        return new_val
 
 
     def forward(self,input):
@@ -85,6 +102,10 @@ class EnsembleModel(torch.nn.Module):
         d_input = input[:,int(self.in_channels/2):self.in_channels,:,:]
         b_output = self.model_b.decoder(*self.model_b.encoder(b_input))
         d_output = self.model_d.decoder(*self.model_d.encoder(d_input))
+
+        if self.duet_decay:
+            new_decay_val = self.update_decay()
+            d_output = d_output * new_decay_val
 
         combined_output = torch.cat((b_output,d_output),dim=1)
         final_prediction = self.final_active(self.combine_layers(combined_output))
@@ -149,8 +170,8 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 classes = n_classes,
                 activation = active
                 )
-    elif model_details['architecture']=='ensemble':
-        model = EnsembleModel(
+    elif model_details['architecture']=='multimodal':
+        model = MultiModalModel(
             in_channels = in_channels,
             active = active,
             n_classes = n_classes

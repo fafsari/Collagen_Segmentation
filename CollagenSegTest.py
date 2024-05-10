@@ -33,7 +33,7 @@ import plotly.express as px
 
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 from CollagenSegUtils import visualize_continuous, get_metrics
-from CollagenCluster import Clusterer
+#from CollagenCluster import Clusterer
 from CollagenSegTrain import MultiModalModel
 from tifffile import imsave
     
@@ -49,7 +49,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
     encoder_weights = model_details['encoder_weights']
 
     # Loading clusterer to cluster latent features
-    clusterer = Clusterer(test_parameters)
+    #clusterer = Clusterer(test_parameters)
 
     ann_classes = model_details['ann_classes']
     active = model_details['active']
@@ -92,9 +92,6 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
     model.eval()
 
     with torch.no_grad():
-
-        # Evaluating model on test set
-        #test_dataloader = DataLoader(dataset_valid)
 
         test_output_dir = output_dir+'/Testing_Output/'
         if not os.path.exists(test_output_dir):
@@ -152,6 +149,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                         #print(f'input_name: {input_name}')
 
                         pred_mask = model(image.to(device))
+                        """
                         if not test_parameters['model_details']['scaler_means'] is None:
                             pred_latent_features = clusterer.cluster_in_loop(model,image.to(device))
 
@@ -163,6 +161,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                                 all_latent_features = np.concatenate((all_latent_features,pred_latent_features),axis=0)
                                 clustering_labels.append({'Full_Image_Name':image_name,'Patch_Name':input_name})
 
+                        """
                         # Detaching prediction from gradients, converting to numpy array
                         pred_mask_img = pred_mask.detach().cpu().numpy()
 
@@ -219,6 +218,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                     image = image[None,:,:,:]
                     pred_mask = model(image.to(device))
 
+                    """
                     if not test_parameters['model_details']['scaler_means'] is None:
                         pred_latent_features = clusterer.cluster_in_loop(model,image.to(device))
                         if all_latent_features is None:
@@ -228,7 +228,8 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                             pred_latent_features = pred_latent_features.cpu().numpy()
                             all_latent_features = np.concatenate((all_latent_features,pred_latent_features),axis=0)
                             clustering_labels.append({'Patch_Name':input_name})
-
+                    """
+                    
                     if target_type=='binary':        
                         target_img = target.cpu().numpy().round()
                         pred_mask_img = pred_mask.detach().cpu().numpy()
@@ -297,7 +298,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                             except TypeError:
                                 print(f'Number of samples: {testing_metrics_df.shape[0]}')
 
-
+        """
         # Scaling according to reference training set scaler values
         if not test_parameters['model_details']['scaler_means'] is None:
             
@@ -347,5 +348,5 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
             else:
                 print('Oops! All NaNs!')
 
-
+        """
 

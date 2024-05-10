@@ -30,7 +30,7 @@
         "loss":"MSE",
         "lr":0.00005,
         "batch_size":2,
-        "step_num":2000,
+        "step_num":3000,
         "save_step":20,
         "preprocessing":{
             "image_size":"512,512,6",

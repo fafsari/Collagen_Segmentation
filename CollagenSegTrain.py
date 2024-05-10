@@ -48,7 +48,7 @@ class MultiModalModel(torch.nn.Module):
 
         if self.duet_decay:
             self.decay_count = -1
-            self.decay_sigma = 100
+            self.decay_sigma = 500
             self.decay_stop = 1000
 
         if self.active=='sigmoid':
@@ -172,6 +172,10 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     nept_run['Loss'] = train_parameters['loss']
     nept_run['output_type'] = output_type
     nept_run['lr'] = train_parameters['lr']
+
+    if 'training_normalization' in train_parameters:
+        nept_run['Image Means'] = ','.join([str(i) for i in train_parameters['training_normalization']['mean'].tolist()])
+        nept_run['Image Stds'] = ','.join([str(i) for i in train_parameters['training_normalization']['std'].tolist()])
     
     if model_details['architecture']=='Unet++':
         model = smp.UnetPlusPlus(
@@ -199,16 +203,8 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     loss = loss.to(device)
 
     batch_size = train_parameters['batch_size']
-    #train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 12)
-    #valid_loader = DataLoader(dataset_valid, batch_size = batch_size, shuffle = True, num_workers = 4)
 
-    if 'sub_categories_file' in train_parameters:
-        sub_categories = pd.read_csv(train_parameters['sub_categories_file'])
-        dataset_train.add_sub_categories(sub_categories,'Labels')
-        train_loader = iter(dataset_train)
-    else:
-        train_loader = DataLoader(dataset_valid,batch_size=batch_size,shuffle=True)
-
+    train_loader = DataLoader(dataset_valid,batch_size=batch_size,shuffle=True)
     valid_loader = DataLoader(dataset_valid,batch_size=batch_size,shuffle=True)
     
     # Maximum number of epochs defined here as well as how many steps between model saves and example outputs
@@ -348,7 +344,7 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
         torch.save(model.state_dict(),model_dir+f'Collagen_Seg_Model_Latest.pth')
 
     loss_df = pd.DataFrame(data = {'TrainingLoss':train_loss_list,'ValidationLoss':val_loss_list})
-    loss_df.to_csv(output_dir+'Training_Validation_Loss.csv')
+    loss_df.to_csv(output_dir+'/Training_Validation_Loss.csv')
     return model_dir+f'Collagen_Seg_Model_Latest.pth'
 
 

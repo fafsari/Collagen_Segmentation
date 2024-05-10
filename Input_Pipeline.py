@@ -42,6 +42,7 @@ class SegmentationDataSet(Dataset):
     def __init__(self,
                  inputs: list,
                  targets: list,
+                 train_val_test: str,
                  transform = None,
                  pre_transform = None,
                  batch_size = None,
@@ -50,6 +51,7 @@ class SegmentationDataSet(Dataset):
 
         self.inputs = inputs
         self.targets = targets
+        self.train_val_test = train_val_test
         self.transform = transform
         self.inputs_dtype = torch.float32
         self.targets_dtype = self.inputs_dtype
@@ -163,6 +165,13 @@ class SegmentationDataSet(Dataset):
                         if self.pre_transform is not None:
                             new_img, new_tar = self.pre_transform(new_img, new_tar)
 
+                        # Calculating dataset mean and standard deviation
+                        img_channel_mean = np.mean(new_img,axis=(0,1))
+                        img_channel_std = np.std(new_img,axis=(0,1))
+
+                        self.image_means.append(img_channel_mean)
+                        self.image_stds.append(img_channel_std)
+
                         item_patches.append((new_img,new_tar))
                         patch_names.append(name.replace(f'.{name.split(".")[-1]}',f'_{r_s}_{c_s}.{name.split(".")[-1]}'))
 
@@ -172,6 +181,29 @@ class SegmentationDataSet(Dataset):
                 self.cached_item_patches = [len(i) for i in self.cached_data]
 
         print(f'Cached Data: {len(self.cached_data)}')
+        
+        # Normalizing the training data only
+        if self.train_val_test=='train':
+            mean_means = np.mean(np.array(self.image_means),axis=0)
+            mean_stds = np.mean(np.array(self.image_stds),axis=0)
+
+            print(f'Mean of cached data: {mean_means}, Standard Devaition of cached data: {mean_stds}')
+
+            self.parameters['training_normalization'] = {
+                'mean': mean_means,
+                'std': mean_stds
+            }
+
+            self.normalize_cache(mean_means, mean_stds)
+        
+        elif self.train_val_test=='val':
+            
+            print(f'Normalizing with training data mean and standard deviation')
+
+            means = self.parameters['training_normalization']['mean']
+            stds = self.parameters['training_normalization']['std']
+            self.normalize_cache(means,stds)
+
 
     def __len__(self):
         
@@ -182,7 +214,6 @@ class SegmentationDataSet(Dataset):
         
     # Getting matching input and target(label)
     def __getitem__(self,index:int):
-        #index = self.item_idx
 
         if not self.patch_batch:
             x, y = self.cached_data[index]
@@ -191,10 +222,6 @@ class SegmentationDataSet(Dataset):
             # Preprocessing steps (if there are any)
             if self.transform is not None:
                 x, y = self.transform(x, y)
-            
-            # Adding batch dimension
-            #x = x[None,:,:,:]
-            #y = y[None,:,:,:]
             
             # Getting in the right input/target data types
             x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
@@ -252,30 +279,6 @@ class SegmentationDataSet(Dataset):
                 print(f'self.cached_item_patches: {self.cached_item_patches}')
             """
     
-    def add_sub_categories(self,sub_categories, sub_cat_column):
-        # Implementing sub-category weighting if provided with dataframe
-        sub_cat_counts = sub_categories[sub_cat_column].value_counts(normalize=True).to_dict()
-        print(f'Dataset composition: {sub_cat_counts}')
-
-        # Applying inverse weight to each sample (evens out sampling)
-        sub_cat_counts = {i:1.0-j for i,j in zip(list(sub_cat_counts.keys()),list(sub_cat_counts.values()))}
-
-        # Calculating sample weight
-        self.sample_weight = []
-        for s in self.cached_names:
-            sample_name = s.split('/')[-1]
-            print(sample_name)
-            if sample_name in sub_categories['Image_Names'].tolist():
-                sample_label = sub_categories[sub_categories['Image_Names'].str.match(sample_name)]['Labels'].tolist()[0]
-                print(sample_label)
-                self.sample_weight.append(sub_cat_counts[sample_label])
-            else:
-                print(f'sample not in dataframe: {sample_name}')
-                self.sample_weight.append(0)
-
-        self.sample_weight = [i/sum(self.sample_weight) for i in self.sample_weight]
-        print(f'sample_weight: {self.sample_weight}')
-    
     def __iter__(self):
         
         self.item_idx = -1
@@ -289,7 +292,7 @@ class SegmentationDataSet(Dataset):
     def normalize_cache(self,means,stds):
         # Applying normalization to a dataset according to a given set of means and standard deviations per channel
         for img,tar in self.cached_data:
-            img = np.float64(img)
+            img = np.float32(img)
             for j in range(img.shape[-1]):
                 img[:,:,j] -= means[j]
                 img[:,:,j] /= stds[j]
@@ -345,12 +348,14 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
 
         dataset_train = SegmentationDataSet(inputs = train_img_paths,
                                              targets = train_tar,
+                                             train_val_test= 'train',
                                              transform = transforms_training,
                                              pre_transform = pre_transforms,
                                              parameters = parameters)
         
         dataset_valid = SegmentationDataSet(inputs = valid_img_paths,
                                              targets = valid_tar,
+                                             train_val_test= 'val',
                                              transform = transforms_validation,
                                              pre_transform = pre_transforms,
                                              parameters = parameters)
@@ -383,6 +388,7 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
         
         dataset_valid = SegmentationDataSet(inputs = valid_img_paths,
                                             targets = valid_tar,
+                                            train_val_test='test',
                                             transform = transforms_testing,
                                             pre_transform = pre_transforms,
                                             parameters = parameters)

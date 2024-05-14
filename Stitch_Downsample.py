@@ -55,8 +55,8 @@ def main():
     
     base_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/020524_DUET_Patches/'
     slides = os.listdir(base_dir)
-    slides = [i for i in slides if os.path.isdir(base_dir+i)]
-    #slides = ['20H']
+    #slides = [i for i in slides if os.path.isdir(base_dir+i)]
+    slides = ['4H','8H','16H','44H-bottom core','45H','50H']
     print(f'Found: {len(slides)} slides')
 
     b_dir = '/B/'

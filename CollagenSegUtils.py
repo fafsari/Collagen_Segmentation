@@ -329,7 +329,7 @@ def resize_special(img,output_size,transform):
 
             img = np.concatenate((f_norm,inv_bf_norm),axis=-1)
                 
-    img = resize(img,output_size)
+    img = np.float32(resize(img,output_size))
 
     return img
 

@@ -24,7 +24,7 @@ import pandas as pd
 from tqdm import tqdm
 import sys
 import os
-from math import pi
+from math import pi, floor
 
 from CollagenSegUtils import visualize_continuous
 
@@ -49,7 +49,7 @@ class MultiModalModel(torch.nn.Module):
         if self.duet_decay:
             self.decay_count = -1
             self.decay_sigma = 500
-            self.decay_stop = 1000
+            self.decay_stop = 2000
 
         if self.active=='sigmoid':
             self.final_active = torch.nn.Sigmoid()
@@ -94,7 +94,9 @@ class MultiModalModel(torch.nn.Module):
         if self.decay_count < self.decay_stop:
             # https://en.wikipedia.org/wiki/Half-normal_distribution
             # multiplied by decay sigma to get the initial value closer to 1
-            new_val = ((2**0.5)/(self.decay_sigma*(pi**0.5))) * np.exp2(-1*((self.decay_count**2)/(2*(self.decay_sigma**2))))
+            # since this is used both in validation and training passes
+            decay_iteration = floor(self.decay_count/2)
+            new_val = ((2**0.5)/(self.decay_sigma*(pi**0.5))) * np.exp2(-1*((decay_iteration**2)/(2*(self.decay_sigma**2))))
 
             if self.decay_count == 0:
                 self.decay_scale = 1/new_val
@@ -204,7 +206,7 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
 
     batch_size = train_parameters['batch_size']
 
-    train_loader = DataLoader(dataset_valid,batch_size=batch_size,shuffle=True)
+    train_loader = DataLoader(dataset_train,batch_size=batch_size,shuffle=True)
     valid_loader = DataLoader(dataset_valid,batch_size=batch_size,shuffle=True)
     
     # Maximum number of epochs defined here as well as how many steps between model saves and example outputs
@@ -326,7 +328,7 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                     elif sum(in_channels)==2:
                         current_img = np.concatenate((current_img[0,:,:][None,:,:],current_img[1,:,:][None,:,:]),axis=-2)
 
-                img_dict = {'Image':current_img, 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
+                img_dict = {'Image':np.uint8(current_img), 'Pred_Mask':current_pred,'Ground_Truth':current_gt}
 
                 fig = visualize_continuous(img_dict,output_type)
 

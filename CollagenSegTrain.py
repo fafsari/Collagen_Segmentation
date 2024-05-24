@@ -13,6 +13,7 @@ A lot of different segmentation networks are available from the 'segmentation_mo
 """
 
 import torch
+# from apex import amp
 import numpy as np
 import segmentation_models_pytorch as smp
 from torch.utils.data import DataLoader
@@ -26,7 +27,6 @@ import sys
 import os
 
 from CollagenSegUtils import visualize_continuous
-
 
 class EnsembleModel(torch.nn.Module):
     def __init__(self,
@@ -91,6 +91,213 @@ class EnsembleModel(torch.nn.Module):
         
         return final_prediction
 
+class EnsembleModelMIT(torch.nn.Module):
+    def __init__(self,
+                 in_channels,
+                 active,
+                 n_classes):
+        super().__init__()
+
+        self.in_channels = in_channels
+        self.active = active
+        self.n_classes = n_classes
+
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        encoder = 'mit_b2'
+        encoder_weights = 'imagenet'
+
+        if self.active=='sigmoid':
+            self.final_active = torch.nn.Sigmoid()
+        elif self.active =='softmax':
+            self.final_active = torch.nn.Softmax(dim=1)       
+        elif self.active == 'linear':
+            self.active = None
+            self.final_active = torch.nn.Identity()
+        else:
+            self.active = None
+            self.final_active = torch.nn.ReLU()
+
+        self.model_b = smp.Unet(
+                encoder_name = encoder,
+                encoder_weights = encoder_weights,
+                in_channels = int(self.in_channels/2),
+                classes = self.n_classes,
+                activation = self.active
+                )
+        
+        self.model_d = smp.Unet(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
+            in_channels = int(self.in_channels/2),
+            classes = self.n_classes,
+            activation = self.active
+        )
+
+        self.combine_layers = torch.nn.Sequential(
+            torch.nn.LazyConv2d(64,kernel_size=1),
+            torch.nn.Dropout(p=0.1),
+            #torch.nn.BatchNorm2d(64),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Conv2d(64,self.n_classes,kernel_size=1)
+        )
+
+
+    def forward(self,input):
+
+        b_input = input[:,0:int(self.in_channels/2),:,:]
+        d_input = input[:,int(self.in_channels/2):self.in_channels,:,:]
+        b_output = self.model_b.decoder(*self.model_b.encoder(b_input))
+        d_output = self.model_d.decoder(*self.model_d.encoder(d_input))
+
+        combined_output = torch.cat((b_output,d_output),dim=1)
+        final_prediction = self.final_active(self.combine_layers(combined_output))
+        
+        return final_prediction
+
+
+class CrossAttention(torch.nn.Module):
+    def __init__(self, in_channels):
+        super(CrossAttention, self).__init__()
+        self.scale = in_channels ** -0.5
+
+    def forward(self, f_input, b_input):
+        # # Get dimensions of query and key
+        query_dim = f_input.size(-1)
+        key_dim = b_input.size(-1)
+        
+        # Calculate proportional scaling factor
+        self.scale = (query_dim ** -0.5) * (key_dim ** -0.5)
+        
+        # Calculate attention scores
+        attn = torch.matmul(f_input, b_input.transpose(-2, -1)) * self.scale
+        
+        # Apply softmax to get attention weights
+        attn = torch.nn.functional.softmax(attn, dim=-1)
+        
+        # Attend to values (b_input) using attention weights
+        attended_features = torch.matmul(attn, b_input)
+        
+        return attended_features
+
+class SelfAttention(torch.nn.Module):
+    def __init__(self, in_channels):
+        super(SelfAttention, self).__init__()
+        self.in_channels = in_channels
+        self.query_conv = torch.nn.Conv2d(in_channels, in_channels // 8, kernel_size=1)
+        self.key_conv = torch.nn.Conv2d(in_channels, in_channels // 8, kernel_size=1)
+        self.value_conv = torch.nn.Conv2d(in_channels, in_channels // 8, kernel_size=1)
+        self.gamma = torch.nn.Parameter(torch.zeros(1))
+
+    def forward(self, x):
+        batch_size, channels, height, width = x.size()
+        # channels //= 8
+        # Flatten query and key
+        proj_query = self.query_conv(x).view(batch_size, channels, -1)  # Shape: (batch_size, channels, height*width)
+        proj_key = self.key_conv(x).view(batch_size, channels, -1)      # Shape: (batch_size, channels, height*width)
+        print("proj_key.shape, proj_query.shape--->",proj_key.shape, proj_query.shape)
+        # Compute dot product
+        energy = torch.einsum('bcn,bcm->bnm', proj_query, proj_key)  # Shape: (batch_size, height*width, height*width)
+        print("energy.shape:", energy.shape)
+        attention = torch.nn.functional.softmax(energy, dim=-1)      # Shape: (batch_size, height*width, height*width)
+        print("attention.shape",attention.shape)
+
+        # Flatten value
+        proj_value = self.value_conv(x).view(batch_size, channels, -1)  # Shape: (batch_size, channels, height*width)
+        print("proj_value.shape, attention.shape---->", proj_value.shape, attention.shape)
+        # Compute output
+        out = torch.einsum('bcm,bmn->bcn', proj_value, attention)       # Shape: (batch_size, channels, height*width)
+        print("out.shape", out.shape)
+        out = out.view(batch_size, channels, height, width)
+        out = self.gamma * out + x
+        return out
+        
+        # proj_query = self.query_conv(x).view(batch_size, -1, height * width).permute(0, 2, 1)
+        # proj_key = self.key_conv(x).view(batch_size, -1, height * width)
+        # print(proj_key.shape, proj_query.shape)
+        # # energy = torch.bmm(proj_query, proj_key)
+        # energy = torch.einsum('bid,bjd->bij', proj_query, proj_key)
+        # attention = torch.nn.functional.softmax(energy, dim=-1)
+        # proj_value = self.value_conv(x).view(batch_size, -1, height * width)
+        # # out = torch.bmm(proj_value, attention.permute(0, 2, 1))
+        # out = torch.einsum('bjd,bid->bij', proj_value, attention)
+        # out = out.view(batch_size, channels, height, width)
+        # out = self.gamma * out + x
+        # return out
+
+class AttentionModel(torch.nn.Module):
+    def __init__(self, in_channels, active, n_classes):
+        super().__init__()
+
+        self.in_channels = in_channels
+        self.active = active
+        self.n_classes = n_classes
+
+        encoder = 'mit_b5'
+        encoder_weights = 'imagenet'
+
+        if self.active == 'sigmoid':
+            self.final_active = torch.nn.Sigmoid()
+        elif self.active == 'softmax':
+            self.final_active = torch.nn.Softmax(dim=1)
+        elif self.active == 'linear':
+            self.active = None
+            self.final_active = torch.nn.Identity()
+        else:
+            self.active = None
+            self.final_active = torch.nn.ReLU()
+
+        self.model_b = smp.Unet(
+            encoder_name=encoder,
+            encoder_weights=encoder_weights,
+            in_channels=int(self.in_channels / 2),
+            classes=self.n_classes,
+            activation=self.active
+        )
+
+        self.model_d = smp.Unet(
+            encoder_name=encoder,
+            encoder_weights=encoder_weights,
+            in_channels=int(self.in_channels / 2),
+            classes=self.n_classes,
+            activation=self.active
+        )
+
+        self.cross_attention = CrossAttention(in_channels=64)
+        # self.self_attention = SelfAttention(32)
+
+        self.combine_layers = torch.nn.Sequential(
+            torch.nn.LazyConv2d(64, kernel_size=1),
+            torch.nn.Dropout(p=0.1),
+            # torch.nn.BatchNorm2d(64),
+            torch.nn.ReLU(inplace=True),
+            torch.nn.Conv2d(64, self.n_classes, kernel_size=1)
+        )
+
+    def forward(self, input):
+        b_input = input[:, 0:int(self.in_channels / 2), :, :]
+        d_input = input[:, int(self.in_channels / 2):self.in_channels, :, :]
+        b_output = self.model_b.decoder(*self.model_b.encoder(b_input))
+        d_output = self.model_d.decoder(*self.model_d.encoder(d_input))
+
+        # # Apply cross-attention mechanism
+        attended_b_output = self.cross_attention(d_output, b_output)
+
+        # Concatenate the attended features
+        combined_output = torch.cat((attended_b_output, d_output), dim=1)
+        
+        # Concatenate the features then find attended features
+        # combined_output = torch.cat((b_output, d_output), dim=1)
+        # print("combined_output.shape:", combined_output.shape)
+        
+        # # Apply self-attention mechanism
+        # combined_output = self.self_attention(combined_output)
+        
+        final_prediction = self.final_active(self.combine_layers(combined_output))
+        # final_prediction = self.final_active(combined_output)
+
+        return final_prediction
+    
+    
 def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     
     model_details = train_parameters['model_details']
@@ -155,30 +362,39 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
             active = active,
             n_classes = n_classes
             )
-    
+    elif model_details['architecture']=='ensembleMIT':
+        model = EnsembleModelMIT(
+            in_channels = in_channels,
+            active = active,
+            n_classes = n_classes
+            )
+    elif model_details['architecture'] == 'attention':
+        model = AttentionModel(
+            in_channels = in_channels,
+            active = active,
+            n_classes = n_classes
+            )
+        
     optimizer = torch.optim.Adam([
             dict(params = model.parameters(), lr = train_parameters['lr'],weight_decay = 0.0001)
             ])
     
-    lr_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience=250,verbose=True)
+    lr_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,patience=250)
 
     # Sending model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
     model = model.to(device)
     loss = loss.to(device)
+    
+    # Wrap model and optimizer with Amp for mixed precision training
+    # model, optimizer = amp.initialize(model, optimizer, opt_level="O3")
 
     batch_size = train_parameters['batch_size']
-    #train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 12)
-    #valid_loader = DataLoader(dataset_valid, batch_size = batch_size, shuffle = True, num_workers = 4)
-
-    if 'sub_categories_file' in train_parameters:
-        sub_categories = pd.read_csv(train_parameters['sub_categories_file'])
-        dataset_train.add_sub_categories(sub_categories,'Labels')
-        train_loader = iter(dataset_train)
-    else:
-        train_loader = DataLoader(dataset_valid,batch_size=batch_size,shuffle=True)
-
-    valid_loader = DataLoader(dataset_valid,batch_size=batch_size,shuffle=True)
+    train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 12)
+    valid_loader = DataLoader(dataset_valid, batch_size = batch_size, shuffle = True, num_workers = 4)
     
+    train_iter = iter(train_loader)
+    val_iter = iter(valid_loader)        
+
     # Maximum number of epochs defined here as well as how many steps between model saves and example outputs
     epoch_num = train_parameters['step_num']
     save_step = train_parameters['save_step']
@@ -191,31 +407,38 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     val_loss_list = []
     
     with tqdm(total = epoch_num, position = 0, leave = True, file = sys.stdout) as pbar:
-
-        for i in range(0,epoch_num):
+        # steps = 0
+        for i in range(0,epoch_num):            
             # Turning on dropout
             model.train()
 
             # Controlling the progress bar, printing training and validation losses
             if i==1: 
-                pbar.set_description(f'Epoch: {i}/{epoch_num}')
+                pbar.set_description(f'Step: {i}/{epoch_num}')
                 pbar.update(i)
             elif i%5==0:
-                pbar.set_description(f'Epoch: {i}/{epoch_num}, Train/Val Loss: {round(train_loss,4)},{round(val_loss,4)}')
+                pbar.set_description(f'Step: {i}/{epoch_num}, Train/Val Loss: {round(train_loss,4)},{round(val_loss,4)}')
                 pbar.update(5)
         
             # Clear existing gradients in optimizer
             optimizer.zero_grad()
 
             # Loading training and validation samples from dataloaders
-            if 'sub_categories_file' not in train_parameters:
-                train_imgs, train_masks, _ = next(iter(train_loader))
-            else:
-                train_imgs, train_masks, _ = next(train_loader)
+            # train_imgs, train_masks, _ = next(train_loader)
+            try:
+                train_imgs, train_masks, _ = next(train_iter)
+            except StopIteration:
+                train_iter = iter(train_loader)
+                train_imgs, train_masks, _ = next(train_iter)
+            
+            # print(f"L271-- train_imgs.dtype: {train_imgs.dtype}\ttrain_masks.dtype: {train_masks.dtype}")
             # Sending to device
             train_imgs = train_imgs.to(device)
             train_masks = train_masks.to(device)
 
+
+            # Forward pass
+            # with amp.autocast():
             # Running predictions on training batch
             train_preds = model(train_imgs)
 
@@ -233,6 +456,10 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
             else:
                 nept_run[f'training_loss_{train_parameters["current_k_fold"]}'].log(train_loss)
 
+            # Backward pass
+            # with amp.scale_loss(train_loss, optimizer) as scaled_loss:
+            #     # Updating optimizer
+            #     scaled_loss.backward()
             # Updating optimizer
             optimizer.step()
 
@@ -241,7 +468,13 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 # This turns off any dropout in the network 
                 model.eval()
 
-                val_imgs, val_masks, _ = next(iter(valid_loader))
+                # val_imgs, val_masks, _ = next(iter(valid_loader))
+                try:
+                    val_imgs, val_masks, _ = next(val_iter)
+                except StopIteration:                        
+                    val_iter = iter(valid_loader)
+                    val_imgs, val_masks, _ = next(val_iter)
+                    
                 val_imgs = val_imgs.to(device)
                 val_masks = val_masks.to(device)
 
@@ -283,14 +516,14 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 
                 if type(in_channels)==int:
                     if in_channels == 6:
-                        current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=-2)
+                        current_img = np.concatenate((current_img[0:3,:,:],current_img[3:6,:,:]),axis=-2)
                     elif in_channels==4:
                         current_img = np.concatenate((np.stack((current_img[0,:,:],)*3,axis=1),current_img[0:3,:,:]),axis=-2)
                     elif in_channels==2:
                         current_img = np.concatenate((current_img[0,:,:],current_img[1,:,:]),axis=-2)
                 elif type(in_channels)==list:
                     if sum(in_channels)==6:
-                        current_img = np.concatenate((current_img[0:3,:,:],current_img[2:5,:,:]),axis=-2)
+                        current_img = np.concatenate((current_img[0:3,:,:],current_img[3:6,:,:]),axis=-2)
                     elif sum(in_channels)==2:
                         current_img = np.concatenate((current_img[0,:,:][None,:,:],current_img[1,:,:][None,:,:]),axis=-2)
 

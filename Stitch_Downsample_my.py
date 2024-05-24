@@ -22,18 +22,19 @@ def get_patch_coordinates(patch_name):
     """
     Getting Y and X coordinates from patch names for reconstruction
     """
-    coords = patch_name.split('.sci ')[-1].replace('_prediction.tif','')
+    coords = (os.path.basename(patch_name).replace('.tif','')).split(' ')
+    
     try:
-        x_coord = int(float(coords.split(' ')[-1].replace('X','').lstrip('0')))
+        _, y_coord, x_coord = coords[-1].split('_')
     except ValueError:
         x_coord = 0
 
-    try:
-        y_coord = int(float(coords.split(' ')[0].replace('Y','').lstrip('0')))
-    except ValueError:
-        y_coord = 0
+    # try:
+    #     y_coord = int(float(coords.split(' ')[0].replace('Y','').lstrip('0')))
+    # except ValueError:
+    #     y_coord = 0
 
-    return y_coord, x_coord
+    return int(y_coord), int(x_coord)
 
 def get_distance_transform_image(output_array):
     """
@@ -54,42 +55,51 @@ def get_distance_transform_image(output_array):
 def main():
     
     # base_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/020524_DUET_Patches/'
-    base_dir = "/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/"
-    slides = os.listdir(base_dir)
-    slides = [i for i in slides if os.path.isdir(base_dir+i)]
+    base_dir = "/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH"
+    
+    b_dir = '/B/'
+    f_dir = '/F/'
+    slide_pred_dir = '/blue/pinaki.sarder/f.afsari/4-DUET/Data/Results/Ensemble_Attn_RGB/UCD-PATH/Testing_Output/'
+    out_dir = '/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/Stitched_and_Downsampled/'
+    
+    # slides = os.listdir(base_dir)
+    slides = [os.path.basename(slide_name).replace('.jpg', '') for slide_name in os.listdir(base_dir+b_dir)]
+    # slides = [i for i in slides if os.path.isdir(base_dir+i)]
     #slides = ['20H']
     print(f'Found: {len(slides)} slides')
 
-    b_dir = '/B/'
-    f_dir = '/F/'
-    pred_dir = '/Results/Ensemble_RGB/Testing_Output/'
-    out_dir = '/Stitched_and_Downsampled/'
-
+    
     patch_overlap = 150
-    downsample = 10
+    downsample = 200
 
     with tqdm(slides,total=len(slides)) as pbar:
         for slide_idx,slide in enumerate(slides):
             
             pbar.set_description(f'Working on: {slide}, {slide_idx}/{len(slides)}')
 
-            slide_pred_dir = base_dir+slide+pred_dir
+            # slide_pred_dir = base_dir+slide+pred_dir
             slide_b_dir = base_dir+slide+b_dir
             slide_f_dir = base_dir+slide+f_dir
-            slide_out_dir = base_dir+slide+out_dir
+            slide_out_dir = out_dir+slide
 
             try:
                 if not os.path.exists(slide_out_dir):
                     os.makedirs(slide_out_dir)
 
                 # Checking if there's anything in each pred patch
-                checked_names = []
-                for p in os.listdir(slide_pred_dir):
-                    patch_img = np.array(Image.open(slide_pred_dir+p))
-                    patch_shape = np.shape(patch_img)
+                checked_names = [p for p in os.listdir(slide_pred_dir) if slide in p]
+                patch_shape = (512, 512)
+                # checked_names = []
+                # for p in os.listdir(slide_pred_dir):
+                    
+                #     if slide in p:                        
+                #         # patch_img_path = slide_pred_dir+p
+                        
+                #         patch_img = np.array(Image.open(p))
+                #         patch_shape = np.shape(patch_img)
 
-                    if np.sum(patch_img)>0:
-                        checked_names.append(p)
+                #         if np.sum(patch_img)>0:
+                #             checked_names.append(p)
                 
                 #print(f'Patches with collagen: {len(checked_names)}')
                 x_coords = []
@@ -138,9 +148,12 @@ def main():
                     stitched_downsampled_mask[y_start:int(y_start+resized_patch.shape[0]),x_start:int(x_start+resized_patch.shape[1])] += np.uint8(255*resized_patch)
                     
                     if stitch_inputs:
-                        checked_bf = np.array(Image.open(slide_b_dir+name.replace('_prediction.tif','.jpg')))[0:-(patch_overlap+1),0:-(patch_overlap+1),:]
+                        name = name.replace('Test_Example_', '')
+                        # checked_bf = np.array(Image.open(slide_b_dir+name.replace('_prediction.tif','.jpg')))[0:-(patch_overlap+1),0:-(patch_overlap+1),:]
+                        checked_bf = np.array(Image.open(base_dir+"/Patches"+b_dir+name.replace(".tif", ".jpg")))[0:-(patch_overlap+1),0:-(patch_overlap+1),:]
                         resized_bf = resize(checked_bf,output_shape = [int(checked_patch.shape[0]/downsample),int(checked_patch.shape[1]/downsample),3])
-                        checked_f = np.array(Image.open(slide_f_dir+name.replace('_prediction.tif','.jpg')))[0:-(patch_overlap+1),0:-(patch_overlap+1),:]
+                        # checked_f = np.array(Image.open(slide_f_dir+name.replace('_prediction.tif','.jpg')))[0:-(patch_overlap+1),0:-(patch_overlap+1),:]
+                        checked_f = np.array(Image.open(base_dir+"/Patches"+f_dir+name.replace(".tif", ".jpg")))[0:-(patch_overlap+1),0:-(patch_overlap+1),:]
                         resized_f = resize(checked_f,output_shape = [int(checked_patch.shape[0]/downsample),int(checked_patch.shape[1]/downsample),3])
 
                         stitched_downsampled_bf[y_start:int(y_start+resized_patch.shape[0]),x_start:int(x_start+resized_patch.shape[1]),:] += np.uint8(255*resized_bf)

@@ -118,9 +118,13 @@ class AlbuSeg2d(Repr):
         
     def __call__(self, inp: np.ndarray, tar: np.ndarray):
         
+        # Convert input image and mask to uint8
+        # inp = inp.astype(np.uint8)
+        # tar = tar.astype(np.uint8)
+        
         out_dict = self.albumentation(image = inp, mask = tar)
         input_out = out_dict['image']
-        target_out = out_dict['mask']
+        target_out = out_dict['mask']        
         
         return input_out, target_out
     

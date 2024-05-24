@@ -270,9 +270,9 @@ def resize_special(img,output_size,transform):
         elif transform == 'multi_input_mean':
 
             # Grabbing mean of brightfield and fluorescent images and concatenating them
-            f_img = np.mean(img[:,:,0:3])
-            b_img = np.mean(img[:,:,2:5])
-
+            f_img = np.mean(img[:,:,0:3], axis=-1)
+            b_img = np.mean(img[:,:,2:5], axis=-1)
+            # print(f"shape: {f_img}, {b_img}, {f_img.shape}, {b_img.shape}")
             img = np.concatenate((f_img[:,:,None],b_img[:,:,None]),axis=-1)
 
     else:
@@ -329,10 +329,19 @@ def resize_special(img,output_size,transform):
 
             img = np.concatenate((f_norm,inv_bf_norm),axis=-1)
                 
-    img = resize(img,output_size)
+    img = np.float32(resize(img,output_size))
 
     return img
 
+
+def loop_iterable(iterable):
+    while True:
+        yield from iterable
+
+
+def set_requires_grad(model, requires_grad=True):
+    for param in model.parameters():
+        param.requires_grad = requires_grad
 
 
 

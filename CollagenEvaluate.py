@@ -62,14 +62,15 @@ def main(args):
 
     else:
 
-        # Reading the file specified for train_test_names
-        train_test_df = pd.read_csv(args.train_test_names)
+        # # Reading the file specified for train_test_names
+        # train_test_df = pd.read_csv(args.train_test_names)
 
-        # Getting the "Test" image names
-        test_names = train_test_df[train_test_df['Phase'].str.match('Test')]['Image_Names'].tolist()
+        # # Getting the "Test" image names
+        # test_names = train_test_df[train_test_df['Phase'].str.match('Test')]['Image_Names'].tolist()        
         
         # Formatting for test outputs
-        test_names = ['Test_Example_'+t.replace('.jpg','.tif') for t in test_names]
+        # test_names = ['Test_Example_'+t.replace('.jpg','.tif') for t in test_names]
+        test_names = [t for t in test_names if not t.endswith('.csv')]
 
 
     print(f'Found: {len(test_names)} images for metrics calculation')
@@ -97,7 +98,7 @@ def main(args):
             adjusted_name = t.replace('Test_Example_','').replace('_prediction','').replace('.tif','.jpg')
             if adjusted_name in gt_names:
 
-                test_image = (1/255)*np.array(Image.open(f'{args.test_model_path}/Testing_Output/{t}'))
+                test_image = (1/255)*np.array(Image.open(f'{args.test_model_path}/Testing_Output/{t}'))                
                 #print(f'test output image unique values: {np.unique(test_image).tolist()}')
                 binary_test_image = test_image.copy()
                 binary_test_image[binary_test_image>=0.1] = 1
@@ -249,10 +250,25 @@ if __name__=="__main__":
         description = 'Collagen segmentation evaluation argument parser'
     )
 
-    parser.add_argument('--test_model_path',type=str, help='Parent directory for model to evaluate, see comment in CollagenEvaluate.py for folder structure.')
-    parser.add_argument('--label_path',type=str, help='Path to label masks (not one-hot)')
-    parser.add_argument('--output_dir',type=str, default='Evaluation_Metrics',help='If you want to save the output to another path, specify here. (no / needed at the end).')
-    parser.add_argument('--train_test_names',type=str, default=None,help='If you have predictions for both the training and testing/holdout set images in the same directory, you can specify the path to a csv file where one column has image name (Image_Names) and another column has whether it is "Train" or "Test" (Phase).')
+    parser.add_argument('--test_model_path',
+                        type=str, 
+                        default="/blue/pinaki.sarder/f.afsari/4-DUET/Data/Results/Ensemble_Attn_RGB",
+                        help='Parent directory for model to evaluate, see comment in CollagenEvaluate.py for folder structure.'
+                        )
+    parser.add_argument('--label_path',
+                        type=str, 
+                        default="/blue/pinaki.sarder/f.afsari/4-DUET/Data/C",
+                        help='Path to label masks (not one-hot)'
+                        )
+    parser.add_argument('--output_dir',
+                        type=str,                         
+                        default='Evaluation_Metrics',help='If you want to save the output to another path, specify here. (no / needed at the end).',
+                        )
+    parser.add_argument('--train_test_names',
+                        type=str, 
+                        default=None,
+                        help='If you have predictions for both the training and testing/holdout set images in the same directory, you can specify the path to a csv file where one column has image name (Image_Names) and another column has whether it is "Train" or "Test" (Phase).'
+                        )
 
     main(parser.parse_args())
 

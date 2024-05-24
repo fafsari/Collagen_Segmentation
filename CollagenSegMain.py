@@ -20,11 +20,13 @@ import json
 import joblib
 from math import ceil
 from sklearn.model_selection import KFold
+import torch
 
 import neptune
 
 from Input_Pipeline import *
 from CollagenSegTrain import Training_Loop
+from CollagenSegTrainADDA import TrainingADDA_Loop
 from CollagenSegTest import Test_Network
 from CollagenCluster import Clusterer
 
@@ -77,6 +79,7 @@ def check_duplicate(image_path_list,output_path):
 
 
 def main():
+    torch.cuda.empty_cache()
     # Changing up from sys.argv to reading a specific set of input parameters
     parameters_file = sys.argv[1]
 
@@ -84,6 +87,9 @@ def main():
 
     # Getting input parameters and neptune-specific parameters (if specified)
     input_parameters = parameters['input_parameters']
+    
+    # Get mode
+    mode = parameters["mode"]
 
     if 'neptune' in input_parameters:
         nept_params = input_parameters['neptune']
@@ -103,7 +109,7 @@ def main():
     if input_parameters['phase']=='train':
 
         training_parameters = parameters['train_parameters']
-        # Path to folder containing ground truth images
+        # Path to folder containing ground truth images    
         if os.path.isdir(input_parameters['label_dir']):
             label_paths = sorted(glob(input_parameters['label_dir']+'*'))
             training_parameters['supervision'] = 'full'
@@ -111,10 +117,15 @@ def main():
         elif os.path.isfile(input_parameters['label_dir']):
             label_paths = sorted(pd.read_csv(input_parameters['label_dir'])['Paths'].tolist())
             training_parameters['supervision'] = 'full'
-        
         else:
             print('Initial training of a model requires labeled targets')
-
+        
+        if mode == "ADDA":         
+            if os.path.isdir(input_parameters['target_label_dir']):
+                target_label_paths = sorted(glob(input_parameters['target_label_dir']+'*'))
+                training_parameters['supervision'] = 'full'
+            else:
+                print('Initial training of a model requires labeled targets')
 
         input_image_type = list(input_parameters['image_dir'].keys())
 
@@ -127,16 +138,28 @@ def main():
             
             # Getting multi-input image paths
             image_paths_base = []
+            if mode == "ADDA":
+                t_image_paths_base = []
+                
             for inp_type in input_image_type:
                 if os.path.isdir(input_parameters['image_dir'][inp_type]):
                     image_paths_base.append(sorted(glob(input_parameters['image_dir'][inp_type]+'*')))
-                if os.path.isfile(input_parameters['image_dir'][inp_type]):
+                elif os.path.isfile(input_parameters['image_dir'][inp_type]):
                     image_paths_base.append(sorted(pd.read_csv(input_parameters['image_dir'][inp_type])['Paths'].tolist()))
+                if mode == "ADDA":
+                    if os.path.isdir(input_parameters['target_dir'][inp_type]):
+                        t_image_paths_base.append(sorted(glob(input_parameters['target_dir'][inp_type]+'*')))
+                    elif os.path.isfile(input_parameters['target_dir'][inp_type]):
+                        image_paths_base.append(sorted(pd.read_csv(input_parameters['target_dir'][inp_type])['Paths'].tolist()))
 
             # Getting the image paths as lists of lists (each input type)
             image_paths = []
             for i in range(len(image_paths_base[0])):
-                image_paths.append([image_paths_base[0][i],image_paths_base[1][i]])
+                image_paths.append([image_paths_base[0][i], image_paths_base[1][i]])
+            if mode == "ADDA":
+                t_image_paths = []
+                for i in range(len(t_image_paths_base[0])):
+                    t_image_paths.append([t_image_paths_base[0][i], t_image_paths_base[1][i]])
 
         elif input_parameters['type']=='single':
 
@@ -192,7 +215,8 @@ def main():
                 k_count+=1
 
         elif 'split' in training_parameters['train_test_split']:
-
+            
+            
             # Random train/test split with 'split' proportion assigned to training data
             shuffle_idx = np.random.permutation(len(image_paths))
 
@@ -204,7 +228,7 @@ def main():
             test_images = [image_paths[i] for i in val_idx]
             train_labels = [label_paths[i] for i in train_idx]
             test_labels = [label_paths[i] for i in val_idx]
-
+            
             dataset_train, dataset_valid = make_training_set(
                 'train',
                 train_img_paths=train_images,
@@ -213,9 +237,32 @@ def main():
                 valid_tar = test_labels,
                 parameters=training_parameters
             )
+            if mode == "None":
+                model = Training_Loop(dataset_train, dataset_valid, training_parameters,nept_run)
+                Test_Network(model, dataset_valid, nept_run, training_parameters)
+            elif mode == "ADDA":
+                # Random train/test split with 'split' proportion assigned to training data                
+                shuffle_idx_t = np.random.permutation(len(t_image_paths))
 
-            model = Training_Loop(dataset_train, dataset_valid, training_parameters,nept_run)
-            Test_Network(model, dataset_valid, nept_run, training_parameters)
+                split_pct = training_parameters['train_test_split']['split']
+                train_idx = shuffle_idx_t[0:floor(split_pct*len(t_image_paths))]
+                val_idx = shuffle_idx_t[floor(split_pct*len(t_image_paths)):len(t_image_paths)]
+                
+                train_images = [t_image_paths[i] for i in train_idx]
+                test_images  = [t_image_paths[i] for i in val_idx]
+                train_labels = [target_label_paths[i] for i in train_idx]
+                test_labels  = [target_label_paths[i] for i in val_idx]
+                
+                dataset_train_t, dataset_valid_t = make_training_set(
+                    'train',
+                    train_img_paths=train_images,
+                    train_tar = train_labels,
+                    valid_img_paths=test_images,
+                    valid_tar = test_labels,
+                    parameters=training_parameters
+                )                
+                modelADDA = TrainingADDA_Loop(input_parameters["model_path"], dataset_train, dataset_train_t, dataset_valid_t, training_parameters,nept_run)
+                Test_Network(modelADDA, dataset_valid_t, nept_run, training_parameters)
 
         elif 'training' in training_parameters['train_test_split']:
             
@@ -482,7 +529,7 @@ def main():
         if 'neptune' in input_parameters:
             model_version = neptune.init_model(
                 project = nept_params['project'],
-                with_id = input_parameters['model'],
+                # with_id = input_parameters['model'],
                 mode = 'async',
                 api_token = nept_api_token
             )
@@ -532,7 +579,7 @@ def main():
         input_parameters['preprocessing'] = preprocessing
 
         # This is a hack for running on large sets of large images
-        image_set_size = 5
+        image_set_size = 20
         run_throughs = ceil(len(image_paths)/image_set_size)
 
         for run in range(run_throughs):

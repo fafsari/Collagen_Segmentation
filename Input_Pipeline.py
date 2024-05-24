@@ -395,19 +395,3 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
 
 
     return dataset_train, dataset_valid
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

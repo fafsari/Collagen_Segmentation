@@ -27,14 +27,14 @@ from PIL import Image, ImageFilter
 import pandas as pd
 
 import neptune
-import umap
+# import umap
 
-import plotly.express as px
+# import plotly.express as px
 
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 from CollagenSegUtils import visualize_continuous, get_metrics
 from CollagenCluster import Clusterer
-from CollagenSegTrain import EnsembleModel
+from CollagenSegTrain import EnsembleModel, EnsembleModelMIT, AttentionModel
 from tifffile import imsave
     
         
@@ -83,7 +83,19 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
             active = active,
             n_classes = n_classes
         )
-
+    elif model_details['architecture']=='ensembleMIT':
+        model = EnsembleModelMIT(
+            in_channels = in_channels,
+            active = active,
+            n_classes = n_classes
+        )
+    elif model_details['architecture'] == 'attention':
+        model = AttentionModel(
+            in_channels = in_channels,
+            active = active,
+            n_classes = n_classes
+            )
+        
     if torch.cuda.is_available:
         model.load_state_dict(torch.load(model_path))
     else:
@@ -310,42 +322,42 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
             all_latent_features = all_latent_features[~np.isnan(all_latent_features).any(axis=1)]
             print(np.shape(all_latent_features))
 
-            if not np.shape(all_latent_features)[0]==0:
-                umap_reducer = test_parameters['model_details']['umap_reducer']
-                embeddings = umap_reducer.fit_transform(all_latent_features)
+            # if not np.shape(all_latent_features)[0]==0:
+            #     umap_reducer = test_parameters['model_details']['umap_reducer']
+            #     embeddings = umap_reducer.fit_transform(all_latent_features)
 
-                cluster_df = pd.DataFrame.from_records(clustering_labels)
+            #     cluster_df = pd.DataFrame.from_records(clustering_labels)
 
-                cluster_df['umap1'] = embeddings[:,0]
-                cluster_df['umap2'] = embeddings[:,1]
+            #     cluster_df['umap1'] = embeddings[:,0]
+            #     cluster_df['umap2'] = embeddings[:,1]
                 
-                if dataset_valid.patch_batch:
+            #     if dataset_valid.patch_batch:
 
-                    # UMAP with the full image name as the label
-                    umap_scatter = px.scatter(
-                        data_frame = cluster_df,
-                        x='umap1',
-                        y='umap2',
-                        color='Full_Image_Name',
-                        title = 'UMAP of latent features, Testing Only'
-                    )
-                else:
+            #         # UMAP with the full image name as the label
+            #         umap_scatter = px.scatter(
+            #             data_frame = cluster_df,
+            #             x='umap1',
+            #             y='umap2',
+            #             color='Full_Image_Name',
+            #             title = 'UMAP of latent features, Testing Only'
+            #         )
+            #     else:
 
-                    # UMAP scatter plot
-                    umap_scatter = px.scatter(
-                        data_frame = cluster_df,
-                        x='umap1',
-                        y='umap2',
-                        title = 'UMAP of latent features, Testing Only'
-                    )
+            #         # UMAP scatter plot
+            #         umap_scatter = px.scatter(
+            #             data_frame = cluster_df,
+            #             x='umap1',
+            #             y='umap2',
+            #             title = 'UMAP of latent features, Testing Only'
+            #         )
                 
-                # Saving UMAP coordinates and plots
-                umap_scatter.write_image(test_parameters['output_dir']+'Test_UMAP.png')
-                umap_scatter.write_html(test_parameters['output_dir']+'Test_UMAP.html')
+            #     # Saving UMAP coordinates and plots
+            #     umap_scatter.write_image(test_parameters['output_dir']+'Test_UMAP.png')
+            #     umap_scatter.write_html(test_parameters['output_dir']+'Test_UMAP.html')
 
-                cluster_df.to_csv(test_parameters['output_dir']+'Test_UMAP_Coordinates.csv')
-            else:
-                print('Oops! All NaNs!')
+            #     cluster_df.to_csv(test_parameters['output_dir']+'Test_UMAP_Coordinates.csv')
+            # else:
+            #     print('Oops! All NaNs!')
 
 
 

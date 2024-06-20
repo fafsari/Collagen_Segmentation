@@ -143,7 +143,7 @@ class SegmentationDataSet(Dataset):
 
                 # Overlap percentage, hardcoded patch size
                 self.patch_size = [image_size[0],image_size[1]]
-                self.patch_batch = 0.25
+                self.patch_batch = 0.75
                 # Correction for downsampled (10X as opposed to 20X) data
                 self.downsample_level = 0.5
                 stride = [int(self.patch_size[0]*(1-self.patch_batch)*self.downsample_level), int(self.patch_size[1]*(1-self.patch_batch)*self.downsample_level)]
@@ -348,12 +348,18 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
         transforms_validation = ComposeDouble([
             FunctionWrapperDouble(np.moveaxis,input=True,target=True,source=-1,destination=0)
         ])
-
-        dataset_train = SegmentationDataSet(inputs = train_img_paths,
+        if parameters["mode"] == "None":
+            dataset_train = SegmentationDataSet(inputs = train_img_paths,
                                              targets = train_tar,
                                              transform = transforms_training,
                                              pre_transform = pre_transforms,
                                              parameters = parameters)
+        elif parameters["mode"] == "ADDA":
+            dataset_train = SegmentationDataSet(inputs = train_img_paths,
+                                                targets = train_tar,
+                                                transform = transforms_validation,
+                                                pre_transform = pre_transforms,
+                                                parameters = parameters)
         
         dataset_valid = SegmentationDataSet(inputs = valid_img_paths,
                                              targets = valid_tar,

@@ -22,7 +22,7 @@ def patch_image(image_files, patch_dirs, image_size=(512, 512)):
     patch_size = (int(image_size[0]) , int(image_size[1])) 
     # Overlap percentage, hardcoded patch size
     # patch_size = [image_size[0], image_size[1]]
-    patch_batch = 0.25
+    patch_batch = 0.75
     # Correction for downsampled (10X as opposed to 20X) data
     downsample_level = 0.5
     stride = [int(patch_size[0]*(1-patch_batch)*downsample_level), int(patch_size[1]*(1-patch_batch)*downsample_level)]
@@ -37,23 +37,34 @@ def patch_image(image_files, patch_dirs, image_size=(512, 512)):
     col_starts.append(int(np.shape(img)[1]-patch_size[1]))
 
     # Create patches and save
-    for img, image_name in zip(imgs, image_files):
+    for i, (img, image_name) in enumerate(zip(imgs, image_files)):
         
         # skip over all blank (all 0/255) images
         if is_blank_image(img):
             continue
         
-        base_name = os.path.basename(image_name)
-        if "sci" in base_name:
-            patch_dir = patch_dirs[0]
-        else:
-            patch_dir = patch_dirs[1]
+        # base_name = os.path.basename(image_name)        
+        # if "sci" in base_name:
+        #     patch_dir = patch_dirs[0]
+        # else:
+        #     patch_dir = patch_dirs[1]
+        
+        patch_dir = patch_dirs[i]
 
         if not os.path.isdir(patch_dir):
             os.makedirs(patch_dir, exist_ok=True)
         
-        print(os.path.join(patch_dir, base_name))
+        # print(f"{os.path.join(patch_dir, base_name)}_i_j")
         
+        # Create a new file name for the patch        
+        base_name = image_name.split('/')[-1]
+        if '.jpg' in base_name:
+            base_name = base_name.replace('.jpg', '')
+            extension = '.jpg'
+        elif '.tif' in base_name:
+            base_name = base_name.replace('.tif', '')
+            extension = '.tif'
+        # print(patch_dir, base_name, extension, sep='\n')
         for r_s in row_starts:
             for c_s in col_starts:
                 # Define the region for cropping
@@ -62,19 +73,20 @@ def patch_image(image_files, patch_dirs, image_size=(512, 512)):
                 # Crop and create a new patch
                 patch = img.crop(box)
                 
-                # Create a new file name for the patch
-                base_name = os.path.splitext(image_name)[0]
-                extension = os.path.splitext(image_name)[1]
                 patch_name = f"{base_name}_{r_s}_{c_s}{extension}"                                    
                 # print(os.path.join(patch_dir, patch_name))
+                
                 # Save the patch
-                # patch.save(os.path.join(patch_dir, patch_name))
+                patch.save(os.path.join(patch_dir, patch_name))
 
 # Base path to the folder containing subfolders
-# base_path = "/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH"
-base_path = "/orange/pinaki.sarder/f.afsari/Farzad_Fibrosis/Kidney Biopsies 05-21-24/DUET Scan Images"
+base_path = "/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH"
+# base_path = "/blue/pinaki.sarder/f.afsari/4-DUET/database/Frozen_sections"
 
-
+B_image_files = [os.path.join(base_path, "B") 
+                for f in os.listdir(os.path.join(base_path, "B")) 
+                if f.endswith(('.png', '.jpg', '.jpeg', '.tiff', '.tif'))
+]
 # Names of the subfolders
 # subfolders = ["10H B-n", "10H F-n"]
 subfolders = os.listdir(base_path)
@@ -104,17 +116,21 @@ for folder_B in subfolders_B:
     # plt.figure(figsize=(15, 5 * num_rows))
     i = 1
 
-    for b_image in B_image_files: #zip(all_image_files[0], all_image_files[1], all_image_files[2]):
+    for b_image in B_image_files: 
         
         image_basename = os.path.basename(b_image)
-        f_basename = image_basename.replace('.sci', '_LargeGlobalFlatfield.tif')
-        f_image = os.path.join(base_path, folder_B.replace('B', 'F'), f_basename)
-        # m_image = os.path.join(base_path, "M", image_basename).replace('.jpg', '.tif')
-        
-        c_images = [b_image, f_image]#, m_image]
-        p_dirs   = [os.path.join(base_path, "Patches", subfolders[0]), os.path.join(base_path, "Patches", subfolders[1])]
-        
-        patch_image(c_images, p_dirs)
+        # f_basename = image_basename.replace('.sci', '_LargeGlobalFlatfield.tif')
+        f_image = os.path.join(base_path, folder_B.replace('B', 'F'), image_basename)
+        if os.path.isdir(os.path.join(base_path, "C")):
+            c_image = os.path.join(base_path, "C", image_basename).replace('.jpg', '.tif')        
+            all_images = [b_image, f_image, c_image]
+            p_dirs   = [os.path.join(base_path, "Patches75", f) for f in ["B", "F", "C"]]
+        else:
+            all_images = [b_image, f_image]
+            p_dirs   = [os.path.join(base_path, "Patches75", f) for f in ["B", "F"]]
+        # print(p_dirs)
+        # print(c_images)
+        patch_image(all_images, p_dirs)
         
 #     # Loop through each subplot (1, 2, 3)
 #     for image_path, folder_name in zip(c_image, subfolders):

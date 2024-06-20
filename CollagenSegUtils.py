@@ -136,7 +136,7 @@ def visualize_continuous(images,output_type):
 
                 plt.imshow(img,cmap='jet')
             else:
-
+                # print("Image shape:", img.shape, key)
                 plt.imshow(img)
         output_fig = plt.gcf()
 

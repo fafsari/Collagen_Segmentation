@@ -37,251 +37,6 @@ def compute_mmd(source_features, target_features):
     target_mean = torch.mean(target_features, dim=0)
     mmd_loss = torch.norm(source_mean - target_mean, p=2)
     return mmd_loss
-
-
-class Discriminator(torch.nn.Module):
-    def __init__(self, img_size, channels):
-        super(Discriminator, self).__init__()
-        self.img_size = img_size
-        self.channels = channels
-        self.active = torch.nn.Sigmoid()
-
-        self.conv_blocks = torch.nn.Sequential(
-            torch.nn.Conv2d(channels, 64, kernel_size=4, stride=2, padding=1),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-            torch.nn.Dropout(0.5),  # Add dropout layer with dropout probability of 0.5
-            torch.nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),
-            torch.nn.BatchNorm2d(128),
-            torch.nn.LeakyReLU(0.2, inplace=True),
-        )        
-
-        self.fc = torch.nn.Sequential(
-            torch.nn.Linear(128 * (img_size[0] // 4) * (img_size[1] // 4), 512),
-            torch.nn.Dropout(0.5),  # Add dropout before the linear layer with dropout probability of 0.5
-            torch.nn.LeakyReLU(0.2, inplace=True),
-            torch.nn.Linear(512, 1)
-        )
-        
-        # Initialize weights
-        self.apply(weights_init_normal)
-
-    def forward(self, source_imgs):
-        source_features = self.conv_blocks(source_imgs)
-        # target_features = self.conv_blocks(target_imgs)
-        
-        source_features = source_features.view(source_features.size(0), -1)
-        # target_features = target_features.view(target_features.size(0), -1)
-        
-        source_output = self.fc(source_features)        
-        source_output = self.active(source_output)
-        
-        return source_output#, target_output
-        
-class EnsembleModel(torch.nn.Module):
-    def __init__(self,
-                 in_channels,
-                 active,
-                 n_classes):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.active = active
-        self.n_classes = n_classes
-
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        encoder = 'resnet34'
-        encoder_weights = 'imagenet'
-
-        if self.active=='sigmoid':
-            self.final_active = torch.nn.Sigmoid()
-        elif self.active =='softmax':
-            self.final_active = torch.nn.Softmax(dim=1)       
-        elif self.active == 'linear':
-            self.active = None
-            self.final_active = torch.nn.Identity()
-        else:
-            self.active = None
-            self.final_active = torch.nn.ReLU()
-
-        self.model_b = smp.UnetPlusPlus(
-                encoder_name = encoder,
-                encoder_weights = encoder_weights,
-                in_channels = int(self.in_channels/2),
-                classes = self.n_classes,
-                activation = self.active
-                )
-        
-        self.model_d = smp.UnetPlusPlus(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = int(self.in_channels/2),
-            classes = self.n_classes,
-            activation = self.active
-        )
-
-        self.combine_layers = torch.nn.Sequential(
-            torch.nn.LazyConv2d(64,kernel_size=1),
-            torch.nn.Dropout(p=0.1),
-            #torch.nn.BatchNorm2d(64),
-            torch.nn.ReLU(inplace=True),
-            torch.nn.Conv2d(64,self.n_classes,kernel_size=1)
-        )
-
-
-    def forward(self,input):
-
-        b_input = input[:,0:int(self.in_channels/2),:,:]
-        d_input = input[:,int(self.in_channels/2):self.in_channels,:,:]
-        b_output = self.model_b.decoder(*self.model_b.encoder(b_input))
-        d_output = self.model_d.decoder(*self.model_d.encoder(d_input))
-
-        combined_output = torch.cat((b_output,d_output),dim=1)
-        final_prediction = self.final_active(self.combine_layers(combined_output))
-        
-        return final_prediction
-
-class EnsembleModelMIT(torch.nn.Module):
-    def __init__(self,
-                 in_channels,
-                 active,
-                 n_classes):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.active = active
-        self.n_classes = n_classes
-
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        encoder = 'mit_b5'
-        encoder_weights = 'imagenet'
-
-        if self.active=='sigmoid':
-            self.final_active = torch.nn.Sigmoid()
-        elif self.active =='softmax':
-            self.final_active = torch.nn.Softmax(dim=1)       
-        elif self.active == 'linear':
-            self.active = None
-            self.final_active = torch.nn.Identity()
-        else:
-            self.active = None
-            self.final_active = torch.nn.ReLU()
-
-        self.model_b = smp.Unet(
-                encoder_name = encoder,
-                encoder_weights = encoder_weights,
-                in_channels = int(self.in_channels/2),
-                classes = self.n_classes,
-                activation = self.active
-                )
-        
-        self.model_d = smp.Unet(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = int(self.in_channels/2),
-            classes = self.n_classes,
-            activation = self.active
-        )
-
-        self.combine_layers = torch.nn.Sequential(
-            torch.nn.LazyConv2d(64,kernel_size=1),
-            torch.nn.Dropout(p=0.1),
-            #torch.nn.BatchNorm2d(64),
-            torch.nn.ReLU(inplace=True),
-            torch.nn.Conv2d(64,self.n_classes,kernel_size=1)
-        )
-
-
-    def forward(self,input):
-
-        b_input = input[:,0:int(self.in_channels/2),:,:]
-        d_input = input[:,int(self.in_channels/2):self.in_channels,:,:]
-        b_output = self.model_b.decoder(*self.model_b.encoder(b_input))
-        d_output = self.model_d.decoder(*self.model_d.encoder(d_input))
-
-        self.features = torch.cat((b_output,d_output),dim=1)
-        final_prediction = self.final_active(self.combine_layers(self.features))
-        
-        return final_prediction
-
-class CrossAttention(torch.nn.Module):
-    def __init__(self, in_channels):
-        super(CrossAttention, self).__init__()
-        self.scale = in_channels ** -0.5
-
-    def forward(self, f_input, b_input):
-        # Calculate attention scores
-        attn = torch.matmul(f_input, b_input.transpose(-2, -1)) * self.scale
-        
-        # Apply softmax to get attention weights
-        attn = torch.nn.functional.softmax(attn, dim=-1)
-        
-        # Attend to values (b_input) using attention weights
-        attended_features = torch.matmul(attn, b_input)
-        
-        return attended_features
-    
-class AttentionModel(torch.nn.Module):
-    def __init__(self, in_channels, active, n_classes):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.active = active
-        self.n_classes = n_classes
-
-        encoder = 'mit_b5'
-        encoder_weights = 'imagenet'
-
-        if self.active == 'sigmoid':
-            self.final_active = torch.nn.Sigmoid()
-        elif self.active == 'softmax':
-            self.final_active = torch.nn.Softmax(dim=1)
-        elif self.active == 'linear':
-            self.active = None
-            self.final_active = torch.nn.Identity()
-        else:
-            self.active = None
-            self.final_active = torch.nn.ReLU()
-
-        self.model_b = smp.Unet(
-            encoder_name=encoder,
-            encoder_weights=encoder_weights,
-            in_channels=int(self.in_channels / 2),
-            classes=self.n_classes,
-            activation=self.active
-        )
-
-        self.model_d = smp.Unet(
-            encoder_name=encoder,
-            encoder_weights=encoder_weights,
-            in_channels=int(self.in_channels / 2),
-            classes=self.n_classes,
-            activation=self.active
-        )
-
-        self.attention = CrossAttention(in_channels=64)
-
-        self.combine_layers = torch.nn.Sequential(
-            torch.nn.LazyConv2d(64, kernel_size=1),
-            torch.nn.Dropout(p=0.1),
-            # torch.nn.BatchNorm2d(64),
-            torch.nn.ReLU(inplace=True),
-            torch.nn.Conv2d(64, self.n_classes, kernel_size=1)
-        )
-
-    def forward(self, input):
-        b_input = input[:, 0:int(self.in_channels / 2), :, :]
-        d_input = input[:, int(self.in_channels / 2):self.in_channels, :, :]
-        b_output = self.model_b.decoder(*self.model_b.encoder(b_input))
-        d_output = self.model_d.decoder(*self.model_d.encoder(d_input))
-
-        # Apply cross-attention mechanism
-        attended_b_output = self.cross_attention(d_output, b_output)
-
-        # Concatenate the attended features
-        combined_output = torch.cat((attended_b_output, d_output), dim=1)
-        final_prediction = self.final_active(self.combine_layers(combined_output))
-
-        return final_prediction
     
 def weights_init_normal(m):
     classname = m.__class__.__name__
@@ -290,7 +45,6 @@ def weights_init_normal(m):
     elif classname.find('BatchNorm') != -1:
         torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
         torch.nn.init.constant_(m.bias.data, 0.0)
-       
 
 def TrainingADDA_Loop(model_path, dataset_train_s, dataset_train_t, dataset_valid, train_parameters, nept_run):
     
@@ -347,44 +101,9 @@ def TrainingADDA_Loop(model_path, dataset_train_s, dataset_train_t, dataset_vali
     nept_run['lr'] = train_parameters['lr']
     
     # Define source and target models    
-    if model_details['architecture']=='Unet++':
-        source_model =  smp.UnetPlusPlus(
-                encoder_name = encoder,
-                encoder_weights = encoder_weights,
-                in_channels = in_channels,
-                classes = n_classes,
-                activation = active
-                )
-        target_model = smp.UnetPlusPlus(
-                encoder_name = encoder,
-                encoder_weights = encoder_weights,
-                in_channels = in_channels,
-                classes = n_classes,
-                activation = active
-                )
-    elif model_details['architecture']=='ensemble':
-        source_model = EnsembleModel(
-            in_channels = in_channels,
-            active = active,
-            n_classes = n_classes
-            )
-        target_model = EnsembleModel(
-            in_channels = in_channels,
-            active = active,
-            n_classes = n_classes
-            )
-    elif model_details['architecture']=='ensembleMIT':
-        source_model = EnsembleModelMIT(
-            in_channels = in_channels,
-            active = active,
-            n_classes = n_classes
-            )
-        target_model = EnsembleModelMIT(
-            in_channels = in_channels,
-            active = active,
-            n_classes = n_classes
-            )
-        
+    source_model = create_model(model_details['architecture']).to(device)
+    target_model = create_model(model_details['architecture'], ema=True).to(device)
+    
     # Load source model from our trained model saved in model_path
     if torch.cuda.is_available():
         source_model.load_state_dict(torch.load(model_path))
@@ -392,13 +111,11 @@ def TrainingADDA_Loop(model_path, dataset_train_s, dataset_train_t, dataset_vali
     else:
         source_model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
         target_model.load_state_dict(torch.load(model_path), map_location=torch.device('cpu'))
-        
-    source_model.to(device)
+    
     source_model.eval()
     # set_requires_grad(source_model, requires_grad=False)
 
-    # Sending target_model to current device ('cuda','cuda:0','cuda:1',or 'cpu')
-    target_model = target_model.to(device)
+    # Sending target_model to current device ('cuda','cuda:0','cuda:1',or 'cpu')    
     loss = loss.to(device) 
     scaler = GradScaler()   
     

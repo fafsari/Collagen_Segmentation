@@ -1,0 +1,139 @@
+{
+    "This is the list of experiments settings": {        
+        "Ensemble_DA_V0_RGB": {
+            "pre-trained": "Ensemble_Sam1_RGB",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "seg_loss + (consistency_weight * consistency_loss)",
+            "architecture":"ensemble",
+            "encoder":"resnet34"
+        },
+        "Ensemble_DA_V1_RGB": {
+            "pre-trained": "Ensemble_Sam1_RGB",
+            "target dropout_rate": 0.4,
+            "loss":"mse",
+            "train_loss": "seg_loss + (consistency_weight * consistency_loss)",
+            "architecture":"ensemble",
+            "encoder":"resnet34"
+        },
+        "Ensemble_DA_V2_RGB": {
+            "pre-trained": "None",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "seg_loss + (consistency_weight * consistency_loss)",
+            "architecture":"ensemble",
+            "encoder":"resnet34"
+        },
+        "Ensemble_DA_V3_RGB": {
+            "pre-trained": "None",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "alpha":0.6,
+            "train_loss": "seg_loss + (consistency_weight * consistency_loss)",
+            "architecture":"ensemble",
+            "encoder":"resnet34"   
+        },
+        "Ensemble_DA_V4_RGB": {
+            "pre-trained": "None",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "seg_loss + (consistency_weight * consistency_loss)",
+            "architecture":"ensembleMAnet",
+            "encoder":"mit_b5"
+        },
+        "Ensemble_DA_V5_RGB": {
+            "pre-trained": "None",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "seg_loss + (consistency_weight * (consistency_loss + marginal_loss + class_conditional_loss))",
+            "architecture":"ensemble",
+            "encoder":"resnet34"
+        },
+        "Ensemble_DA_V51_RGB": {
+            "pre-trained": "None",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "seg_loss + (consistency_weight * (consistency_loss + marginal_loss + 2 * class_conditional_loss))",
+            "architecture":"ensemble",
+            "encoder":"resnet34"
+        },
+        "Ensemble_DA_V6_RGB": {
+            "pre-trained": "Ensemble_Sam1_RGB",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "seg_loss + (consistency_weight * consistency_loss)",
+            "architecture":"ensemble",
+            "encoder":"resnet34",
+            "alpha":"alpha = min(1 - 1 / (global_step + 1)**p, alpha)"
+        },
+        "Ensemble_DA_V7_RGB": {
+            "pre-trained": "Ensemble_Sam1_RGB",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "structure_loss + (consistency_weight * consistency_loss)",
+            "architecture":"ensemble",
+            "encoder":"resnet34",
+            "alpha":"alpha = min(1 - 1 / (global_step + 1)**p, alpha)"
+        },
+        "Ensemble_DA_V8_RGB": {
+            "pre-trained": "Ensemble_Sam1_RGB",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "structure_loss + (consistency_weight * (2*consistency_loss + marginal_loss + 2*class_conditional_loss))",
+            "architecture":"ensemble",
+            "encoder":"resnet34",
+            "alpha":"alpha = min(1 - 1 / (global_step + 1)**p, alpha)"
+        },
+		"Ensemble_DA_V10_RGB": {
+            "pre-trained": "None",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "seg_loss + (consistency_weight * consistency_loss)",
+            "architecture":"ensembleSE",
+            "encoder":"resnet34",
+            "alpha":"alpha = min(1 - 1 / (global_step + 1)**p, alpha)"
+        },
+        "Ensemble_DA_V0_G": {
+            "pre-trained": "Ensemble_Green",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "structure_loss + (consistency_weight * consistency_loss)",
+            "architecture":"ensemble",
+            "encoder":"resnet34",
+            "alpha":"alpha = min(1 - 1 / (global_step + 1)**p, alpha)",
+			"color_transform":"multi_input_green"
+        },
+        "Ensemble_DA_V1_G": {
+            "pre-trained": "Ensemble_Green",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "seg_loss + (consistency_weight * consistency_loss)",
+            "architecture":"ensemble",
+            "encoder":"resnet34",
+            "alpha":"alpha = min(1 - 1 / (global_step + 1)**p, alpha)",
+			"color_transform":"multi_input_green"
+        },
+        "Ensemble_DA_V2_G": {
+            "pre-trained": "Ensemble_Green",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "seg_loss + (consistency_weight * consistency_loss)",
+            "architecture":"ensemble",
+            "encoder":"resnet34",
+            "alpha":"alpha = min(1 - 1 / (global_step + 1)**p, alpha)",
+			"overlapRate":50,
+			"color_transform":"multi_input_green"
+        },
+        "Ensemble_DA_V3_G": {
+            "pre-trained": "Ensemble_Green",
+            "dropout_rate": "default=0.1",
+            "loss":"mse",
+            "train_loss": "seg_loss + (consistency_weight * consistency_loss)",
+            "architecture":"ensembleSE",
+            "encoder":"resnet34",
+            "alpha":"alpha = min(1 - 1 / (global_step + 1)**p, alpha)",
+			"overlapRate":25,
+			"color_transform":"multi_input_green"
+        }
+    }
+}

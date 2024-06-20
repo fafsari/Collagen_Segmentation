@@ -21,14 +21,16 @@ import joblib
 from math import ceil
 from sklearn.model_selection import KFold
 import torch
-
+import time
 import neptune
 
 from Input_Pipeline import *
 from CollagenSegTrain import Training_Loop
-from CollagenSegTrainADDA import TrainingADDA_Loop
+from CollagenSegTrainDAgmm import TrainingADDA_Loop
+from CollagenSegTrain import Training_Loop
 from CollagenSegTest import Test_Network
 from CollagenCluster import Clusterer
+# from utils import save_train_test
 
 # Class to use if no neptune information is provided without having to add logic every time nept_run is called
 class FakeNeptune:
@@ -168,7 +170,7 @@ def main():
                 image_paths = sorted(glob(input_parameters['image_dir'][input_image_type[0]]+'*'))
             elif os.path.isfile(input_parameters['image_dir'][input_image_type[0]]):
                 image_paths = sorted(pd.read_csv(input_parameters['image_dir'][input_image_type[0]])['Paths'].tolist())
-
+        
         # Now determining which images are used for training and which are used for testing
         if 'k_folds' in training_parameters['train_test_split']:
 
@@ -216,19 +218,44 @@ def main():
 
         elif 'split' in training_parameters['train_test_split']:
             
-            
-            # Random train/test split with 'split' proportion assigned to training data
-            shuffle_idx = np.random.permutation(len(image_paths))
+            if os.path.isfile("source_train_idx.npy") and os.path.isfile("source_valid_idx.npy"):
+                print("Loading preveiuosly saved source indices...")
+                train_idx = np.load("source_train_idx.npy")
+                val_idx   = np.load("source_valid_idx.npy")
+            else:
+                # Random train/test split with 'split' proportion assigned to training data
+                shuffle_idx = np.random.permutation(len(image_paths))
 
-            split_pct = training_parameters['train_test_split']['split']
-            train_idx = shuffle_idx[0:floor(split_pct*len(image_paths))]
-            val_idx = shuffle_idx[floor(split_pct*len(image_paths)):len(image_paths)]
-            
+                split_pct = training_parameters['train_test_split']['split']
+                train_idx = shuffle_idx[0:floor(split_pct*len(image_paths))]
+                val_idx = shuffle_idx[floor(split_pct*len(image_paths)):len(image_paths)]
+                
+                # save train_val idx
+                np.save("source_train_idx.npy", train_idx)
+                np.save("source_valid_idx.npy", val_idx)
+                                    
             train_images = [image_paths[i] for i in train_idx]
             test_images = [image_paths[i] for i in val_idx]
             train_labels = [label_paths[i] for i in train_idx]
             test_labels = [label_paths[i] for i in val_idx]
             
+            # # Create dataframes
+            # train_df = pd.DataFrame({
+            #     'train_images': train_images,
+            #     'train_labels': train_labels
+            # })
+
+            # test_df = pd.DataFrame({
+            #     'test_images': test_images,
+            #     'test_labels': test_labels
+            # })
+                        
+            # # Create a Pandas Excel writer using openpyxl as the engine
+            # with pd.ExcelWriter('source_train_test.xlsx', engine='openpyxl') as writer:
+            #     # Write each DataFrame to a different worksheet
+            #     train_df.to_excel(writer, sheet_name='Train', index=False)
+            #     test_df.to_excel(writer, sheet_name='Test', index=False)
+                                    
             dataset_train, dataset_valid = make_training_set(
                 'train',
                 train_img_paths=train_images,
@@ -241,18 +268,44 @@ def main():
                 model = Training_Loop(dataset_train, dataset_valid, training_parameters,nept_run)
                 Test_Network(model, dataset_valid, nept_run, training_parameters)
             elif mode == "ADDA":
-                # Random train/test split with 'split' proportion assigned to training data                
-                shuffle_idx_t = np.random.permutation(len(t_image_paths))
+                if os.path.isfile(f"target_train_idx{input_parameters['overlapRate']}.npy") and os.path.isfile(f"target_valid_idx{input_parameters['overlapRate']}.npy"):
+                    print("Loading preveiuosly saved target indices...")
+                    train_idx = np.load(f"target_train_idx{input_parameters['overlapRate']}.npy")
+                    val_idx   = np.load(f"target_valid_idx{input_parameters['overlapRate']}.npy")
+                else:
+                    # Random train/test split with 'split' proportion assigned to training data                
+                    shuffle_idx_t = np.random.permutation(len(t_image_paths))
 
-                split_pct = training_parameters['train_test_split']['split']
-                train_idx = shuffle_idx_t[0:floor(split_pct*len(t_image_paths))]
-                val_idx = shuffle_idx_t[floor(split_pct*len(t_image_paths)):len(t_image_paths)]
-                
+                    split_pct = training_parameters['train_test_split']['split']
+                    train_idx = shuffle_idx_t[0:floor(split_pct*len(t_image_paths))]
+                    val_idx = shuffle_idx_t[floor(split_pct*len(t_image_paths)):len(t_image_paths)]
+                    
+                    # save train_val idx 
+                    np.save(f"target_train_idx{input_parameters['overlapRate']}.npy", train_idx)
+                    np.save(f"target_valid_idx{input_parameters['overlapRate']}.npy", val_idx)
+                                                
                 train_images = [t_image_paths[i] for i in train_idx]
                 test_images  = [t_image_paths[i] for i in val_idx]
                 train_labels = [target_label_paths[i] for i in train_idx]
                 test_labels  = [target_label_paths[i] for i in val_idx]
                 
+                # # Create dataframes only once
+                # train_df = pd.DataFrame({
+                #     'train_images': train_images,
+                #     'train_labels': train_labels
+                # })
+
+                # test_df = pd.DataFrame({
+                #     'test_images': test_images,
+                #     'test_labels': test_labels
+                # })
+                            
+                # # Create a Pandas Excel writer using openpyxl as the engine
+                # with pd.ExcelWriter('target_train_test50.xlsx', engine='openpyxl') as writer:
+                #     # Write each DataFrame to a different worksheet
+                #     train_df.to_excel(writer, sheet_name='Train', index=False)
+                #     test_df.to_excel(writer, sheet_name='Test', index=False)
+                                                            
                 dataset_train_t, dataset_valid_t = make_training_set(
                     'train',
                     train_img_paths=train_images,
@@ -260,8 +313,11 @@ def main():
                     valid_img_paths=test_images,
                     valid_tar = test_labels,
                     parameters=training_parameters
-                )                
-                modelADDA = TrainingADDA_Loop(input_parameters["model_path"], dataset_train, dataset_train_t, dataset_valid_t, training_parameters,nept_run)
+                )
+                
+                modelADDA = TrainingADDA_Loop(input_parameters["model_file"], dataset_train, dataset_valid,
+                                              dataset_train_t, dataset_valid_t, 
+                                              training_parameters, nept_run)
                 Test_Network(modelADDA, dataset_valid_t, nept_run, training_parameters)
 
         elif 'training' in training_parameters['train_test_split']:
@@ -304,9 +360,13 @@ def main():
                 valid_tar=test_labels,
                 parameters= training_parameters
             )
-
+            start_time = time.time()
             model = Training_Loop(dataset_train,dataset_valid,training_parameters,nept_run)
-
+        
+            end_time = time.time()
+            spent_time = end_time - start_time
+            print("Time spent to test is:", int(spent_time // 60), "minutes and", int(spent_time % 60), "seconds")
+        
             Test_Network(model,dataset_valid,nept_run,training_parameters)
 
     elif input_parameters['phase']=='retrain':
@@ -494,7 +554,9 @@ def main():
             image_paths_base = []
             for inp_type in input_image_type:
                 if os.path.isdir(input_parameters['image_dir'][inp_type]):
-                    image_paths_base.append(sorted(glob(input_parameters['image_dir'][inp_type]+'*')))
+                    # image_paths_base.append(sorted(glob(input_parameters['image_dir'][inp_type]+'*')))
+                    image_paths_base.append([os.path.join(input_parameters['image_dir'][inp_type], f) 
+                                             for f in os.listdir(input_parameters['image_dir'][inp_type])])
                 elif os.path.isfile(input_parameters['image_dir'][inp_type]):
                     image_paths_base.append(sorted(pd.read_csv(input_parameters['image_dir'][inp_type])['Paths'].tolist()))
 
@@ -579,9 +641,9 @@ def main():
         input_parameters['preprocessing'] = preprocessing
 
         # This is a hack for running on large sets of large images
-        image_set_size = 20
+        image_set_size = len(image_paths)   #20
         run_throughs = ceil(len(image_paths)/image_set_size)
-
+        start_time = time.time()
         for run in range(run_throughs):
             
             if not int((run+1)*image_set_size)>=len(image_paths):
@@ -591,7 +653,7 @@ def main():
                 print(f'Running on images: {int(run*image_set_size)} to {len(image_paths)}')
                 run_paths = image_paths[int(run*image_set_size):len(image_paths)]
             
-            print(run_paths)
+            # print(run_paths)
                 
             nothin, dataset_test = make_training_set(
                 'test',
@@ -603,6 +665,9 @@ def main():
             )
 
             Test_Network(model_file, dataset_test, nept_run, input_parameters)
+        end_time = time.time()
+        spent_time = end_time - start_time
+        print("Time spent to test is:", int(spent_time // 60), "minutes and", int(spent_time % 60), "seconds")
 
     elif input_parameters['phase']=='cluster':
 

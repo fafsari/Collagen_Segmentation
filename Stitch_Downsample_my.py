@@ -57,34 +57,33 @@ def main():
     # base_dir = '/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/020524_DUET_Patches/'
     base_dir = "/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH"
     
-    b_dir = '/B/'
-    f_dir = '/F/'
-    slide_pred_dir = '/blue/pinaki.sarder/f.afsari/4-DUET/Data/Results/Ensemble_Attn_RGB/UCD-PATH/Testing_Output/'
-    out_dir = '/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/Stitched_and_Downsampled/'
+    b_dir = "/B/"
+    f_dir = "/F/"
+    slide_pred_dir = base_dir + "/Results/Ensemble_DAMIT_RGB/Testing_Output/"
+    slide_out_dir  = base_dir + "/Results/Ensemble_DAMIT_RGB/Stitched_and_Downsampled/"
     
     # slides = os.listdir(base_dir)
     slides = [os.path.basename(slide_name).replace('.jpg', '') for slide_name in os.listdir(base_dir+b_dir)]
-    # slides = [i for i in slides if os.path.isdir(base_dir+i)]
-    #slides = ['20H']
-    print(f'Found: {len(slides)} slides')
-
     
-    patch_overlap = 150
-    downsample = 200
+    print(f'Found: {len(slides)} slides')
+    
+    patch_overlap = 192
+    downsample = 10
 
-    with tqdm(slides,total=len(slides)) as pbar:
-        for slide_idx,slide in enumerate(slides):
+    with tqdm(slides, total=len(slides)) as pbar:
+        for slide_idx, slide in enumerate(slides):
             
             pbar.set_description(f'Working on: {slide}, {slide_idx}/{len(slides)}')
 
             # slide_pred_dir = base_dir+slide+pred_dir
-            slide_b_dir = base_dir+slide+b_dir
-            slide_f_dir = base_dir+slide+f_dir
-            slide_out_dir = out_dir+slide
+            # slide_b_dir = base_dir+slide+b_dir
+            # slide_f_dir = base_dir+slide+f_dir
+            # slide_out_dir = out_dir+slide
 
             try:
-                if not os.path.exists(slide_out_dir):
-                    os.makedirs(slide_out_dir)
+                # if not os.path.exists(slide_out_dir):
+                # print(f"Output dir: {slide_out_dir}")
+                os.makedirs(slide_out_dir, exist_ok=True)
 
                 # Checking if there's anything in each pred patch
                 checked_names = [p for p in os.listdir(slide_pred_dir) if slide in p]

@@ -55,23 +55,22 @@ def main(args):
     model_name = args.test_model_path.split(os.sep)[-1]
 
     # Checking whether train_test_names is provided
-    if args.train_test_names is None:
-
+    if args.train_test_names == '':
+        print("Testing on all pathces in Testing_Output...")
         # Checking contents of Testing_Output/ directory
         test_names = os.listdir(f'{args.test_model_path}/Testing_Output/')
 
     else:
 
-        # # Reading the file specified for train_test_names
-        # train_test_df = pd.read_csv(args.train_test_names)
-
-        # # Getting the "Test" image names
-        # test_names = train_test_df[train_test_df['Phase'].str.match('Test')]['Image_Names'].tolist()        
+        # Reading the file specified for train_test_names        
+        file_path = os.path.join(args.train_test_names, f"target_train_test{args.overlapRate}.xlsx")
+        train_test_df = pd.read_excel(file_path, sheet_name='Test')#, usecols='test_labels')
+        test_names = train_test_df['test_labels'].tolist()
+        # print(len(test_names))
+        # print(test_names[0])
         
         # Formatting for test outputs
-        # test_names = ['Test_Example_'+t.replace('.jpg','.tif') for t in test_names]
-        test_names = [t for t in test_names if not t.endswith('.csv')]
-
+        test_names = ['Test_Example_'+t.split('/')[-1] for t in test_names]        
 
     print(f'Found: {len(test_names)} images for metrics calculation')
     
@@ -92,24 +91,35 @@ def main(args):
         roc_curve_aggregate = []
 
         gt_names = os.listdir(args.label_path+'/')
-
-        for t_idx,t in enumerate(test_names):
+        # path_names = os.listdir(args.UCDpath_test)        
+        
+        for t_idx,test_image in enumerate(test_names):
             # Adjusting the test name to match the original image format (adjust as needed)
-            adjusted_name = t.replace('Test_Example_','').replace('_prediction','').replace('.tif','.jpg')
+            # adjusted_name = test_image.replace('Test_Example_','').replace('_prediction','').replace('.tif','.jpg')            
+            adjusted_name = test_image.replace('Test_Example_','')
+            ext = adjusted_name.split('.')[-1]
+            adjusted_name = adjusted_name.replace(ext, 'tif')
+            
+            # print(adjusted_name)
+            # if test_image in path_names and not test_image.endswith('.csv'):
             if adjusted_name in gt_names:
-
-                test_image = (1/255)*np.array(Image.open(f'{args.test_model_path}/Testing_Output/{t}'))                
+                
+                ext = test_image.split('.')[-1]
+                test_image = test_image.replace(ext, 'png')
+                
+                test_image = (1/255)*np.array(Image.open(f'{args.test_model_path}/Testing_Output/{test_image}'))                
                 #print(f'test output image unique values: {np.unique(test_image).tolist()}')
                 binary_test_image = test_image.copy()
                 binary_test_image[binary_test_image>=0.1] = 1
                 binary_test_image[binary_test_image<0.1] = 0
                 binary_test_image = np.uint8(binary_test_image)
 
-                gt_image = (1/255)*np.array(Image.open(f'{args.label_path}/{adjusted_name}'))[:,:,0]
+                # gt_image = (1/255)*np.array(Image.open(f'{args.label_path}/{adjusted_name}'))[:,:,0]
+                gt_image = (1/255)*np.array(Image.open(f'{args.label_path}/{adjusted_name}'))
                 #print(f'gt image unique values: {np.unique(gt_image).tolist()}')
                 binary_gt_image = gt_image.copy()
-                binary_gt_image[binary_gt_image>=0.1] = 1
-                binary_gt_image[binary_gt_image<0.1] = 0
+                binary_gt_image[binary_gt_image>=0.2] = 1
+                binary_gt_image[binary_gt_image<0.2] = 0
                 binary_gt_image = np.uint8(binary_gt_image)
 
                 # Accuracy
@@ -123,7 +133,7 @@ def main(args):
 
                 # Precision
                 precision = precision_score(binary_gt_image.flatten(),binary_test_image.flatten())
-
+                
                 # Area Under the Curve (AUC)
                 auc = roc_auc_score(binary_gt_image.flatten(),test_image.flatten())
 
@@ -137,7 +147,7 @@ def main(args):
                 mse = mean_squared_error(gt_image,test_image)
                 
                 # Adding metrics to metrics_dict
-                metrics_dict['Image_Name'].append(t)
+                metrics_dict['Image_Name'].append(test_image)
                 metrics_dict['Dice'].append(dice)
                 metrics_dict['Accuracy'].append(accuracy)
                 metrics_dict['Recall'].append(recall)
@@ -251,14 +261,19 @@ if __name__=="__main__":
     )
 
     parser.add_argument('--test_model_path',
-                        type=str, 
-                        default="/blue/pinaki.sarder/f.afsari/4-DUET/Data/Results/Ensemble_Attn_RGB",
+                        type=str,
+                        default="/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Results/Ensemble_DA_V2_G",
                         help='Parent directory for model to evaluate, see comment in CollagenEvaluate.py for folder structure.'
                         )
     parser.add_argument('--label_path',
                         type=str, 
-                        default="/blue/pinaki.sarder/f.afsari/4-DUET/Data/C",
+                        default="/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Patches25/C/",
                         help='Path to label masks (not one-hot)'
+                        )        
+    parser.add_argument('--UCDpath_test',
+                        type=str,
+                        default="/blue/pinaki.sarder/f.afsari/4-DUET/Data/Results/Ensemble_DA1_RGB/Testing_Output/",
+                        help='Path to test data of UCD PATH'
                         )
     parser.add_argument('--output_dir',
                         type=str,                         
@@ -266,9 +281,11 @@ if __name__=="__main__":
                         )
     parser.add_argument('--train_test_names',
                         type=str, 
-                        default=None,
+                        default="/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Results",
+                        # default='',"Z:\f.afsari\4-DUET\"
                         help='If you have predictions for both the training and testing/holdout set images in the same directory, you can specify the path to a csv file where one column has image name (Image_Names) and another column has whether it is "Train" or "Test" (Phase).'
                         )
+    parser.add_argument('--overlapRate', type=int, default=25, help='percentage of overlapping pathces')
 
     main(parser.parse_args())
 

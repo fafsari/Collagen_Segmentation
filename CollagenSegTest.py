@@ -34,7 +34,7 @@ import neptune
 from Segmentation_Metrics_Pytorch.metric import BinaryMetrics
 from CollagenSegUtils import visualize_continuous, get_metrics
 from CollagenCluster import Clusterer
-from CollagenSegTrain import EnsembleModel, EnsembleModelMIT, AttentionModel
+from CollagenModels import create_model
 from tifffile import imsave
     
         
@@ -68,38 +68,30 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
     output_type = 'prediction'
 
     device = torch.device('cuda') if torch.cuda.is_available() else 'cpu'
+    
+    model = create_model(model_details, n_classes)
 
-    if model_details['architecture']=='Unet++':
-        model = smp.UnetPlusPlus(
-                encoder_name = encoder,
-                encoder_weights = encoder_weights,
-                in_channels = in_channels,
-                classes = n_classes,
-                activation = active
-                )
-    elif model_details['architecture']=='ensemble':
-        model = EnsembleModel(
-            in_channels = in_channels,
-            active = active,
-            n_classes = n_classes
-        )
-    elif model_details['architecture']=='ensembleMIT':
-        model = EnsembleModelMIT(
-            in_channels = in_channels,
-            active = active,
-            n_classes = n_classes
-        )
-    elif model_details['architecture'] == 'attention':
-        model = AttentionModel(
-            in_channels = in_channels,
-            active = active,
-            n_classes = n_classes
-            )
+    state_dict =torch.load(model_path, map_location=device)
         
-    if torch.cuda.is_available:
-        model.load_state_dict(torch.load(model_path))
-    else:
-        model.load_state_dict(torch.load(model_path,map_location=torch.device('cpu')))
+    # Update the state dict: rename 'combine_layers' to 'segmentation_head'
+    if 'combine_layers.weight' in state_dict:
+        state_dict['segmentation_head.weight'] = state_dict.pop('combine_layers.weight')
+    if 'combine_layers.bias' in state_dict:
+        state_dict['segmentation_head.bias'] = state_dict.pop('combine_layers.bias')
+    
+    # Load the updated state dict into the model
+    missing_keys, unexpected_keys = model.load_state_dict(state_dict, strict=False)
+    if missing_keys:
+        print(f"Missing keys: {missing_keys}")
+    if unexpected_keys:
+        print(f"Unexpected keys: {unexpected_keys}")
+
+    # Save the modified model
+    torch.save(model.state_dict(), model_path)
+    print(f"Loading model from {model_path}")    
+        
+    print("model successfully loaded!")
+    
     model.to(device)
     model.eval()
 
@@ -130,7 +122,7 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
         else:
             print('Images are the same size as the model inputs')
 
-        with tqdm(range(len(dataset_valid)),desc='Testing') as pbar:
+        with tqdm(range(len(dataset_valid)),desc='Predicting') as pbar:
             for i in range(0,len(dataset_valid.images)):
                 
                 # Initializing combined mask from patched predictions
@@ -205,13 +197,23 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                     im = Image.fromarray((final_pred_mask).astype(np.uint8))
                     # Smoothing image to get rid of grid lines
                     im = im.filter(ImageFilter.SMOOTH_MORE)
+                    
+                    if 'Model_S_' in model_path:
+                        test_output_dir = output_dir+'/Predictions_Src/'
+                    else:
+                        test_output_dir = output_dir+'/Predictions_Tar/'
+                                                
+                    os.makedirs(test_output_dir, exist_ok=True)
+                    
+                    ext = save_name.split('.')[-1]
+                    save_name = save_name.replace(ext, 'png')
                     im.save(test_output_dir+save_name)
                     #imsave(test_output_dir+save_name,final_pred_mask)
 
-                    # Saving overlap mask
-                    #overlap_mask = (overlap_mask-np.min(overlap_mask))/(np.max(overlap_mask))
-                    #overlap_im = Image.fromarray((overlap_mask*255).astype(np.uint8))
-                    #overlap_im.save(test_output_dir+'Overlap_Mask.tif')
+                    # # Saving overlap mask
+                    # overlap_mask = (overlap_mask-np.min(overlap_mask))/(np.max(overlap_mask))
+                    # overlap_im = Image.fromarray((overlap_mask*255).astype(np.uint8))
+                    # overlap_im.save(test_output_dir+'Overlap_Mask.tif')
 
                 else:
 

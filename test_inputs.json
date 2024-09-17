@@ -1,0 +1,18 @@
+{
+    "input_parameters":{
+        "phase":"test",
+        "type":"multi",
+        "image_dir":{
+            "DUET":"/blue/pinaki.sarder/f.afsari/4-DUET/database/Frozen_sections/F",
+            "Brightfield":"/blue/pinaki.sarder/f.afsari/4-DUET/database/Frozen_sections/B"
+        },
+        "output_dir":"/blue/pinaki.sarder/f.afsari/4-DUET/database/Frozen_sections/Results/Ensemble_DA_V0_RGB",
+        "model_file":"/blue/pinaki.sarder/f.afsari/4-DUET/Data/Results/Ensemble_DA_V0_RGB/models/Collagen_Seg_Model_T_Latest.pth",
+        "model": "Deep-DUET",
+        "neptune":{
+            "project":"fafsari/Deep-DUET",
+            "source_files":["*.py","**/.py"],
+            "tags":["Ensemble DA RGB model"]
+        }
+    }
+}

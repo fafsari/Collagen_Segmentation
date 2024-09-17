@@ -27,276 +27,7 @@ import sys
 import os
 
 from CollagenSegUtils import visualize_continuous
-
-class EnsembleModel(torch.nn.Module):
-    def __init__(self,
-                 in_channels,
-                 active,
-                 n_classes):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.active = active
-        self.n_classes = n_classes
-
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        encoder = 'resnet34'
-        encoder_weights = 'imagenet'
-
-        if self.active=='sigmoid':
-            self.final_active = torch.nn.Sigmoid()
-        elif self.active =='softmax':
-            self.final_active = torch.nn.Softmax(dim=1)       
-        elif self.active == 'linear':
-            self.active = None
-            self.final_active = torch.nn.Identity()
-        else:
-            self.active = None
-            self.final_active = torch.nn.ReLU()
-
-        self.model_b = smp.UnetPlusPlus(
-                encoder_name = encoder,
-                encoder_weights = encoder_weights,
-                in_channels = int(self.in_channels/2),
-                classes = self.n_classes,
-                activation = self.active
-                )
-        
-        self.model_d = smp.UnetPlusPlus(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = int(self.in_channels/2),
-            classes = self.n_classes,
-            activation = self.active
-        )
-
-        self.combine_layers = torch.nn.Sequential(
-            torch.nn.LazyConv2d(64,kernel_size=1),
-            torch.nn.Dropout(p=0.1),
-            #torch.nn.BatchNorm2d(64),
-            torch.nn.ReLU(inplace=True),
-            torch.nn.Conv2d(64,self.n_classes,kernel_size=1)
-        )
-
-
-    def forward(self,input):
-
-        b_input = input[:,0:int(self.in_channels/2),:,:]
-        d_input = input[:,int(self.in_channels/2):self.in_channels,:,:]
-        b_output = self.model_b.decoder(*self.model_b.encoder(b_input))
-        d_output = self.model_d.decoder(*self.model_d.encoder(d_input))
-
-        combined_output = torch.cat((b_output,d_output),dim=1)
-        final_prediction = self.final_active(self.combine_layers(combined_output))
-        
-        return final_prediction
-
-class EnsembleModelMIT(torch.nn.Module):
-    def __init__(self,
-                 in_channels,
-                 active,
-                 n_classes):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.active = active
-        self.n_classes = n_classes
-
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        encoder = 'mit_b2'
-        encoder_weights = 'imagenet'
-
-        if self.active=='sigmoid':
-            self.final_active = torch.nn.Sigmoid()
-        elif self.active =='softmax':
-            self.final_active = torch.nn.Softmax(dim=1)       
-        elif self.active == 'linear':
-            self.active = None
-            self.final_active = torch.nn.Identity()
-        else:
-            self.active = None
-            self.final_active = torch.nn.ReLU()
-
-        self.model_b = smp.Unet(
-                encoder_name = encoder,
-                encoder_weights = encoder_weights,
-                in_channels = int(self.in_channels/2),
-                classes = self.n_classes,
-                activation = self.active
-                )
-        
-        self.model_d = smp.Unet(
-            encoder_name = encoder,
-            encoder_weights = encoder_weights,
-            in_channels = int(self.in_channels/2),
-            classes = self.n_classes,
-            activation = self.active
-        )
-
-        self.combine_layers = torch.nn.Sequential(
-            torch.nn.LazyConv2d(64,kernel_size=1),
-            torch.nn.Dropout(p=0.1),
-            #torch.nn.BatchNorm2d(64),
-            torch.nn.ReLU(inplace=True),
-            torch.nn.Conv2d(64,self.n_classes,kernel_size=1)
-        )
-
-
-    def forward(self,input):
-
-        b_input = input[:,0:int(self.in_channels/2),:,:]
-        d_input = input[:,int(self.in_channels/2):self.in_channels,:,:]
-        b_output = self.model_b.decoder(*self.model_b.encoder(b_input))
-        d_output = self.model_d.decoder(*self.model_d.encoder(d_input))
-
-        combined_output = torch.cat((b_output,d_output),dim=1)
-        final_prediction = self.final_active(self.combine_layers(combined_output))
-        
-        return final_prediction
-
-
-class CrossAttention(torch.nn.Module):
-    def __init__(self, in_channels):
-        super(CrossAttention, self).__init__()
-        self.scale = in_channels ** -0.5
-
-    def forward(self, f_input, b_input):
-        # # Get dimensions of query and key
-        query_dim = f_input.size(-1)
-        key_dim = b_input.size(-1)
-        
-        # Calculate proportional scaling factor
-        self.scale = (query_dim ** -0.5) * (key_dim ** -0.5)
-        
-        # Calculate attention scores
-        attn = torch.matmul(f_input, b_input.transpose(-2, -1)) * self.scale
-        
-        # Apply softmax to get attention weights
-        attn = torch.nn.functional.softmax(attn, dim=-1)
-        
-        # Attend to values (b_input) using attention weights
-        attended_features = torch.matmul(attn, b_input)
-        
-        return attended_features
-
-class SelfAttention(torch.nn.Module):
-    def __init__(self, in_channels):
-        super(SelfAttention, self).__init__()
-        self.in_channels = in_channels
-        self.query_conv = torch.nn.Conv2d(in_channels, in_channels // 8, kernel_size=1)
-        self.key_conv = torch.nn.Conv2d(in_channels, in_channels // 8, kernel_size=1)
-        self.value_conv = torch.nn.Conv2d(in_channels, in_channels // 8, kernel_size=1)
-        self.gamma = torch.nn.Parameter(torch.zeros(1))
-
-    def forward(self, x):
-        batch_size, channels, height, width = x.size()
-        # channels //= 8
-        # Flatten query and key
-        proj_query = self.query_conv(x).view(batch_size, channels, -1)  # Shape: (batch_size, channels, height*width)
-        proj_key = self.key_conv(x).view(batch_size, channels, -1)      # Shape: (batch_size, channels, height*width)
-        print("proj_key.shape, proj_query.shape--->",proj_key.shape, proj_query.shape)
-        # Compute dot product
-        energy = torch.einsum('bcn,bcm->bnm', proj_query, proj_key)  # Shape: (batch_size, height*width, height*width)
-        print("energy.shape:", energy.shape)
-        attention = torch.nn.functional.softmax(energy, dim=-1)      # Shape: (batch_size, height*width, height*width)
-        print("attention.shape",attention.shape)
-
-        # Flatten value
-        proj_value = self.value_conv(x).view(batch_size, channels, -1)  # Shape: (batch_size, channels, height*width)
-        print("proj_value.shape, attention.shape---->", proj_value.shape, attention.shape)
-        # Compute output
-        out = torch.einsum('bcm,bmn->bcn', proj_value, attention)       # Shape: (batch_size, channels, height*width)
-        print("out.shape", out.shape)
-        out = out.view(batch_size, channels, height, width)
-        out = self.gamma * out + x
-        return out
-        
-        # proj_query = self.query_conv(x).view(batch_size, -1, height * width).permute(0, 2, 1)
-        # proj_key = self.key_conv(x).view(batch_size, -1, height * width)
-        # print(proj_key.shape, proj_query.shape)
-        # # energy = torch.bmm(proj_query, proj_key)
-        # energy = torch.einsum('bid,bjd->bij', proj_query, proj_key)
-        # attention = torch.nn.functional.softmax(energy, dim=-1)
-        # proj_value = self.value_conv(x).view(batch_size, -1, height * width)
-        # # out = torch.bmm(proj_value, attention.permute(0, 2, 1))
-        # out = torch.einsum('bjd,bid->bij', proj_value, attention)
-        # out = out.view(batch_size, channels, height, width)
-        # out = self.gamma * out + x
-        # return out
-
-class AttentionModel(torch.nn.Module):
-    def __init__(self, in_channels, active, n_classes):
-        super().__init__()
-
-        self.in_channels = in_channels
-        self.active = active
-        self.n_classes = n_classes
-
-        encoder = 'mit_b5'
-        encoder_weights = 'imagenet'
-
-        if self.active == 'sigmoid':
-            self.final_active = torch.nn.Sigmoid()
-        elif self.active == 'softmax':
-            self.final_active = torch.nn.Softmax(dim=1)
-        elif self.active == 'linear':
-            self.active = None
-            self.final_active = torch.nn.Identity()
-        else:
-            self.active = None
-            self.final_active = torch.nn.ReLU()
-
-        self.model_b = smp.Unet(
-            encoder_name=encoder,
-            encoder_weights=encoder_weights,
-            in_channels=int(self.in_channels / 2),
-            classes=self.n_classes,
-            activation=self.active
-        )
-
-        self.model_d = smp.Unet(
-            encoder_name=encoder,
-            encoder_weights=encoder_weights,
-            in_channels=int(self.in_channels / 2),
-            classes=self.n_classes,
-            activation=self.active
-        )
-
-        self.cross_attention = CrossAttention(in_channels=64)
-        # self.self_attention = SelfAttention(32)
-
-        self.combine_layers = torch.nn.Sequential(
-            torch.nn.LazyConv2d(64, kernel_size=1),
-            torch.nn.Dropout(p=0.1),
-            # torch.nn.BatchNorm2d(64),
-            torch.nn.ReLU(inplace=True),
-            torch.nn.Conv2d(64, self.n_classes, kernel_size=1)
-        )
-
-    def forward(self, input):
-        b_input = input[:, 0:int(self.in_channels / 2), :, :]
-        d_input = input[:, int(self.in_channels / 2):self.in_channels, :, :]
-        b_output = self.model_b.decoder(*self.model_b.encoder(b_input))
-        d_output = self.model_d.decoder(*self.model_d.encoder(d_input))
-
-        # # Apply cross-attention mechanism
-        attended_b_output = self.cross_attention(d_output, b_output)
-
-        # Concatenate the attended features
-        combined_output = torch.cat((attended_b_output, d_output), dim=1)
-        
-        # Concatenate the features then find attended features
-        # combined_output = torch.cat((b_output, d_output), dim=1)
-        # print("combined_output.shape:", combined_output.shape)
-        
-        # # Apply self-attention mechanism
-        # combined_output = self.self_attention(combined_output)
-        
-        final_prediction = self.final_active(self.combine_layers(combined_output))
-        # final_prediction = self.final_active(combined_output)
-
-        return final_prediction
-    
+from CollagenModels import EnsembleModel, EnsembleModelMIT, AttentionModel
     
 def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     
@@ -305,6 +36,7 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     if not model_details['architecture'] == 'DUnet':
         encoder = model_details['encoder']
         encoder_weights = model_details['encoder_weights']
+        dropout_rate = model_details['dropout_rate']
         nept_run['encoder'] = encoder
         nept_run['encoder_pre_train'] = encoder_weights
 
@@ -358,12 +90,14 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 )
     elif model_details['architecture']=='ensemble':
         model = EnsembleModel(
+            encoder_name = encoder,
+            encoder_weights = encoder_weights,
             in_channels = in_channels,
             active = active,
             n_classes = n_classes
             )
     elif model_details['architecture']=='ensembleMIT':
-        model = EnsembleModelMIT(
+        model = EnsembleModelMIT(            
             in_channels = in_channels,
             active = active,
             n_classes = n_classes
@@ -389,11 +123,22 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     # model, optimizer = amp.initialize(model, optimizer, opt_level="O3")
 
     batch_size = train_parameters['batch_size']
-    train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 12)
+    train_loader = DataLoader(dataset_train, batch_size = batch_size, shuffle = True, num_workers = 4)
     valid_loader = DataLoader(dataset_valid, batch_size = batch_size, shuffle = True, num_workers = 4)
     
     train_iter = iter(train_loader)
-    val_iter = iter(valid_loader)        
+    val_iter = iter(valid_loader)      
+    
+    # Save one batch of data from the train and validation loader to test
+    train_batch = next(train_iter)
+    valid_batch = next(val_iter)
+
+    # Save the batches as a tuple
+    torch.save({
+        'train_batch': train_batch,
+        'valid_batch': valid_batch
+    }, "train_val_loader_test.pt")
+    print("L132==============", len(train_loader), len(valid_loader))      
 
     # Maximum number of epochs defined here as well as how many steps between model saves and example outputs
     epoch_num = train_parameters['step_num']
@@ -534,7 +279,7 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 # Different process for saving comparison figures vs. only predictions
                 if output_type == 'comparison':
                     fig.savefig(output_dir+f'/Training_Epoch_{i}_Example.png')
-                    nept_run[f'Example_Output_{i}'].upload(output_dir+f'/Training_Epoch_{i}_Example.png')
+                    nept_run[f'Example_Output_{i}'].upload(output_dir+f'/Training_Epoch_{i}_Example.tif')
                 elif output_type == 'prediction':
 
                     im = Image.fromarray(fig.astype(np.uint8))

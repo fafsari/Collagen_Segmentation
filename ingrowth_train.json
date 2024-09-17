@@ -1,30 +1,34 @@
-{
+{	
+	"mode": "None",
     "input_parameters":{
         "phase":"train",
         "type":"single",
-        "image_dir":{
-            "Brightfield":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/B/"
+        "image_dir":{            
+            "Brightfield":"/blue/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data/images/" 
         },
-        "label_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/C/",
-        "output_dir":"/blue/pinaki.sarder/samuelborder/Farzad_Fibrosis/Same_Training_Set_Data/Results/Brightfield_RGB_Long",
+        "label_dir":"/blue/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data/masks",
+        "output_dir":"/orange/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data/Results/Unet",
         "neptune":{
-            "project":"samborder/Deep-DUET",
+            "project":"fafsari/Deep-Ingrowth",
             "source_files":["*.py","**/.py","**.json","**/.json"],
-            "tags":["Brightfield RGB Long model"]
+            "tags":["Ingrowth model"]
         }
     },
-    "train_parameters":{
-        "model_details":{
+    "train_parameters":{	
+		"mode": "None",
+        "model_details":{				
             "architecture":"Unet++",
             "encoder":"resnet34",
             "encoder_weights":"imagenet",
+			"dropout_rate":0.4,
             "active":"sigmoid",
             "target_type":"nonbinary",
             "in_channels":3,
-            "ann_classes":"background,collagen"
+            "ann_classes":"background,ingrowth"
         },
         "train_test_split":{
-            "split":0.8
+            "split":0.8,
+            "train_test_source": "/blue/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data"
         },
         "loss":"MSE",
         "lr":0.00005,

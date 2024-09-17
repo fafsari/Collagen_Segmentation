@@ -18,6 +18,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from skimage.io import imread, imsave
 from glob import glob
+import cv2
 
 from random import sample
 
@@ -94,7 +95,8 @@ class SegmentationDataSet(Dataset):
                         img = np.concatenate((img1,img2),axis=-1)
                         img_name = img_name[0]
                     else:
-                        img, tar = imread(str(img_name)), imread(str(tar_name))
+                        # img, tar = imread(str(img_name)), imread(str(tar_name))
+                        img, tar = cv2.cvtColor(cv2.imread(str(img_name), cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB), cv2.imread(str(tar_name), cv2.IMREAD_GRAYSCALE)
 
                     self.images.append((img,tar))
                     self.cached_item_names.append(img_name)
@@ -110,7 +112,8 @@ class SegmentationDataSet(Dataset):
                         img = np.concatenate((img1,img2),axis=-1)
                         img_name = img_name[0]
                     else:
-                        img = imread(str(img_name))
+                        # img = imread(str(img_name))
+                        img = cv2.cvtColor(cv2.imread(str(img_name), cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
                     
                     tar = np.zeros((np.shape(img)[0],np.shape(img)[1],1))
 
@@ -143,7 +146,7 @@ class SegmentationDataSet(Dataset):
 
                 # Overlap percentage, hardcoded patch size
                 self.patch_size = [image_size[0],image_size[1]]
-                self.patch_batch = 0.25
+                self.patch_batch = 0.05
                 # Correction for downsampled (10X as opposed to 20X) data
                 self.downsample_level = 0.5
                 stride = [int(self.patch_size[0]*(1-self.patch_batch)*self.downsample_level), int(self.patch_size[1]*(1-self.patch_batch)*self.downsample_level)]
@@ -170,94 +173,118 @@ class SegmentationDataSet(Dataset):
                         if self.pre_transform is not None:
                             new_img, new_tar = self.pre_transform(new_img, new_tar)
 
-                        item_patches.append((new_img,new_tar))
-                        patch_names.append(name.replace(f'.{name.split(".")[-1]}',f'_{r_s}_{c_s}.{name.split(".")[-1]}'))
+                        ############################################ Added for Ingrowth project
+                        self.cached_data.append((new_img,new_tar))
+                        self.cached_names.append(name.replace(f'.{name.split(".")[-1]}',f'_{r_s}_{c_s}.{name.split(".")[-1]}'))   
+                        ############################################ Commented for Ingrowth project
+                        # item_patches.append((new_img,new_tar))
+                        # patch_names.append(name.replace(f'.{name.split(".")[-1]}',f'_{r_s}_{c_s}.{name.split(".")[-1]}'))
 
-                self.cached_data.append(item_patches)
-                self.cached_names.append(patch_names)
                 
-                self.cached_item_patches = [len(i) for i in self.cached_data]
+                # self.cached_data.append(item_patches)
+                # self.cached_names.append(patch_names)
+                
+                # self.cached_item_patches = [len(i) for i in self.cached_data]                
+                ##########################################################################
 
         print(f'Cached Data: {len(self.cached_data)}')
 
     def __len__(self):
-        
-        if not self.patch_batch:
-            return len(self.cached_data)
-        else:
-            return sum([len(i) for i in self.cached_data])
+        ############################################ Added for Ingrowth project
+        return len(self.cached_data)
+        ############################################ Commented for Ingrowth project
+        # if not self.patch_batch:
+        #     return len(self.cached_data)
+        # else:
+        #     return sum([len(i) for i in self.cached_data])
         
     # Getting matching input and target(label)
     def __getitem__(self,index:int):
         #index = self.item_idx
-
-        if not self.patch_batch:
-            x, y = self.cached_data[index]
-            input_ID = self.cached_names[index]
+        ############################################ Added for Ingrowth project
+        x, y = self.cached_data[index]
+        input_ID = self.cached_names[index]
+        
+        # Preprocessing steps (if there are any)
+        if self.transform is not None:
+            x, y = self.transform(x, y)
+        
+        # Adding batch dimension
+        # x = x[None,:,:,:]
+        # y = y[None,:,:,:]
+        
+        # Getting in the right input/target data types
+        x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
+        
+        return x, y, input_ID
+        
+        ############################################ Commented for Ingrowth project
+        # if not self.patch_batch:
+        #     x, y = self.cached_data[index]
+        #     input_ID = self.cached_names[index]
             
-            # Preprocessing steps (if there are any)
-            if self.transform is not None:
-                x, y = self.transform(x, y)
+        #     # Preprocessing steps (if there are any)
+        #     if self.transform is not None:
+        #         x, y = self.transform(x, y)
             
-            # Adding batch dimension
-            #x = x[None,:,:,:]
-            #y = y[None,:,:,:]
+        #     # Adding batch dimension
+        #     #x = x[None,:,:,:]
+        #     #y = y[None,:,:,:]
             
-            # Getting in the right input/target data types
-            x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
+        #     # Getting in the right input/target data types
+        #     x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
 
-            return x, y, input_ID
+        #     return x, y, input_ID
 
-        else:
+        # else:
 
-            # Just returning a list of all patches for this index:
-            image_patches = self.cached_data[index]
-            patch_names = self.cached_names[index]
+        #     # Just returning a list of all patches for this index:
+        #     image_patches = self.cached_data[index]
+        #     patch_names = self.cached_names[index]
 
-            x_list = []
-            y_list = []
-            input_ID_list = []
-            for img_tar_pair, patch_id in zip(image_patches,patch_names):
-                img, tar = img_tar_pair
+        #     x_list = []
+        #     y_list = []
+        #     input_ID_list = []
+        #     for img_tar_pair, patch_id in zip(image_patches,patch_names):
+        #         img, tar = img_tar_pair
 
-                if self.transform is not None:
-                    x, y = self.transform(img, tar)
+        #         if self.transform is not None:
+        #             x, y = self.transform(img, tar)
                 
-                # Adding batch dimension
-                x = x[None,:,:,:]
-                y = y[None,:,:,:]
-                x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
-                x_list.append(x)
-                y_list.append(y)
-                input_ID_list.append(patch_id)
+        #         # Adding batch dimension
+        #         x = x[None,:,:,:]
+        #         y = y[None,:,:,:]
+        #         x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
+        #         x_list.append(x)
+        #         y_list.append(y)
+        #         input_ID_list.append(patch_id)
 
-            return x_list, y_list, input_ID_list
+        #     return x_list, y_list, input_ID_list
+            # """
+            # if self.cached_item_index == 0:
+            #     # if the index is equal to the number of patches - 1 then it will still work
+            #     if index > self.cached_item_patches[self.cached_item_index]-1:
+            #         # Move to the first patch for the next item
+            #         self.cached_item_index += 1
+            #         # Now index = 0 again
+            #         index -= self.cached_item_patches[self.cached_item_index-1]
 
-            """
-            if self.cached_item_index == 0:
-                # if the index is equal to the number of patches - 1 then it will still work
-                if index > self.cached_item_patches[self.cached_item_index]-1:
-                    # Move to the first patch for the next item
-                    self.cached_item_index += 1
-                    # Now index = 0 again
-                    index -= self.cached_item_patches[self.cached_item_index-1]
+            # else:
 
-            else:
-
-                index -= sum(self.cached_item_patches[0:self.cached_item_index])
-                if index >= self.cached_item_patches[self.cached_item_index]:
-                    self.cached_item_index += 1
-                    # Sending index back to zero
-                    index -= self.cached_item_patches[self.cached_item_index-1]
-            try:
-                x, y = self.cached_data[self.cached_item_index][index]
-                input_ID = self.cached_names[self.cached_item_index][index]
-            except IndexError:
-                print(f'index: {index}')
-                print(f'self.cached_item_index: {self.cached_item_index}')
-                print(f'sum(self.cached_item_patches[0:self.cached_item_index]): {sum(self.cached_item_patches[0:self.cached_item_index+1])}')
-                print(f'self.cached_item_patches: {self.cached_item_patches}')
-            """
+            #     index -= sum(self.cached_item_patches[0:self.cached_item_index])
+            #     if index >= self.cached_item_patches[self.cached_item_index]:
+            #         self.cached_item_index += 1
+            #         # Sending index back to zero
+            #         index -= self.cached_item_patches[self.cached_item_index-1]
+            # try:
+            #     x, y = self.cached_data[self.cached_item_index][index]
+            #     input_ID = self.cached_names[self.cached_item_index][index]
+            # except IndexError:
+            #     print(f'index: {index}')
+            #     print(f'self.cached_item_index: {self.cached_item_index}')
+            #     print(f'sum(self.cached_item_patches[0:self.cached_item_index]): {sum(self.cached_item_patches[0:self.cached_item_index+1])}')
+            #     print(f'self.cached_item_patches: {self.cached_item_patches}')
+            # """
     
     def add_sub_categories(self,sub_categories, sub_cat_column):
         # Implementing sub-category weighting if provided with dataframe
@@ -342,18 +369,24 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             AlbuSeg2d(albumentations.RandomBrightnessContrast(p=0.2)),
             AlbuSeg2d(albumentations.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.5,rotate_limit=45,interpolation=1,p=0.1)),
             AlbuSeg2d(albumentations.VerticalFlip(p=0.5)),
-            FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0)
+            FunctionWrapperDouble(np.moveaxis, input=True, target=True, source=-1, destination=0)
         ])
 
         transforms_validation = ComposeDouble([
-            FunctionWrapperDouble(np.moveaxis,input=True,target=True,source=-1,destination=0)
+            FunctionWrapperDouble(np.moveaxis,input=True, target=True, source=-1, destination=0)
         ])
-
-        dataset_train = SegmentationDataSet(inputs = train_img_paths,
+        if parameters["mode"] == "None":
+            dataset_train = SegmentationDataSet(inputs = train_img_paths,
                                              targets = train_tar,
                                              transform = transforms_training,
                                              pre_transform = pre_transforms,
                                              parameters = parameters)
+        elif parameters["mode"] == "ADDA":
+            dataset_train = SegmentationDataSet(inputs = train_img_paths,
+                                                targets = train_tar,
+                                                transform = transforms_validation,
+                                                pre_transform = pre_transforms,
+                                                parameters = parameters)
         
         dataset_valid = SegmentationDataSet(inputs = valid_img_paths,
                                              targets = valid_tar,

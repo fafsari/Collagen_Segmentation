@@ -13,7 +13,7 @@ def is_blank_image(img):
     return np.all(image_array == 0) or np.all(image_array == 255)
 
 
-def patch_image(image_files, patch_dirs, image_size=(512, 512)):
+def patch_image(image_files, patch_dirs, case_ID, image_size=(512, 512)):
     
     # Open all images
     imgs = [Image.open(image_files[i]) for i in range(len(image_files))]
@@ -48,7 +48,7 @@ def patch_image(image_files, patch_dirs, image_size=(512, 512)):
         extension = os.path.splitext(image_name)[-1]
         # print(base_name.replace(extension, ''), '-------------', os.path.splitext(image_name)[-1])
         
-        if base_name.startswith("10H.sci"):
+        if base_name.startswith(f"{case_ID}.sci"):
             patch_dir = patch_dirs[0]
         else:
             patch_dir = patch_dirs[1]
@@ -78,8 +78,9 @@ def patch_image(image_files, patch_dirs, image_size=(512, 512)):
 base_path = "/orange/pinaki.sarder/f.afsari/Farzad_Fibrosis/Kidney Biopsies 05-21-24/DUET Scan Images"
 patch_path = "/orange/pinaki.sarder/f.afsari/Farzad_Fibrosis/Kidney Biopsies 05-21-24/Patches"
 
+case_ID = "32H"
 # Names of the subfolders
-subfolders = ["10H B", "10H F"]
+subfolders = [f"{case_ID} B", f"{case_ID} F"]
 
 
 # List of image file paths from all subfolders
@@ -99,5 +100,5 @@ for b_image in B_image_files: #zip(all_image_files[0], all_image_files[1], all_i
     c_images = [b_image, f_image]#, m_image]
     p_dirs   = [os.path.join(patch_path, subfolders[0]), os.path.join(patch_path, subfolders[1])]
     
-    patch_image(c_images, p_dirs)
+    patch_image(c_images, p_dirs, case_ID)
     

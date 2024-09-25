@@ -1,0 +1,4 @@
+{
+    "test_model_path": "/orange/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data/Results/Unet_10_foldCV",
+    "label_path": "/orange/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data/masks"
+}

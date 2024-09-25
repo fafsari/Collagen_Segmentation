@@ -82,6 +82,18 @@ def check_duplicate(image_path_list,output_path):
 
 def main():
     torch.cuda.empty_cache()
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f'device: {device}')
+    if device == 'cuda':
+        # Total memory reserved by the allocator (in bytes)
+        reserved_memory = torch.cuda.memory_reserved(device)
+        
+        # Total memory allocated by tensors (in bytes)
+        allocated_memory = torch.cuda.memory_allocated(device)
+        
+        print(f"Reserved memory: {reserved_memory / 1024**2:.2f} MB")
+        print(f"Allocated memory: {allocated_memory / 1024**2:.2f} MB")
+        
     # Changing up from sys.argv to reading a specific set of input parameters
     parameters_file = sys.argv[1]
 
@@ -96,11 +108,18 @@ def main():
     if 'neptune' in input_parameters:
         nept_params = input_parameters['neptune']
 
-        nept_api_token = os.environ.get('NEPTUNE_API_TOKEN')
+        try:
+            nept_api_token = os.environ.get('NEPTUNE_API_TOKEN')
+            print('NEPTUNE_API_TOKEN was set successfully!', nept_api_token)
+        except:
+            print('Error! export NEPTUNE_API_TOKEN as an environmetn variable.')
+            exit(-1)
+        
         nept_run = neptune.init_run(
             project = nept_params['project'],
             source_files = nept_params['source_files'],
-            api_token = nept_api_token,
+            # api_token = nept_api_token,
+            api_token = "eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJhODE0Mzc0MC03MmQ5LTQ0NjYtOGU2OC1jZDQ1NGZhODUxNDAifQ==",
             tags = nept_params['tags']
             )
 
@@ -262,7 +281,7 @@ def main():
             # })
                         
             # # Create a Pandas Excel writer using openpyxl as the engine
-            # with pd.ExcelWriter('source_train_test.xlsx', engine='openpyxl') as writer:
+            # with pd.ExcelWriter(f'{input_parameters["output_dir"]}/source_train_test.xlsx', engine='openpyxl') as writer:
             #     # Write each DataFrame to a different worksheet
             #     train_df.to_excel(writer, sheet_name='Train', index=False)
             #     test_df.to_excel(writer, sheet_name='Test', index=False)
@@ -503,7 +522,7 @@ def main():
             )
 
             model = Training_Loop(dataset_train, dataset_valid, training_parameters,nept_run)
-            Test_Network(model, dataset_valid, nept_run, training_parameters)
+            # Test_Network(model, dataset_valid, nept_run, training_parameters)
 
         elif 'training' in training_parameters['train_test_split']:
             
@@ -548,7 +567,7 @@ def main():
 
             model = Training_Loop(dataset_train,dataset_valid,training_parameters,nept_run)
 
-            Test_Network(model,dataset_valid,nept_run,training_parameters)
+            # Test_Network(model,dataset_valid,nept_run,training_parameters)
 
     elif input_parameters['phase']=='test':
 
@@ -560,7 +579,9 @@ def main():
         # Whether to test with labels (calculate metrics) or not
         if 'label_dir' in input_parameters:
             if os.path.isdir(input_parameters['label_dir']):
-                label_paths = glob(input_parameters['label_dir']+'*')
+                # label_paths = glob(input_parameters['label_dir']+'*')
+                label_paths = [os.path.join(input_parameters['label_dir'], f)
+                               for f in os.listdir(input_parameters['label_dir'])]
             elif os.path.isfile(input_parameters['label_dir']):
                 label_paths = sorted(pd.read_csv(input_parameters['label_dir'])['Paths'].tolist())
         else:
@@ -600,9 +621,13 @@ def main():
 
         elif input_parameters['type']=='single':
             if os.path.isdir(input_parameters['image_dir'][input_image_type[0]]):
-                image_paths = sorted(glob(input_parameters['image_dir'][input_image_type[0]]+'*'))
-            elif os.path.isdir(input_parameters['image_dir'][input_image_type[0]]):
-                image_paths = sorted(pd.read_csv(input_parameters['image_dir'][input_image_type[0]])['Paths'].tolist())
+                # image_paths = sorted(glob(input_parameters['image_dir'][input_image_type[0]]+'*'))
+                image_paths = sorted([os.path.join(input_parameters['image_dir'][input_image_type[0]], f) 
+                                  for f in os.listdir(input_parameters['image_dir'][input_image_type[0]])])
+            else:
+                image_paths = sorted(pd.read_excel(input_parameters['image_dir'][input_image_type[0]], sheet_name='Test')['test_images'])
+        elif os.path.isdir(input_parameters['image_dir'][input_image_type[0]]):
+                image_paths = sorted(pd.read_csv(input_parameters['image_dir'][input_image_type[0]])['Paths'].tolist())                
 
         # Loading model and data
         if 'neptune' in input_parameters:
@@ -659,7 +684,7 @@ def main():
 
         # This is a hack for running on large sets of large images
         if len(image_paths) >= 10:
-            image_set_size = len(image_paths) // 5
+            image_set_size = len(image_paths) // 1
         else:
             image_set_size = len(image_paths)
         run_throughs = ceil(len(image_paths)/image_set_size)

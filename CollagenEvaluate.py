@@ -19,9 +19,11 @@ import os
 import sys
 import numpy as np
 import pandas as pd
+import json
 
 from PIL import Image
 from skimage.io import imread
+from skimage.transform import resize
 
 import argparse
 
@@ -55,7 +57,7 @@ def main(args):
     model_name = args.test_model_path.split(os.sep)[-1]
 
     # Checking whether train_test_names is provided
-    if args.train_test_names == '':
+    if args.train_test_names == None:
         print("Testing on all pathces in Testing_Output...")
         # Checking contents of Testing_Output/ directory
         test_names = os.listdir(f'{args.test_model_path}/Testing_Output/')
@@ -63,7 +65,8 @@ def main(args):
     else:
 
         # Reading the file specified for train_test_names        
-        file_path = os.path.join(args.train_test_names, f"target_train_test{args.overlapRate}.xlsx")
+        # file_path = os.path.join(args.train_test_names, f"target_train_test{args.overlapRate}.xlsx")
+        file_path = args.train_test_names
         train_test_df = pd.read_excel(file_path, sheet_name='Test')#, usecols='test_labels')
         test_names = train_test_df['test_labels'].tolist()
         # print(len(test_names))
@@ -105,10 +108,11 @@ def main(args):
             if adjusted_name in gt_names:
                 
                 ext = test_image.split('.')[-1]
-                test_image = test_image.replace(ext, 'png')
+                test_image_name = test_image.replace(ext, 'TIF')
+                # print(f"{adjusted_name}: {test_image}")
                 
-                test_image = (1/255)*np.array(Image.open(f'{args.test_model_path}/Testing_Output/{test_image}'))                
-                #print(f'test output image unique values: {np.unique(test_image).tolist()}')
+                test_image = (1/255)*np.array(Image.open(f'{args.test_model_path}/Testing_Output/{test_image_name}'))
+                # print(f'test output image unique values: {test_image.shape}')
                 binary_test_image = test_image.copy()
                 binary_test_image[binary_test_image>=0.1] = 1
                 binary_test_image[binary_test_image<0.1] = 0
@@ -116,6 +120,7 @@ def main(args):
 
                 # gt_image = (1/255)*np.array(Image.open(f'{args.label_path}/{adjusted_name}'))[:,:,0]
                 gt_image = (1/255)*np.array(Image.open(f'{args.label_path}/{adjusted_name}'))
+                gt_image = resize(gt_image, test_image.shape)
                 #print(f'gt image unique values: {np.unique(gt_image).tolist()}')
                 binary_gt_image = gt_image.copy()
                 binary_gt_image[binary_gt_image>=0.2] = 1
@@ -123,6 +128,7 @@ def main(args):
                 binary_gt_image = np.uint8(binary_gt_image)
 
                 # Accuracy
+                # print(binary_gt_image.shape, binary_test_image.shape)
                 accuracy = accuracy_score(binary_gt_image.flatten(),binary_test_image.flatten())
 
                 # Dice (F1)
@@ -147,7 +153,7 @@ def main(args):
                 mse = mean_squared_error(gt_image,test_image)
                 
                 # Adding metrics to metrics_dict
-                metrics_dict['Image_Name'].append(test_image)
+                metrics_dict['Image_Name'].append(test_image_name)
                 metrics_dict['Dice'].append(dice)
                 metrics_dict['Accuracy'].append(accuracy)
                 metrics_dict['Recall'].append(recall)
@@ -162,15 +168,13 @@ def main(args):
         pbar.close()
 
         print('-----------Done! Generating combined ROC plot----------')
-        # Creating metrics dataframe
-        metrics_df = pd.DataFrame(metrics_dict)
-
+        
         # Finding min and max auc
         min_auc = np.nanmin(metrics_dict['AUC'])
         max_auc = np.nanmax(metrics_dict['AUC'])
         mean_auc = np.nanmean(metrics_dict['AUC'])
         median_auc = np.nanmedian(metrics_dict['AUC'])
-
+        
         # Finding curves associated with min and max
         min_idx = metrics_dict['AUC'].index(min_auc)
         max_idx = metrics_dict['AUC'].index(max_auc)
@@ -186,7 +190,28 @@ def main(args):
         mean_tpr_curve = roc_curve_aggregate[auc_diff][1]
 
         # Adding mean roc curves to df and saving
-        mean_roc_df = pd.DataFrame(data = np.concatenate((mean_fpr_curve.T[:,None],mean_tpr_curve.T[:,None]),axis = -1),columns = ['Mean FPR','Mean TPR'])
+        mean_roc_df = pd.DataFrame(data = np.concatenate((mean_fpr_curve.T[:,None],mean_tpr_curve.T[:,None]),axis = -1),columns = ['Mean FPR','Mean TPR'])       
+        
+        for m in ['Statistics', min_auc, max_auc, mean_auc, median_auc]:
+            metrics_dict['AUC'].append(m)
+            
+        metrics_dict['AUC'].append(test_names[min_idx])
+        metrics_dict['AUC'].append(test_names[max_idx])
+        print(metrics_dict['AUC'].index(min_auc), metrics_dict['AUC'].index(max_auc))
+        print(test_names)
+
+        for ii in range(7):
+            metrics_dict['Accuracy'].append(np.nan)
+            metrics_dict['Dice'].append(np.nan)
+            metrics_dict['Image_Name'].append(np.nan)
+            metrics_dict['MSE'].append(np.nan)
+            metrics_dict['Precision'].append(np.nan)
+            metrics_dict['Specificity'].append(np.nan)
+            metrics_dict['Recall'].append(np.nan)
+        
+        # Creating metrics dataframe
+        metrics_df = pd.DataFrame(metrics_dict)
+
         # Creating figure. Combined minimum and maximum ROC with fill between them. 
         fig = go.Figure()
         fig.add_shape(
@@ -255,19 +280,35 @@ def main(args):
 
 
 if __name__=="__main__":
-
+    
     parser = argparse.ArgumentParser(
         description = 'Collagen segmentation evaluation argument parser'
     )
+    
+    # Add an argument for the JSON parameters file
+    parser.add_argument('parameters_file', 
+                        type=str, 
+                        help='Path to the JSON file containing parameters')
+
+    # Parse the parameters file first
+    args, remaining_args = parser.parse_known_args()
+
+    # Load the parameters from the JSON file
+    with open(args.parameters_file, 'r') as f:
+        parameters = json.load(f)
+        
+    for k, v in parameters.items():
+        print(f"{k}: {v}")
 
     parser.add_argument('--test_model_path',
                         type=str,
-                        default="/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Results/Ensemble_DA_V2_G",
+                        default=parameters.get('test_model_path', None),
                         help='Parent directory for model to evaluate, see comment in CollagenEvaluate.py for folder structure.'
                         )
     parser.add_argument('--label_path',
                         type=str, 
-                        default="/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Patches25/C/",
+                        default=parameters.get('label_path', None),
+                        # default="/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Patches25/C/",
                         help='Path to label masks (not one-hot)'
                         )        
     parser.add_argument('--UCDpath_test',
@@ -281,7 +322,7 @@ if __name__=="__main__":
                         )
     parser.add_argument('--train_test_names',
                         type=str, 
-                        default="/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Results",
+                        default=parameters.get('train_test_names', None),
                         # default='',"Z:\f.afsari\4-DUET\"
                         help='If you have predictions for both the training and testing/holdout set images in the same directory, you can specify the path to a csv file where one column has image name (Image_Names) and another column has whether it is "Train" or "Test" (Phase).'
                         )

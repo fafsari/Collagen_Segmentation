@@ -129,16 +129,16 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
     train_iter = iter(train_loader)
     val_iter = iter(valid_loader)      
     
-    # Save one batch of data from the train and validation loader to test
-    train_batch = next(train_iter)
-    valid_batch = next(val_iter)
+    # # Save one batch of data from the train and validation loader to test
+    # train_batch = next(train_iter)
+    # valid_batch = next(val_iter)
 
-    # Save the batches as a tuple
-    torch.save({
-        'train_batch': train_batch,
-        'valid_batch': valid_batch
-    }, "train_val_loader_test.pt")
-    print("L132==============", len(train_loader), len(valid_loader))      
+    # # Save the batches as a tuple
+    # torch.save({
+    #     'train_batch': train_batch,
+    #     'valid_batch': valid_batch
+    # }, "train_val_loader_test.pt")
+    # print("L132==============", len(train_loader), len(valid_loader))      
 
     # Maximum number of epochs defined here as well as how many steps between model saves and example outputs
     epoch_num = train_parameters['step_num']
@@ -279,7 +279,7 @@ def Training_Loop(dataset_train, dataset_valid, train_parameters, nept_run):
                 # Different process for saving comparison figures vs. only predictions
                 if output_type == 'comparison':
                     fig.savefig(output_dir+f'/Training_Epoch_{i}_Example.png')
-                    nept_run[f'Example_Output_{i}'].upload(output_dir+f'/Training_Epoch_{i}_Example.tif')
+                    nept_run[f'Example_Output_{i}'].upload(output_dir+f'/Training_Epoch_{i}_Example.png')
                 elif output_type == 'prediction':
 
                     im = Image.fromarray(fig.astype(np.uint8))

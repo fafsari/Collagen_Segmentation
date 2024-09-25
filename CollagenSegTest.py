@@ -200,8 +200,10 @@ def Test_Network(model_path, dataset_valid, nept_run, test_parameters):
                     
                     if 'Model_S_' in model_path:
                         test_output_dir = output_dir+'/Predictions_Src/'
-                    else:
+                    elif 'Model_T_'in model_path:
                         test_output_dir = output_dir+'/Predictions_Tar/'
+                    else:
+                        test_output_dir = output_dir+'/Predictions/'
                                                 
                     os.makedirs(test_output_dir, exist_ok=True)
                     

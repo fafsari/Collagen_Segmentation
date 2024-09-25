@@ -47,7 +47,8 @@ class SegmentationDataSet(Dataset):
                  pre_transform = None,
                  target_type = None,
                  batch_size = None,
-                 parameters = {}):
+                 parameters = {},
+                 phase = None):
         
 
         self.inputs = inputs
@@ -55,6 +56,7 @@ class SegmentationDataSet(Dataset):
         self.transform = transform
         self.inputs_dtype = torch.float32
         self.parameters = parameters
+        self.phase = phase
 
         if target_type == 'binary':
             self.targets_dtype = torch.long
@@ -124,8 +126,13 @@ class SegmentationDataSet(Dataset):
                     print(f'File not found: {img_name}')
         
         # For images that are smaller/same size as the model's patch size then just resize as normal   
-        for (img, tar),name in tqdm(zip(self.images,self.cached_item_names),total=len(self.images),desc = 'Preprocessing Images'):     
-
+        for (img, tar),name in tqdm(zip(self.images,self.cached_item_names),total=len(self.images),desc = 'Preprocessing Images'):  
+            
+            ############################################ Added for Ingrowth project
+            if self.pre_transform is not None:
+                    img, tar = self.pre_transform(img, tar)   
+            ############################################ Commented for Ingrowth project
+            
             if np.shape(img)[0]<=image_size[0] and np.shape(img)[1]<=image_size[1]:
            
                 if self.pre_transform is not None:
@@ -174,92 +181,98 @@ class SegmentationDataSet(Dataset):
                             new_img, new_tar = self.pre_transform(new_img, new_tar)
 
                         ############################################ Added for Ingrowth project
-                        self.cached_data.append((new_img,new_tar))
-                        self.cached_names.append(name.replace(f'.{name.split(".")[-1]}',f'_{r_s}_{c_s}.{name.split(".")[-1]}'))   
+                        if self.phase == 'train':
+                            self.cached_data.append((new_img,new_tar))
+                            self.cached_names.append(name.replace(f'.{name.split(".")[-1]}',f'_{r_s}_{c_s}.{name.split(".")[-1]}'))   
                         ############################################ Commented for Ingrowth project
-                        # item_patches.append((new_img,new_tar))
-                        # patch_names.append(name.replace(f'.{name.split(".")[-1]}',f'_{r_s}_{c_s}.{name.split(".")[-1]}'))
+                        else:
+                            item_patches.append((new_img,new_tar))
+                            patch_names.append(name.replace(f'.{name.split(".")[-1]}',f'_{r_s}_{c_s}.{name.split(".")[-1]}'))
 
                 
-                # self.cached_data.append(item_patches)
-                # self.cached_names.append(patch_names)
+                if self.phase == 'test':
+                    self.cached_data.append(item_patches)
+                    self.cached_names.append(patch_names)
                 
-                # self.cached_item_patches = [len(i) for i in self.cached_data]                
+                    self.cached_item_patches = [len(i) for i in self.cached_data]                
                 ##########################################################################
 
         print(f'Cached Data: {len(self.cached_data)}')
 
     def __len__(self):
         ############################################ Added for Ingrowth project
-        return len(self.cached_data)
+        if self.phase == 'train':
+            return len(self.cached_data)
         ############################################ Commented for Ingrowth project
-        # if not self.patch_batch:
-        #     return len(self.cached_data)
-        # else:
-        #     return sum([len(i) for i in self.cached_data])
+        else:
+            if not self.patch_batch:
+                return len(self.cached_data)
+            else:
+                return sum([len(i) for i in self.cached_data])
         
     # Getting matching input and target(label)
     def __getitem__(self,index:int):
         #index = self.item_idx
         ############################################ Added for Ingrowth project
-        x, y = self.cached_data[index]
-        input_ID = self.cached_names[index]
-        
-        # Preprocessing steps (if there are any)
-        if self.transform is not None:
-            x, y = self.transform(x, y)
-        
-        # Adding batch dimension
-        # x = x[None,:,:,:]
-        # y = y[None,:,:,:]
-        
-        # Getting in the right input/target data types
-        x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
-        
-        return x, y, input_ID
+        if self.phase == 'train':
+            x, y = self.cached_data[index]
+            input_ID = self.cached_names[index]
+            
+            # Preprocessing steps (if there are any)
+            if self.transform is not None:
+                x, y = self.transform(x, y)
+            
+            # Adding batch dimension
+            # x = x[None,:,:,:]
+            # y = y[None,:,:,:]
+            
+            # Getting in the right input/target data types
+            x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
+            
+            return x, y, input_ID
         
         ############################################ Commented for Ingrowth project
-        # if not self.patch_batch:
-        #     x, y = self.cached_data[index]
-        #     input_ID = self.cached_names[index]
+        if not self.patch_batch:
+            x, y = self.cached_data[index]
+            input_ID = self.cached_names[index]
             
-        #     # Preprocessing steps (if there are any)
-        #     if self.transform is not None:
-        #         x, y = self.transform(x, y)
+            # Preprocessing steps (if there are any)
+            if self.transform is not None:
+                x, y = self.transform(x, y)
             
-        #     # Adding batch dimension
-        #     #x = x[None,:,:,:]
-        #     #y = y[None,:,:,:]
+            # Adding batch dimension
+            #x = x[None,:,:,:]
+            #y = y[None,:,:,:]
             
-        #     # Getting in the right input/target data types
-        #     x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
+            # Getting in the right input/target data types
+            x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
 
-        #     return x, y, input_ID
+            return x, y, input_ID
 
-        # else:
+        else:
 
-        #     # Just returning a list of all patches for this index:
-        #     image_patches = self.cached_data[index]
-        #     patch_names = self.cached_names[index]
+            # Just returning a list of all patches for this index:
+            image_patches = self.cached_data[index]
+            patch_names = self.cached_names[index]
 
-        #     x_list = []
-        #     y_list = []
-        #     input_ID_list = []
-        #     for img_tar_pair, patch_id in zip(image_patches,patch_names):
-        #         img, tar = img_tar_pair
+            x_list = []
+            y_list = []
+            input_ID_list = []
+            for img_tar_pair, patch_id in zip(image_patches,patch_names):
+                img, tar = img_tar_pair
 
-        #         if self.transform is not None:
-        #             x, y = self.transform(img, tar)
+                if self.transform is not None:
+                    x, y = self.transform(img, tar)
                 
-        #         # Adding batch dimension
-        #         x = x[None,:,:,:]
-        #         y = y[None,:,:,:]
-        #         x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
-        #         x_list.append(x)
-        #         y_list.append(y)
-        #         input_ID_list.append(patch_id)
+                # Adding batch dimension
+                x = x[None,:,:,:]
+                y = y[None,:,:,:]
+                x, y = torch.from_numpy(x).type(self.inputs_dtype), torch.from_numpy(y).type(self.targets_dtype)
+                x_list.append(x)
+                y_list.append(y)
+                input_ID_list.append(patch_id)
 
-        #     return x_list, y_list, input_ID_list
+            return x_list, y_list, input_ID_list
             # """
             # if self.cached_item_index == 0:
             #     # if the index is equal to the number of patches - 1 then it will still work
@@ -380,19 +393,22 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                              targets = train_tar,
                                              transform = transforms_training,
                                              pre_transform = pre_transforms,
-                                             parameters = parameters)
+                                             parameters = parameters,
+                                             phase=phase)
         elif parameters["mode"] == "ADDA":
             dataset_train = SegmentationDataSet(inputs = train_img_paths,
                                                 targets = train_tar,
                                                 transform = transforms_validation,
                                                 pre_transform = pre_transforms,
-                                                parameters = parameters)
+                                                parameters = parameters,
+                                                phase=phase)
         
         dataset_valid = SegmentationDataSet(inputs = valid_img_paths,
                                              targets = valid_tar,
                                              transform = transforms_validation,
                                              pre_transform = pre_transforms,
-                                             parameters = parameters)
+                                             parameters = parameters,
+                                             phase=phase)
         
     elif phase == 'test':
 
@@ -414,9 +430,8 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
             ])
         
         transforms_testing = ComposeDouble([
-                FunctionWrapperDouble(np.moveaxis, input = True, target = True, source = -1, destination = 0),
-                ])
-
+            FunctionWrapperDouble(np.moveaxis, input=True, target=True, source=-1, destination=0),
+        ])
         # this is 'None' because we are just testing the network
         dataset_train = None
         
@@ -424,7 +439,8 @@ def make_training_set(phase,train_img_paths, train_tar, valid_img_paths, valid_t
                                             targets = valid_tar,
                                             transform = transforms_testing,
                                             pre_transform = pre_transforms,
-                                            parameters = parameters)
+                                            parameters = parameters,
+                                            phase=phase)
 
 
     return dataset_train, dataset_valid

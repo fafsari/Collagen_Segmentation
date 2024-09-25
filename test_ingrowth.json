@@ -1,0 +1,27 @@
+{	
+	"mode": "None",
+    "input_parameters":{
+        "phase":"test",
+        "type":"single",
+        "image_dir":{            
+            "Brightfield":"/orange/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data/images" 
+        },        
+        "output_dir":"/orange/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data/Results/Unet_10_foldCV",
+        "model_file":"/orange/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data/Results/Unet_10_foldCV/models/Collagen_Seg_Model_Latest.pth",
+        "model_details":{				
+            "architecture":"Unet++",
+            "encoder":"resnet50",
+            "encoder_weights":"imagenet",
+			"dropout_rate":0.4,
+            "active":"sigmoid",
+            "target_type":"nonbinary",
+            "in_channels":3,
+            "ann_classes":"background,ingrowth"
+        },
+        "preprocessing":{
+            "image_size":"512,512,3",
+            "mask_size":"512,512,1",
+            "color_transform":"None"
+        }
+    }
+}

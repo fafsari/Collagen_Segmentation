@@ -15,11 +15,11 @@
         "label_dir":"/blue/pinaki.sarder/f.afsari/4-DUET/Data/C/",
 		"target_label_dir":"/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Patches25/C/",
 		"model_file":"/blue/pinaki.sarder/f.afsari/4-DUET/Data/Results/Ensemble_Green/models/Collagen_Seg_Model_Latest.pth",
-        "output_dir":"/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Results/Ensemble_DA_V2_G",
+        "output_dir":"/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Results/Ensemble_5fold_CV",
         "neptune":{
             "project":"fafsari/Deep-DUET",
             "source_files":["*.py","**/.py","**.json","**/.json"],
-            "tags":["Ensemble DA V2 RGB model"]
+            "tags":["Ensemble CGPL-->PATH 5fold_CV model"]
         }
     },
     "train_parameters":{
@@ -36,6 +36,7 @@
             "ann_classes":"background,collagen"
         },
         "train_test_split":{
+			"k-fold":5,
             "split":0.8,
 			"train_test_source":"/blue/pinaki.sarder/f.afsari/4-DUET/Data/Results",
 			"train_test_target":"/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Results"
@@ -44,7 +45,7 @@
 		"train_loss":"structural_loss",
         "lr":0.0005,
         "batch_size":4,
-        "step_num":1000,
+        "step_num":1500,
         "save_step":20,
 		"k_disc":1,
 		"k_gen":1,

@@ -1,0 +1,63 @@
+{    
+	"mode": "ADDA",
+	"input_parameters":{
+        "phase":"train",
+        "type":"multi",
+		"overlapRate":25,
+        "image_dir":{
+            "DUET":"/blue/pinaki.sarder/f.afsari/4-DUET/Data/F/",
+            "Brightfield":"/blue/pinaki.sarder/f.afsari/4-DUET/Data/B/" 
+        },
+        "target_dir":{
+            "DUET":"/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Patches25/F/",
+            "Brightfield":"/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Patches25/B/" 
+        },
+        "label_dir":"/blue/pinaki.sarder/f.afsari/4-DUET/Data/C/",
+		"target_label_dir":"/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Patches25/C/",
+		"model_file":"/blue/pinaki.sarder/f.afsari/4-DUET/Data/Results/Ensemble_Green/models/Collagen_Seg_Model_Latest.pth",
+        "output_dir":"/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Results/Ensemble_5fold_CV",
+        "neptune":{
+            "project":"fafsari/Deep-DUET",
+            "source_files":["*.py","**/.py","**.json","**/.json"],
+            "tags":["Ensemble CGPL-->PATH 5fold_CV model"]
+        }
+    },
+    "train_parameters":{
+		"mode": "ADDA",
+        "model_details":{			
+			"architecture":"ensemble",
+            "encoder":"resnet34",
+            "encoder_weights":"imagenet",
+			"dropout_rate":0.25,
+			"pretrained":1,
+            "active":"sigmoid",
+            "target_type":"nonbinary",
+            "in_channels":2,
+            "ann_classes":"background,collagen"
+        },
+        "train_test_split":{
+			"k-fold":5,
+            "split":0.8,
+			"train_test_source":"/blue/pinaki.sarder/f.afsari/4-DUET/Data/Results",
+			"train_test_target":"/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Results"
+        },
+        "loss":"MSE",
+		"train_loss":"structural_loss",
+        "lr":0.0005,
+        "batch_size":4,
+        "step_num":1500,
+        "save_step":20,
+		"k_disc":1,
+		"k_gen":1,
+        "preprocessing":{
+            "image_size":"512,512,2",
+            "mask_size":"512,512,1",
+            "color_transform":"multi_input_green"
+        },
+		"cons_weight":1.5,
+		"consistency_rampup": 500,
+		"target_alpha": 0.99,
+		"target_alpha_late": 0.999,
+		"target_late_epoch": 500
+    }
+}

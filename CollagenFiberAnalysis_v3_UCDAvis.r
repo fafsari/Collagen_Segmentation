@@ -19,7 +19,7 @@ library(ggcorrplot)
 library(minpack.lm)
 library(lubridate)
 
-excel_file <- "Z:\\f.afsari\\4-DUET\\database\\Tx_data\\Excel_files\\Original files\\TimeSeriesData-deID_fatemeh.xlsx"
+excel_file <- "Z:\\f.afsari\\4-DUET\\database\\Tx_data\\Excel_files\\Original files\\TimeSeriesData-deID_fatemeh_date.xlsx"
 
 mode <- "dead"  # "donors" or "dead"
 
@@ -40,7 +40,7 @@ df_long <- df %>%
     names_to = "Time",             # The new column where the names of the selected columns will be stored
     values_to = "SCr"             # The new column where the values will be stored
   ) %>%
-  select(Patient_ID, SP, Age, Gender, Time, SCr)
+  select(Patient_ID, 'SP#', Age, Gender, Time, SCr)
 
 
 df_long <- df_long %>%

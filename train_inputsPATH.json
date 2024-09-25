@@ -15,7 +15,7 @@
         "label_dir":"/blue/pinaki.sarder/f.afsari/4-DUET/Data/C/",
 		"target_label_dir":"/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Patches25/C/",
 		"model_file":"/blue/pinaki.sarder/f.afsari/4-DUET/Data/Results/Ensemble_Green/models/Collagen_Seg_Model_Latest.pth",
-        "output_dir":"/blue/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Results/Ensemble_5fold_CV",
+        "output_dir":"/orange/pinaki.sarder/f.afsari/4-DUET/DUET UCD PATH vs CGPL/UCD-PATH/NormalizedF/Results/Ensemble_5fold_CV",
         "neptune":{
             "project":"fafsari/Deep-DUET",
             "source_files":["*.py","**/.py","**.json","**/.json"],

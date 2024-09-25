@@ -172,23 +172,35 @@ def main():
                 image_paths = sorted(pd.read_csv(input_parameters['image_dir'][input_image_type[0]])['Paths'].tolist())
         
         # Now determining which images are used for training and which are used for testing
-        if 'k_folds' in training_parameters['train_test_split']:
+        if 'k-fold' in training_parameters['train_test_split']:
 
-            kf = KFold(n_splits = int(training_parameters['train_test_split']['k_folds']),shuffle=True)
+            kf = KFold(n_splits = int(training_parameters['train_test_split']['k-fold']),shuffle=True)
             k_count = 1
 
             # Iteratively training and validating model using k-fold CV
-            for train_idx, test_idx in kf.split(image_paths):
+            if mode == "ADDA":
+                # In ADDA mode, we zip the splits from both image_paths and t_image_paths
+                iterator = zip(kf.split(image_paths), kf.split(t_image_paths))
+            else:
+                # In None mode, we only use the split from image_paths
+                iterator = kf.split(image_paths)
+
+            # Single for loop that works for both modes
+            for indices in iterator:
+                if mode == "ADDA":
+                    (train_idx, test_idx), (t_train_idx, t_test_idx) = indices
+                else:
+                    train_idx, test_idx = indices            
 
                 print(f'On k-fold: {k_count}')
 
                 train_idx = list(train_idx.astype(int))
-                test_idx = list(test_idx.astype(int))
+                test_idx  = list(test_idx.astype(int))
 
                 train_images = [image_paths[i] for i in train_idx]
-                test_images = [image_paths[i] for i in test_idx]
+                test_images  = [image_paths[i] for i in test_idx]
                 train_labels = [label_paths[i] for i in train_idx]
-                test_labels = [label_paths[i] for i in test_idx]
+                test_labels  = [label_paths[i] for i in test_idx]                                
 
                 #k_train_set = pd.DataFrame(data = {'Training_Image_Paths':train_images})
                 #k_test_set = pd.DataFrame(data = {'Testing_Image_Paths':test_images})
@@ -205,14 +217,43 @@ def main():
                     parameters = training_parameters
                 )
 
-                model = Training_Loop(
-                    dataset_train = train_dataset,
-                    dataset_valid = validation_dataset,
-                    train_parameters = training_parameters,
-                    nept_run=nept_run
-                )
+                if mode == "ADDA":
+                    t_train_idx = list(t_train_idx.astype(int))
+                    t_test_idx  = list(t_test_idx.astype(int))
+                    
+                    t_train_images = [t_image_paths[i] for i in t_train_idx]
+                    t_test_images  = [t_image_paths[i] for i in t_test_idx]
+                    t_train_labels = [label_paths[i] for i in t_train_idx]
+                    t_test_labels  = [label_paths[i] for i in t_test_idx]
+                    
+                    t_train_dataset, t_validation_dataset = make_training_set(
+                        phase = 'train',
+                        train_img_paths=t_train_images,
+                        train_tar=t_train_labels,
+                        valid_img_paths=t_test_images,
+                        valid_tar=t_test_labels,
+                        parameters = training_parameters
+                    )
+                    
+                    modelADDA = TrainingADDA_Loop(
+                        input_parameters["model_file"], 
+                        dataset_train_s = train_dataset, 
+                        dataset_valid_s = validation_dataset,
+                        dataset_train_t = t_train_dataset, 
+                        dataset_valid_t = t_validation_dataset,
+                        train_parameters = training_parameters,
+                        nept_run=nept_run
+                    )
+                    Test_Network(modelADDA, dataset_valid_t, nept_run, training_parameters)
+                else:                    
+                    model = Training_Loop(
+                        dataset_train = train_dataset,
+                        dataset_valid = validation_dataset,
+                        train_parameters = training_parameters,
+                        nept_run=nept_run
+                    )
 
-                Test_Network(model,validation_dataset,nept_run,training_parameters)
+                    Test_Network(model,validation_dataset,nept_run,training_parameters)
 
                 k_count+=1
 
@@ -418,9 +459,9 @@ def main():
                 image_paths = sorted(pd.read_csv(image_path_in_type)['Paths'].tolist())
 
         # Now determining which images are used for training and which are used for testing
-        if 'k_folds' in training_parameters['train_test_split']:
+        if 'k-fold' in training_parameters['train_test_split']:
 
-            kf = KFold(n_splits = int(training_parameters['train_test_split']['k_folds']),shuffle=True)
+            kf = KFold(n_splits = int(training_parameters['train_test_split']['k-fold']),shuffle=True)
             k_count = 1
 
             # Iteratively training and validating model using k-fold CV

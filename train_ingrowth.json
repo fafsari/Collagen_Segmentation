@@ -1,0 +1,45 @@
+{	
+	"mode": "None",
+    "input_parameters":{
+        "phase":"train",
+        "type":"single",
+        "image_dir":{            
+            "Brightfield":"/orange/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data/images/" 
+        },
+        "label_dir":"/orange/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data/masks",
+        "output_dir":"/orange/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data/Results/Unet_10_foldCV",
+        "neptune":{
+            "project":"fafsari/Ingrowth-Segment",
+            "source_files":["*.py","**/.py","**.json","**/.json"],
+            "tags":["Ingrowth model"]            
+        }
+    },
+    "train_parameters":{	
+		"mode": "None",
+        "model_details":{				
+            "architecture":"Unet++",
+            "encoder":"resnet50",
+            "encoder_weights":"imagenet",
+			"dropout_rate":0.4,
+            "active":"sigmoid",
+            "target_type":"nonbinary",
+            "in_channels":3,
+            "ann_classes":"background,ingrowth"
+        },
+        "train_test_split":{
+            "k-fold": 10,
+            "split":0.8,
+            "train_test_source": "/orange/pinaki.sarder/f.afsari/5-Ingrowth_Brain/Data"
+        },
+        "loss":"MSE",
+        "lr":0.00005,
+        "batch_size":2,
+        "step_num":1500,
+        "save_step":20,
+        "preprocessing":{
+            "image_size":"512,512,3",
+            "mask_size":"512,512,1",
+            "color_transform":"None"
+        }
+    }
+}

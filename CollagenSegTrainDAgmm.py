@@ -286,8 +286,8 @@ def TrainingADDA_Loop(model_path, dataset_train_s, dataset_valid_s, dataset_trai
             
             source_train_preds = source_model(source_train_inputs)
             
-            seg_loss = loss(source_train_preds,source_train_masks)
-            # seg_loss = structure_loss(source_train_preds,source_train_masks)
+            # seg_loss = loss(source_train_preds,source_train_masks)
+            seg_loss = structure_loss(source_train_preds,source_train_masks)
             
             try:
                 target_adapt_batch = next(train_loader_t_iter)

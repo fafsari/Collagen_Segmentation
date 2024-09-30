@@ -226,7 +226,7 @@ def main():
                     t_train_labels = [label_paths[i] for i in t_train_idx]
                     t_test_labels  = [label_paths[i] for i in t_test_idx]
                     
-                    t_train_dataset, t_validation_dataset = make_training_set(
+                    dataset_train_t, dataset_valid_t = make_training_set(
                         phase = 'train',
                         train_img_paths=t_train_images,
                         train_tar=t_train_labels,
@@ -239,8 +239,8 @@ def main():
                         input_parameters["model_file"], 
                         dataset_train_s = train_dataset, 
                         dataset_valid_s = validation_dataset,
-                        dataset_train_t = t_train_dataset, 
-                        dataset_valid_t = t_validation_dataset,
+                        dataset_train_t = dataset_train_t, 
+                        dataset_valid_t = dataset_valid_t,
                         train_parameters = training_parameters,
                         nept_run=nept_run
                     )

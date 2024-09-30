@@ -2,24 +2,27 @@
 #SBATCH --qos=pinaki.sarder
 #SBATCH --job-name=collagen_segmentation
 #SBATCH --partition=gpu
-#SBATCH --gpus=geforce:1
+#SBATCH --gpus=a100:1
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=80gb
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=50gb
 #SBATCH --time=25:00:00
-#SBATCH --output=collagen_seg_training_%j.out
+#SBATCH --output=logs/train_CV_fold.out
 
 pwd; hostname; date
-module load singularity
-
+#module load singularity
+module load conda
 ml
 date
-nvidia-smi
+#nvidia-smi
 
-export NEPTUNE_API_TOKEN="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJjNzllZGRmMC0yMzg2LTRhMzktOTk1MC1hNDc2MDlkNjVkYTMifQ=="
+export NEPTUNE_API_TOKEN="yor API key",
 
+conda activate collagen_segment
 
-singularity exec --nv collagen_segmentation_latest.sif python3 Collagen_Segmentation/CollagenSegMain.py train_inputs_single.json
+#python3 CollagenSegMain.py train_inputs.json
+python3 CollagenSegMain.py train_inputsPATH.json
+#python3 CollagenSegMain.py test_inputsGeneral.json
 
 date
